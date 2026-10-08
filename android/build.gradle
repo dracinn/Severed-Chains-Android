@@ -1,0 +1,647 @@
+plugins {
+  id 'com.android.application' version '9.0.1'
+}
+
+repositories {
+  google()
+  mavenCentral()
+  maven { url = "https://central.sonatype.com/repository/maven-snapshots/" }
+  maven { url = "https://jitpack.io" }
+}
+
+def lwjglVersion = '3.4.3'
+def osName = System.properties['os.name'].toLowerCase()
+def isArm = System.properties['os.arch'] in ['aarch64', 'arm64']
+def lwjglNatives = osName.contains('mac') ? (isArm ? 'natives-macos-arm64' : 'natives-macos')
+                 : osName.contains('win') ? 'natives-windows'
+                 : (isArm ? 'natives-linux-arm64' : 'natives-linux')
+
+android {
+  namespace 'legend.game.android'
+  compileSdk 34
+
+  defaultConfig {
+    applicationId 'com.legendofdragoon.severedchains'
+    minSdk 26
+    targetSdk 34
+    versionCode 4
+    versionName '1.0'
+
+    ndk {
+      abiFilters 'arm64-v8a', 'x86_64'
+    }
+  }
+
+  ndkVersion '25.2.9519653'
+
+  externalNativeBuild {
+    cmake {
+      path file('src/main/cpp/CMakeLists.txt')
+    }
+  }
+
+  buildFeatures {
+    buildConfig = true
+  }
+
+  packaging {
+    resources {
+      excludes += [
+        'META-INF/DEPENDENCIES',
+        'META-INF/LICENSE',
+        'META-INF/LICENSE.txt',
+        'META-INF/NOTICE',
+        'META-INF/NOTICE.txt',
+        'META-INF/*.SF',
+        'META-INF/*.RSA',
+        'META-INF/*.DSA',
+        'META-INF/versions/9/module-info.class',
+        'module-info.class',
+        'META-INF/*.kotlin_module',
+      ]
+      // Both log4j jars ship this plugin descriptor; the core one carries the
+      // real plugin registry
+      pickFirsts += 'META-INF/org/apache/logging/log4j/core/config/plugins/Log4j2Plugins.dat'
+    }
+  }
+
+  compileOptions {
+    // Inert for sources: AGP's javac compiles nothing (java.srcDirs = []); the
+    // real language level is compileShared's (Java 25, same as desktop).
+    sourceCompatibility JavaVersion.VERSION_21
+    targetCompatibility JavaVersion.VERSION_21
+    // Java 21 library APIs (Math.clamp, SequencedCollection, java.nio.file)
+    // are rewritten for Android by desugar_jdk_libs_nio.
+    coreLibraryDesugaringEnabled = true
+  }
+
+  sourceSets {
+    main {
+      // All Java sources (staged upstream + Android glue) are compiled by the
+      // compileShared task into shared-classes.jar, which AGP consumes as an
+      // implementation dependency. AGP's own javac would pin --system to the
+      // android.jar java.* subset, which is missing JDK APIs upstream needs.
+      java.srcDirs = []
+      resources.srcDirs += '../src/main/resources'
+      manifest.srcFile 'src/main/AndroidManifest.xml'
+      assets.srcDirs += "$buildDir/generated/assets".toString()
+    }
+  }
+}
+
+// Stage upstream sources minus the desktop-only files that are replaced by
+// same-FQN Android variants (android/src/main/java) or unused on device.
+def sharedSourceExcludes = [
+  'discord/DiscordRichPresence.java',
+  'legend/core/platform/SdlPlatformManager.java',
+  'legend/core/platform/SdlWindow.java',
+  'legend/core/platform/SdlInput.java',
+  'legend/core/platform/input/SdlGamepadDevice.java',
+  'legend/core/renderer/opengl/**',
+  'legend/core/renderer/ShaderManager.java',
+  'legend/core/Updater.java',
+  'legend/core/UpdaterApplication.java',
+  'legend/core/UpdaterController.java',
+  'legend/core/UpdaterMain.java',
+  'legend/core/SelfUpdater.java',
+  'legend/game/debugger/**',
+  'legend/game/MainWindows.java',
+  'legend/core/audio/SoundTest.java',
+  // Dev-only javax.sound tool, unused by the unpacker pipeline
+  'legend/game/unpacker/midi/SoundbankDecoder.java',
+]
+
+tasks.register('stageSharedSources', Sync) {
+  from '../src/main/java'
+  into layout.buildDirectory.dir('shared-sources')
+  sharedSourceExcludes.each { exclude it }
+}
+
+// ---------------------------------------------------------------------------
+// JDK API compatibility
+//
+// AGP 9 pins its javac --system to a generated image exposing only the
+// android.jar java.* subset, which lacks APIs upstream uses (String.formatted,
+// List.getFirst, Files.readString, Math.clamp, virtual threads, ...). Instead
+// of fighting that image, all Java code is compiled by compileShared (plain
+// javac, -source/-target 25, full JDK platform) and packaged into
+// shared-classes.jar, which AGP dexes as an implementation dependency.
+//
+// At runtime, coreLibraryDesugaring rewrites covered calls (formatted,
+// getFirst/Last/addFirst, readString/writeString, resultNow, ...). APIs it
+// does not cover (Math.clamp, virtual threads, bounded Random.nextFloat,
+// absolute bulk Buffer get/put, Math.TAU, Locale.of, JSONObject.keySet) are
+// rewritten to legend.game.android.JdkCompat by patchStagedSources below, so
+// the upstream files stay byte-identical and merges keep flowing through.
+// ---------------------------------------------------------------------------
+
+// Regexes applied to every staged upstream line.
+def sharedRegexTransforms = [
+  // Both `Math.clamp` and `java.lang.Math.clamp` spellings occur upstream
+  [~/java\.lang\.Math\.clamp\(/, 'legend.game.android.JdkCompat.clamp('],
+  [~/(?<![\w.])Math\.clamp\(/, 'legend.game.android.JdkCompat.clamp('],
+  [~/java\.lang\.Math\.TAU\b/, 'legend.game.android.JdkCompat.TAU'],
+  [~/(?<![\w.])Math\.TAU\b/, 'legend.game.android.JdkCompat.TAU'],
+  // X.nextFloat(bound) / nextFloat(origin, bound) - RandomGenerator defaults;
+  // the lookbehind keeps re-runs from re-matching JdkCompat.nextFloat
+  [~/([\w.]+)(?<!JdkCompat)\.nextFloat\((?!\s*\))/, 'legend.game.android.JdkCompat.nextFloat($1, '],
+  // Locale.of(lang[, country]) == new Locale(...) for our purposes
+  [~/(?<![\w.])Locale\.of\(/, 'new Locale('],
+  // No virtual threads on Android; the executor type must also change because
+  // Android's ExecutorService is not AutoCloseable (try-with-resources)
+  [~/ExecutorService (\w+) = Executors\.newVirtualThreadPerTaskExecutor\(\)/,
+   'legend.game.android.JdkCompat.CloseableExecutor $1 = legend.game.android.JdkCompat.newVirtualThreadPerTaskExecutor()'],
+]
+
+// Exact call-site rewrites for the post-Java-8 absolute bulk Buffer
+// get/put overloads, keyed by staged path. A literal that stops matching
+// (upstream edit) fails the build so it can't silently regress.
+def sharedLiteralTransforms = [
+  'legend/core/Config.java': [
+    // Default to the disk-backed unpacker on Android: the in-memory path
+    // needs more heap than ART typically grants, and the native OOM abort
+    // fires before upstream's OutOfMemoryError fallback can save the flag.
+    'return readBool("low_memory_unpacker", false);':
+    'return readBool("low_memory_unpacker", true);',
+  ],
+  'legend/game/unpacker/FileBackedFileData.java': [
+    // getBytes() materializes the whole backing file in heap — several
+    // hundred MB for STR video files, times executor threads -> OOM.
+    // Stream in chunks instead; identical bytes written.
+    '''  @Override
+  public void write(final OutputStream out) throws IOException {
+    out.write(this.getBytes());
+  }''':
+    '''  @Override
+  public void write(final OutputStream out) throws IOException {
+    synchronized(this.file) {
+      this.file.seek(this.offset);
+      final byte[] chunk = new byte[Math.min(this.size, 1 << 20)];
+      int remaining = this.size;
+
+      while(remaining > 0) {
+        final int read = this.file.read(chunk, 0, Math.min(chunk.length, remaining));
+        if(read < 0) {
+          break;
+        }
+
+        out.write(chunk, 0, read);
+        remaining -= read;
+      }
+    }
+  }''',
+  ],
+  'legend/game/saves/ConfigStorage.java': [
+    // toAbsolutePath() resolves against user.dir ("/"), not the real cwd.
+    'Files.createDirectories(file.toAbsolutePath().getParent());':
+    'Files.createDirectories(legend.game.android.JdkCompat.absolute(file).getParent());',
+  ],
+  'legend/game/saves/ConfigPresetManager.java': [
+    'Files.createDirectories(path.toAbsolutePath().getParent());':
+    'Files.createDirectories(legend.game.android.JdkCompat.absolute(path).getParent());',
+    'Files.createTempFile(path.toAbsolutePath().getParent(), "preset-", ".tmp")':
+    'Files.createTempFile(legend.game.android.JdkCompat.absolute(path).getParent(), "preset-", ".tmp")',
+  ],
+  'legend/game/unpacker/IsoReader.java': [
+    // Android's RandomAccessFile.skipBytes is lseek-backed and can return a
+    // truncated/garbage count; read() permits short reads. seek/readFully
+    // are exact equivalents for this sequential cursor.
+    '''  public void advance(final int amount) throws IOException {
+    final int skipped = this.file.skipBytes(amount);
+
+    if(skipped != amount) {
+      throw new RuntimeException("Skipped the wrong number of bytes. End of file? Negative amount? (requested: " + amount + ", actual: " + skipped + ')');
+    }
+  }''':
+    '''  public void advance(final int amount) throws IOException {
+    this.file.seek(this.file.getFilePointer() + amount);
+  }''',
+    '''  public void read(final byte[] out) throws IOException {
+    this.file.read(out);
+  }
+
+  public void read(final byte[] out, final int offset, final int length) throws IOException {
+    this.file.read(out, offset, length);
+  }''':
+    '''  public void read(final byte[] out) throws IOException {
+    this.file.readFully(out);
+  }
+
+  public void read(final byte[] out, final int offset, final int length) throws IOException {
+    this.file.readFully(out, offset, length);
+  }''',
+  ],
+  'legend/game/unpacker/FileData.java': [
+    'dest.put(destOffset, this.data, this.offset + srcOffset, size)': 'legend.game.android.JdkCompat.put(dest, destOffset, this.data, this.offset + srcOffset, size)',
+    'src.get(srcOffset, this.data, this.offset + destOffset, size)': 'legend.game.android.JdkCompat.get(src, srcOffset, this.data, this.offset + destOffset, size)',
+  ],
+  'legend/game/textures/Image.java': [
+    'data.get(0, decompressed)': 'legend.game.android.JdkCompat.get(data, 0, decompressed)',
+  ],
+  'legend/lodmod/LodMod.java': [
+    'buffer.get(frameIndex * frame.length, frame, 0, frame.length)': 'legend.game.android.JdkCompat.get(buffer, frameIndex * frame.length, frame, 0, frame.length)',
+    'buffer.get(0, frame)': 'legend.game.android.JdkCompat.get(buffer, 0, frame)',
+  ],
+  'legend/game/unpacker/SaveCardTextureExtractor.java': [
+    'ints.put(y * region.w, uncompressed, dataIndex, region.w)': 'legend.game.android.JdkCompat.put(ints, y * region.w, uncompressed, dataIndex, region.w)',
+  ],
+  'legend/core/gpu/VramTextureSingle.java': [
+    'buffer.put(0, data)': 'legend.game.android.JdkCompat.put(buffer, 0, data)',
+    // java.awt/javax.imageio are missing on Android and javac refuses to
+    // compile stubs in their packages, so dumpToFile (debug-only) goes through
+    // JdkCompat's Bitmap-based PNG writer instead
+    '''import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+''': '',
+    '''    final BufferedImage image = new BufferedImage(this.rect.w(), this.rect.h(), BufferedImage.TYPE_INT_RGB);
+
+    image.setRGB(0, 0, this.rect.w(), this.rect.h(), this.data, 0, this.rect.w());
+
+    try {
+      ImageIO.write(image, "png", new File("dump.png"));
+    } catch(final IOException e) {
+      throw new RuntimeException(e);
+    }''':
+    '''    try {
+      legend.game.android.JdkCompat.writePng(this.data, this.rect.w(), this.rect.h(), new File("dump.png"));
+    } catch(final IOException e) {
+      throw new RuntimeException(e);
+    }''',
+  ],
+  'legend/core/font/FontManager.java': [
+    'jsonGlyphs.keySet()': 'legend.game.android.JdkCompat.keySet(jsonGlyphs)',
+  ],
+  'legend/game/Main.java': [
+    // Relative "log4j2.xml" resolves against '/', which is unreadable on
+    // Android; the real file is extracted to the files dir by MainActivity.
+    '"log4j2.xml"': 'legend.game.android.JdkCompat.basePath().resolve("log4j2.xml").toString()',
+    // toAbsolutePath() resolves against user.dir ("/"), not the real cwd;
+    // keep the updater-swap check pointing at the app dir.
+    'Path.of(".").toAbsolutePath().normalize()':
+    'legend.game.android.JdkCompat.absolute(Path.of(".")).normalize()',
+  ],
+]
+
+tasks.register('patchStagedSources') {
+  dependsOn 'stageSharedSources'
+  doLast {
+    final File root = layout.buildDirectory.dir('shared-sources').get().asFile
+    root.eachFileRecurse { f ->
+      if(!f.isFile() || !f.name.endsWith('.java')) {
+        return
+      }
+
+      final String rel = root.toPath().relativize(f.toPath()).toString()
+      String text = f.getText('UTF-8')
+      final String original = text
+
+      sharedLiteralTransforms[rel]?.each { literal, replacement ->
+        // Upstream files mix LF and CRLF; match either newline style and
+        // preserve the file's own style in the replacement.
+        String needle = literal
+        if(!text.contains(needle)) {
+          needle = literal.replace('\n', '\r\n')
+          if(!text.contains(needle)) {
+            if(text.contains(replacement) || text.contains(replacement.replace('\n', '\r\n'))) {
+              return // already transformed by a previous run
+            }
+            throw new GradleException("Staged-source transform missed ${rel}: '${literal}' (upstream changed; update sharedLiteralTransforms)")
+          }
+        }
+        text = text.replace(needle, needle.contains('\r\n') ? replacement.replace('\n', '\r\n') : replacement)
+      }
+
+      sharedRegexTransforms.each { pattern, replacement ->
+        text = text.replaceAll(pattern, replacement)
+      }
+
+      if(text != original) {
+        f.setText(text, 'UTF-8')
+      }
+    }
+  }
+}
+
+// Native third-party sources (libogg/opus/opusfile) for the JNI opus bridge.
+// Tarballs are downloaded from downloads.xiph.org and verified against the
+// SHA-256 checksums published in the official SHA256SUMS files there.
+def thirdPartyDownloads = [
+  'libogg-1.3.5': [
+    'https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.gz',
+    '0eb4b4b9420a0f51db142ba3f9c64b333f826532dc0f48c6410ae51f4799b664',
+  ],
+  'opus-1.5.2': [
+    'https://downloads.xiph.org/releases/opus/opus-1.5.2.tar.gz',
+    '65c1d2f78b9f2fb20082c38cbe47c951ad5839345876e46941612ee87f9a7ce1',
+  ],
+  'opusfile-0.12': [
+    'https://downloads.xiph.org/releases/opus/opusfile-0.12.tar.gz',
+    '118d8601c12dd6a44f52423e68ca9083cc9f2bfe72da7a8c1acb22a80ae3550b',
+  ],
+]
+def thirdPartyDir = layout.buildDirectory.dir('third_party')
+
+tasks.register('fetchThirdParty') {
+  def downloadsDir = thirdPartyDir.map { it.dir('downloads') }
+  def srcDir = thirdPartyDir.map { it.dir('src') }
+  outputs.dir srcDir
+  doLast {
+    final File dlDir = downloadsDir.get().asFile
+    final File src = srcDir.get().asFile
+    dlDir.mkdirs()
+    src.mkdirs()
+    thirdPartyDownloads.each { name, meta ->
+      final String url = meta[0]
+      final String expected = meta[1]
+      final File tarball = new File(dlDir, "${name}.tar.gz")
+      final File outDir = new File(src, name)
+
+      if(!tarball.isFile()) {
+        logger.lifecycle("Downloading ${url}")
+        tarball.withOutputStream { it << new URL(url).openStream() }
+      }
+
+      final String actual = java.security.MessageDigest.getInstance('SHA-256')
+        .digest(tarball.bytes).encodeHex().toString()
+      if(actual != expected) {
+        tarball.delete()
+        throw new GradleException("SHA-256 mismatch for ${name}: got ${actual}, expected ${expected} (published in downloads.xiph.org SHA256SUMS); tarball deleted")
+      }
+
+      if(!outDir.isDirectory()) {
+        final File tmp = new File(src, ".extract-${name}")
+        tmp.mkdirs()
+        ant.untar(src: tarball, dest: tmp, compression: 'gzip')
+        final File[] roots = tmp.listFiles()
+        if(roots.length != 1 || !roots[0].isDirectory()) {
+          throw new GradleException("Unexpected tarball layout for ${name}")
+        }
+        if(!roots[0].renameTo(outDir)) {
+          throw new GradleException("Failed to place extracted ${name}")
+        }
+        tmp.deleteDir()
+      }
+    }
+  }
+}
+
+tasks.named('preBuild').configure {
+  dependsOn 'patchStagedSources', 'fetchThirdParty'
+}
+
+tasks.matching { it.name.startsWith('externalNativeBuild') }.configureEach {
+  dependsOn 'fetchThirdParty'
+}
+
+// Compile staged upstream sources + Android glue with the real JDK platform
+// (--release 21), bypassing AGP's android.jar --system image.
+def sharedClassesDir = layout.buildDirectory.dir('classes/shared')
+
+def sdkDir = {
+  def props = new Properties()
+  rootProject.file('local.properties').withInputStream { props.load(it) }
+  props.getProperty('sdk.dir') ?: System.getenv('ANDROID_HOME')
+}
+def androidJar = "${sdkDir()}/platforms/${android.compileSdkVersion}/android.jar"
+
+tasks.register('compileShared', JavaCompile) {
+  dependsOn 'patchStagedSources'
+  source = fileTree('src/main/java') + fileTree(layout.buildDirectory.dir('shared-sources'))
+  classpath = files(androidJar) + configurations.sharedDeps
+  destinationDirectory = sharedClassesDir
+  // -source/-target rather than --release: classpath mode lets our java.awt/
+  // javax.imageio runtime stubs coexist with the JDK's java.desktop module.
+  // Java 25: upstream uses flexible constructor bodies (JEP 513) and unnamed
+  // lambda params; javac emits pre-super field stores, which ART accepts.
+  sourceCompatibility = '25'
+  targetCompatibility = '25'
+  options.encoding = 'UTF-8'
+  // patchStagedSources mutates sources in place after staging; incremental
+  // analysis has missed those changes, shipping stale classes to dex.
+  options.incremental = false
+  // android.jar/java.* duplicates on the classpath are expected and harmless
+  options.compilerArgs += ['-proc:none']
+}
+
+// Runtime classpath scanning (org.reflections) cannot work on Android dex.
+// Index every staged class that uses a modloader annotation so the
+// same-FQN org.reflections replacement can serve getTypesAnnotatedWith.
+// FQN = file path relative to the staged root (modloader annotations are
+// only used on top-level classes and their members upstream).
+def annotationIndexDir = layout.buildDirectory.dir('generated/annotation-index')
+
+tasks.register('generateAnnotationIndex') {
+  dependsOn 'stageSharedSources'
+  def sharedSources = layout.buildDirectory.dir('shared-sources')
+  inputs.dir sharedSources
+  def indexFile = annotationIndexDir.map { it.file('META-INF/sc/annotation-index.txt') }
+  outputs.file indexFile
+  doLast {
+    final File root = sharedSources.get().asFile
+    final Set<String> lines = new TreeSet<>()
+    root.eachFileRecurse { f ->
+      if(!f.name.endsWith('.java')) {
+        return
+      }
+      final String text = f.getText('UTF-8')
+      text.eachMatch(/import (org\.legendofdragoon\.modloader(?:\.[\w]+)*\.(\w+));/) { match ->
+        final String annotationFqn = match[1]
+        final String simpleName = match[2]
+        if(text =~ /@\Q${simpleName}\E\b/) {
+          final String classFqn = root.toPath().relativize(f.toPath()).toString().replace(File.separatorChar, '.' as char) - '.java'
+          lines.add("${annotationFqn}:${classFqn}".toString())
+        }
+      }
+    }
+    final File out = indexFile.get().asFile
+    out.parentFile.mkdirs()
+    out.setText(lines.join('\n') + '\n', 'UTF-8')
+    logger.lifecycle("Annotation index: {} entries", lines.size())
+  }
+}
+
+tasks.register('packageSharedClasses', Jar) {
+  dependsOn 'compileShared', 'generateAnnotationIndex'
+  from sharedClassesDir
+  // Upstream classpath resources (mod lang files, etc.) must ride along:
+  // mergeDebugJavaResource puts them at APK root where getResource finds them
+  from '../src/main/resources'
+  // Main.main points log4j2.configurationFile at the relative "log4j2.xml";
+  // it does not exist on device, so log4j falls back to a classpath lookup
+  from('../log4j2.xml') {
+    filter { it.replace('fileName="debug.log"', 'fileName="${sys:legend.baseDir}/debug.log"') }
+  }
+  doLast {
+    final File packed = zipTree(layout.buildDirectory.file('libs/shared-classes.jar').get().asFile)
+      .matching { include 'log4j2.xml' }.singleFile
+    if(!packed.text.contains('${sys:legend.baseDir}/debug.log')) {
+      throw new GradleException('log4j2.xml no longer contains fileName="debug.log"; update the Android rewrite')
+    }
+  }
+  from annotationIndexDir
+  destinationDirectory = layout.buildDirectory.dir('libs')
+  archiveFileName = 'shared-classes.jar'
+}
+
+tasks.named('preBuild').configure {
+  dependsOn 'packageSharedClasses', 'patchDependencyJars'
+}
+
+configurations {
+  // Shared between compileShared (javac classpath) and AGP (implementation),
+  // so both see exactly the same third-party jars.
+  sharedDeps {
+    // LWJGL native bindings are unusable on Android; org.lwjgl.* shims in
+    // android/src/main/java replace them (also avoids natives META-INF dupes)
+    exclude group: 'org.lwjgl'
+    // Runtime bytecode scanning cannot work on dex; same-FQN org.reflections.*
+    // replacements serve a build-time annotation index instead (see
+    // generateAnnotationIndex). Only mod-loader uses this library.
+    exclude group: 'org.reflections'
+  }
+  implementation.extendsFrom sharedDeps
+  transpile
+  jarPatch
+}
+
+// Stock dep jars are resolved only to feed JarPatcher; sharedDeps consumes
+// the patched outputs plus their transitives declared explicitly.
+def unpatchedDeps = [
+  'mod-loader.jar': configurations.detachedConfiguration(
+      dependencies.create('org.legendofdragoon:mod-loader:4.3.4')),
+  'script-recompiler.jar': configurations.detachedConfiguration(
+      dependencies.create('org.legendofdragoon:script-recompiler:0.7.11')),
+]
+unpatchedDeps.each { _, conf -> conf.transitive = false }
+
+def patchedDepsDir = layout.buildDirectory.dir('patched-deps')
+def patchedModLoaderJar = patchedDepsDir.map { it.file('mod-loader.jar') }
+def patchedScriptRecompilerJar = patchedDepsDir.map { it.file('script-recompiler.jar') }
+
+tasks.register('compileJarPatcher', JavaCompile) {
+  source = fileTree('tools') { include 'JarPatcher.java' }
+  classpath = configurations.jarPatch
+  destinationDirectory = layout.buildDirectory.dir('jar-patcher/classes')
+  sourceCompatibility = '17'
+  targetCompatibility = '17'
+}
+
+def patchTasks = unpatchedDeps.collect { name, conf ->
+  tasks.register("patchDep_${name - '.jar'}", JavaExec) {
+    dependsOn 'compileJarPatcher'
+    inputs.files conf
+    outputs.file patchedDepsDir.map { it.file(name) }
+    classpath = files(layout.buildDirectory.dir('jar-patcher/classes')) + configurations.jarPatch
+    mainClass = 'JarPatcher'
+    args conf.singleFile.absolutePath, patchedDepsDir.get().file(name).asFile.absolutePath
+  }
+}
+
+tasks.register('patchDependencyJars') {
+  dependsOn patchTasks
+}
+
+tasks.named('compileShared').configure {
+  dependsOn 'patchDependencyJars'
+}
+
+dependencies {
+  // Patched at build time by JarPatcher (see patchDependencyJars) to redirect
+  // Method.canAccess / Class.getProtectionDomain onto JdkReflect helpers.
+  sharedDeps files(patchedModLoaderJar)
+  // mod-loader transitives (declared explicitly since the jar comes via files())
+  sharedDeps 'org.apache.commons:commons-collections4:4.4'
+  sharedDeps 'com.vdurmont:semver4j:3.1.0'
+  sharedDeps 'org.fusesource.jansi:jansi:2.4.3'
+  sharedDeps 'org.slf4j:slf4j-nop:2.0.7'
+  sharedDeps files(patchedScriptRecompilerJar)
+  // script-recompiler transitives (declared explicitly since the jar comes via files())
+  sharedDeps 'org.antlr:antlr4:4.13.2'
+  sharedDeps 'org.legendofdragoon:mogul-dabas:0.0.1'
+
+  sharedDeps 'org.apache.logging.log4j:log4j-api:2.26.1'
+  sharedDeps 'org.apache.logging.log4j:log4j-core:2.26.1'
+
+  sharedDeps "org.joml:joml:1.10.8"
+
+  sharedDeps 'org.json:json:20250107'
+  sharedDeps 'com.google.code.gson:gson:2.13.2'
+
+  sharedDeps 'com.opencsv:opencsv:5.9'
+  sharedDeps 'io.github.java-diff-utils:java-diff-utils:4.15'
+  sharedDeps 'commons-io:commons-io:2.18.0'
+
+  sharedDeps 'com.github.slugify:slugify:3.0.7'
+  sharedDeps 'it.unimi.dsi:fastutil:8.5.15'
+  sharedDeps 'com.google.code.findbugs:jsr305:3.0.2'
+  sharedDeps 'org.jspecify:jspecify:1.0.0'
+
+  // Discord SDK data classes only (Activity type in updateDiscordRichPresence
+  // signatures); natives are never loaded - DiscordRichPresence is stubbed.
+  sharedDeps 'com.github.JnCrMx:discord-game-sdk4j:v1.0.0'
+
+  implementation files(layout.buildDirectory.dir('libs').map { it.file('shared-classes.jar') })
+
+  coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs_nio:2.1.5'
+
+  // Host-side shader transpiler (runs on the build JVM, not the device)
+  transpile "org.lwjgl:lwjgl:$lwjglVersion"
+  transpile "org.lwjgl:lwjgl:$lwjglVersion:$lwjglNatives"
+  transpile "org.lwjgl:lwjgl-shaderc:$lwjglVersion"
+  transpile "org.lwjgl:lwjgl-spvc:$lwjglVersion"
+  transpile "org.lwjgl:lwjgl-shaderc:$lwjglVersion:$lwjglNatives"
+  transpile "org.lwjgl:lwjgl-spvc:$lwjglVersion:$lwjglNatives"
+
+  // Host-side bytecode patcher for dependency jars (JarPatcher.java)
+  jarPatch 'org.ow2.asm:asm:9.8'
+}
+
+// Stage upstream gfx/ as assets/gfx/ so MainActivity can extract it to the
+// app's working directory, preserving upstream's Path.of("gfx/...") reads.
+tasks.register('stageAssets', Copy) {
+  from('../gfx') {
+    into 'gfx'
+  }
+  from('../lang') {
+    into 'lang'
+  }
+  // Unpacker patch data (replacements, scripts, libs) read via Path.of
+  from('../patches') {
+    into 'patches'
+  }
+  // Extracted to the working dir alongside gfx/ for the log4j config path
+  from('../log4j2.xml') {
+    filter { it.replace('fileName="debug.log"', 'fileName="${sys:legend.baseDir}/debug.log"') }
+  }
+  into layout.buildDirectory.dir('generated/assets')
+  doLast {
+    final File staged = new File(destinationDir, 'log4j2.xml')
+    if(!staged.text.contains('${sys:legend.baseDir}/debug.log')) {
+      throw new GradleException('log4j2.xml no longer contains fileName="debug.log"; update the Android rewrite')
+    }
+  }
+}
+
+// Transpile gfx/shaders/*.vsh/.gsh/.fsh to GLSL ES on the host JVM
+// (mirrors upstream ShaderManager's shaderc->SPIRV-Cross pipeline).
+def transpilerClasses = layout.buildDirectory.dir('transpiler/classes')
+
+tasks.register('compileShaderTranspiler', JavaCompile) {
+  source = files('tools/ShaderTranspiler.java')
+  classpath = configurations.transpile
+  destinationDirectory = transpilerClasses
+  options.release = 17
+}
+
+tasks.register('transpileShaders', JavaExec) {
+  dependsOn tasks.named('compileShaderTranspiler')
+  inputs.dir file('../gfx/shaders')
+  outputs.dir layout.buildDirectory.dir('generated/assets/shaders')
+  classpath = files(transpilerClasses) + configurations.transpile
+  mainClass = 'ShaderTranspiler'
+  args file('../gfx/shaders').absolutePath, layout.buildDirectory.dir('generated/assets/shaders').get().asFile.absolutePath
+}
+
+tasks.named('preBuild').configure {
+  dependsOn 'stageSharedSources', 'stageAssets', 'transpileShaders'
+}
