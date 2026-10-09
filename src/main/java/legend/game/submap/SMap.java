@@ -44,6 +44,7 @@ import legend.game.inventory.screens.ShopScreen;
 import legend.game.inventory.screens.TooManyItemsScreen;
 import legend.game.modding.coremod.CoreEngineStateTypes;
 import legend.game.modding.coremod.CoreMod;
+import legend.game.modding.events.characters.CloneCharacterEvent;
 import legend.game.modding.events.characters.DivineDragoonEvent;
 import legend.game.modding.events.submap.SubmapEncounterAccumulatorEvent;
 import legend.game.modding.events.submap.SubmapLoadEvent;
@@ -1182,9 +1183,14 @@ public class SMap extends EngineState<SMap> {
     final CharacterData2c char0 = gameState_800babc8.charData_32c.get(id0);
     final CharacterData2c char1 = gameState_800babc8.charData_32c.get(id1);
 
-    char1.set(char0);
+    final CloneCharacterEvent event = EVENTS.postEvent(new CloneCharacterEvent(char0, char1));
 
-    this.restoreCharDataVitals(script.params_20[1].get());
+    if(!event.isCanceled()) {
+      event.destinationCharacter.set(event.sourceCharacter);
+      event.destinationCharacter.stats.getStat(HP_STAT.get()).restore();
+      event.destinationCharacter.stats.getStat(MP_STAT.get()).restore();
+    }
+
     return FlowControl.CONTINUE;
   }
 
