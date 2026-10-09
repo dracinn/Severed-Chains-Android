@@ -1,0 +1,64 @@
+package lod.stardustindicators;
+
+import legend.core.renderer.QueuedModelStandard;
+import legend.core.gpu.Bpp;
+import legend.core.gte.MV;
+import legend.core.renderer.MeshObj;
+import legend.core.renderer.QuadBuilder;
+import legend.core.renderer.Texture;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+
+import static legend.core.GameEngine.*;
+import static lod.stardustindicators.Main.MOD_ID;
+
+public class AnimatedSprite {
+
+    private MeshObj quad;
+    ArrayList<Texture> textures;
+
+    AnimatedSprite() {
+        this.textures = new ArrayList<>();
+    }
+
+    public void load(String name) {
+        int index = 0;
+        while(true) { // oops i sinned again
+            final Path path = Path.of("mods", "stardustindicators", "%s".formatted(name), "%d.png".formatted(index));
+            if(Files.exists(path)) {
+                final Texture stardustTexture = Texture.png("SPARKLE", path);
+                stardustTexture.persistent = true;
+                this.textures.add(stardustTexture);
+                index++;
+            } else {
+                break;
+            }
+        }
+
+        this.quad = new QuadBuilder(MOD_ID)
+                .uvSize(1.0f,1.0f)
+                .bpp(Bpp.BITS_24)
+                .size(1.0f,1.0f)
+                .pos(-0.5f,-0.5f,0.0f)
+                .rgb(1.0f, 1.0f, 1.0f)
+                .build();
+        this.quad.persistent = true;
+    }
+
+    public void render(final MV screenSpaceTransforms, final int currentFrame, final int maxFrames) {
+        final double progress = (double)currentFrame/maxFrames;
+        final Texture currentTexture = this.textures.get((int)Math.floor(progress * (this.textures.size() - 1)));
+
+        RENDERER.queueOrthoModel(this.quad, screenSpaceTransforms, QueuedModelStandard.class)
+                .screenspaceOffset(GPU.getOffsetX() + GTE.getScreenOffsetX(), GPU.getOffsetY() + GTE.getScreenOffsetY())
+                .useTextureAlpha()
+                .texture(currentTexture);
+    }
+
+    public void unload() {
+        this.textures.forEach(Texture::delete);
+        this.quad.delete();
+    }
+}
