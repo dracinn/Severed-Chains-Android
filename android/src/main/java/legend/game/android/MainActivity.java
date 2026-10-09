@@ -302,6 +302,7 @@ public final class MainActivity extends Activity {
     this.extractAssetDir("gfx");
     this.extractAssetDir("lang");
     this.extractAssetDir("patches");
+    this.extractAssetDir("mods");
     this.extractAssetDir("log4j2.xml");
     marker.createNewFile();
   }
