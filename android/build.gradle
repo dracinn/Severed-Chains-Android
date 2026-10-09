@@ -17,22 +17,22 @@ def lwjglNatives = osName.contains('mac') ? (isArm ? 'natives-macos-arm64' : 'na
                  : (isArm ? 'natives-linux-arm64' : 'natives-linux')
 
 android {
-  namespace 'legend.game.android'
-  compileSdk 34
+  namespace = 'legend.game.android'
+  compileSdk = 34
 
   defaultConfig {
-    applicationId 'com.legendofdragoon.severedchains'
-    minSdk 26
-    targetSdk 34
-    versionCode 4
-    versionName '1.0'
+    applicationId = 'com.legendofdragoon.severedchains'
+    minSdk = 26
+    targetSdk = 34
+    versionCode = 4
+    versionName = '1.0'
 
     ndk {
       abiFilters 'arm64-v8a', 'x86_64'
     }
   }
 
-  ndkVersion '25.2.9519653'
+  ndkVersion = '25.2.9519653'
 
   signingConfigs {
     // CI injects SIGNING_* env vars (secrets -> decoded keystore path,
@@ -51,7 +51,7 @@ android {
   buildTypes {
     release {
       if(System.getenv('SIGNING_KEYSTORE_PATH') != null) {
-        signingConfig signingConfigs.release
+        signingConfig = signingConfigs.release
       }
     }
   }
@@ -90,8 +90,8 @@ android {
   compileOptions {
     // Inert for sources: AGP's javac compiles nothing (java.srcDirs = []); the
     // real language level is compileShared's (Java 25, same as desktop).
-    sourceCompatibility JavaVersion.VERSION_21
-    targetCompatibility JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
     // Java 21 library APIs (Math.clamp, SequencedCollection, java.nio.file)
     // are rewritten for Android by desugar_jdk_libs_nio.
     coreLibraryDesugaringEnabled = true
@@ -104,7 +104,9 @@ android {
       // implementation dependency. AGP's own javac would pin --system to the
       // android.jar java.* subset, which is missing JDK APIs upstream needs.
       java.srcDirs = []
-      resources.srcDirs += '../src/main/resources'
+      // Upstream resources ride along inside shared-classes.jar
+      // (packageSharedClasses); adding them here too makes every entry a
+      // duplicate in mergeJavaRes.
       manifest.srcFile 'src/main/AndroidManifest.xml'
       assets.srcDirs += "$buildDir/generated/assets".toString()
     }
@@ -408,6 +410,11 @@ import java.awt.image.BufferedImage;
     'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
     'new ScriptPatcher(legend.game.android.JdkCompat.absolute(Path.of("./patches")), legend.game.android.JdkCompat.absolute(Path.of("./files")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/cache")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/backups")))',
   ],
+  // Check this repo's releases instead of upstream's. Our tags are v*;
+  // Release.getPlatformDownloadUrl() finds no desktop-OS asset and upstream
+  // falls back to opening the release page in a browser (PLATFORM.openUrl).
+  // NOTE: Updater.java is excluded from staging — the Android implementation
+  // is android/src/main/java/legend/core/Updater.java.
   'legend/game/debugger/DebuggerController.java': [
     'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
     'new ScriptPatcher(legend.game.android.JdkCompat.absolute(Path.of("./patches")), legend.game.android.JdkCompat.absolute(Path.of("./files")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/cache")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/backups")))',
