@@ -167,6 +167,7 @@ tasks.register('stageSharedSources', Sync) {
   // `git subtree pull --prefix=third_party/<dir> <repo> main --squash`)
   from '../third_party/Stardust-Indicators/src/main/java'
   from '../third_party/tlot/src/main/java'
+  from '../third_party/sc-dragoon-modifier/src/main/java'
   into layout.buildDirectory.dir('shared-sources')
   sharedSourceExcludes.each { exclude it }
 }
@@ -646,6 +647,7 @@ tasks.register('packageSharedClasses', Jar) {
   from '../src/main/resources'
   from '../third_party/Stardust-Indicators/src/main/resources'
   from '../third_party/tlot/src/main/resources'
+  from '../third_party/sc-dragoon-modifier/src/main/resources'
   // Main.main points log4j2.configurationFile at the relative "log4j2.xml";
   // it does not exist on device, so log4j falls back to a classpath lookup
   from('../log4j2.xml') {
@@ -795,6 +797,9 @@ tasks.register('stageAssets', Copy) {
     into 'mods'
   }
   from('../third_party/tlot/mods') {
+    into 'mods'
+  }
+  from('../third_party/sc-dragoon-modifier/mods') {
     into 'mods'
   }
   // Extracted to the working dir alongside gfx/ for the log4j config path
