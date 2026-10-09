@@ -280,6 +280,39 @@ import java.awt.image.BufferedImage;
     'Path.of(".").toAbsolutePath().normalize()':
     'legend.game.android.JdkCompat.absolute(Path.of(".")).normalize()',
   ],
+  // Files.createDirectories resolves each segment via toAbsolutePath(),
+  // which reads the FS's baked user.dir. MainActivity now sets user.dir
+  // before FS init so that's correct, but if the FS was already
+  // constructed before onCreate runs (device/version dependent) it keeps
+  // "/" — anchor the relative write-roots as a backstop.
+  'legend/game/unpacker/Unpacker.java': [
+    'public static Path ROOT = Path.of(".", "files");':
+    'public static Path ROOT = legend.game.android.JdkCompat.absolute(Path.of(".", "files"));',
+    'Files.createDirectories(Path.of("./isos"));':
+    'Files.createDirectories(legend.game.android.JdkCompat.absolute(Path.of("./isos")));',
+  ],
+  'legend/game/saves/SaveManager.java': [
+    'private final Path dir = Paths.get("saves");':
+    'private final Path dir = legend.game.android.JdkCompat.absolute(Paths.get("saves"));',
+  ],
+  'legend/game/saves/ConfigPresetManager.java': [
+    'private static final Path configPath = Path.of("config");':
+    'private static final Path configPath = legend.game.android.JdkCompat.absolute(Path.of("config"));',
+  ],
+  'legend/core/GameEngine.java': [
+    'Files.createDirectories(Path.of("saves"));':
+    'Files.createDirectories(legend.game.android.JdkCompat.absolute(Path.of("saves")));',
+    'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
+    'new ScriptPatcher(legend.game.android.JdkCompat.absolute(Path.of("./patches")), legend.game.android.JdkCompat.absolute(Path.of("./files")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/cache")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/backups")))',
+  ],
+  'legend/game/unpacker/scripts/ScriptSearcher.java': [
+    'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
+    'new ScriptPatcher(legend.game.android.JdkCompat.absolute(Path.of("./patches")), legend.game.android.JdkCompat.absolute(Path.of("./files")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/cache")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/backups")))',
+  ],
+  'legend/game/debugger/DebuggerController.java': [
+    'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
+    'new ScriptPatcher(legend.game.android.JdkCompat.absolute(Path.of("./patches")), legend.game.android.JdkCompat.absolute(Path.of("./files")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/cache")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/backups")))',
+  ],
 ]
 
 tasks.register('patchStagedSources') {

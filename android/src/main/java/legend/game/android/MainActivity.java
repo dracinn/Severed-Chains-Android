@@ -3,7 +3,6 @@ package legend.game.android;
 import android.app.Activity;
 import android.content.Intent;
 import android.hardware.input.InputManager;
-import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.InputDevice;
@@ -32,11 +31,11 @@ import java.nio.file.Path;
  */
 public final class MainActivity extends Activity {
   private static final String TAG = "SC-Main";
-  private static final int PICK_ISO = 1;
 
   private SurfaceView surfaceView;
   private TouchControlsView touchControls;
-  private boolean surfaceReady;
+  private SetupView setupView;
+  private boolean gameUi;
   private int mousePointerId = -1;
 
   @Override
@@ -57,10 +56,14 @@ public final class MainActivity extends Activity {
 
     // Upstream resolves everything relative to the working directory
     // (files/, isos/, saves/, gfx/, config.dcnf). Android locks user.dir to /,
-    // so make the real process cwd the app dir. The default filesystem must be
-    // initialized BEFORE the chdir: it compares user.dir to getcwd() once at
-    // construction and only routes relative paths through the kernel (which
-    // honours chdir) when they matched at that moment.
+    // so make the real process cwd the app dir. user.dir must be set BEFORE
+    // the default filesystem initializes: it bakes user.dir in at
+    // construction and uses it for toAbsolutePath() (which Files APIs like
+    // createDirectories call internally). Set early, relative paths resolve
+    // via baked user.dir; if the FS was already initialized in kernel-cwd
+    // mode, the chdir below keeps them resolving through the kernel. Either
+    // way they land in the app dir.
+    System.setProperty("user.dir", this.getFilesDir().getAbsolutePath());
     FileSystems.getDefault();
     Path.of("init").getFileSystem();
     try {
@@ -81,44 +84,18 @@ public final class MainActivity extends Activity {
     new File(this.getFilesDir(), "isos").mkdirs();
     new File(this.getFilesDir(), "saves").mkdirs();
 
-    this.surfaceView = new SurfaceView(this);
-    this.touchControls = new TouchControlsView(this);
-
     // Soft keyboard must never resize/pan the surface: a resize would churn
     // the EGL surface handshake every time the IME opens.
     this.getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
 
-    final ImeTargetView imeView = new ImeTargetView(this);
-    AndroidEnv.setImeView(imeView);
-
-    final FrameLayout root = new FrameLayout(this);
-    root.addView(this.surfaceView, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-    root.addView(imeView, new FrameLayout.LayoutParams(1, 1));
-    root.addView(this.touchControls, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-    this.setContentView(root);
-
-    this.surfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
-      @Override
-      public void surfaceCreated(final SurfaceHolder holder) {
-        Log.i(TAG, "surfaceCreated: valid=" + holder.getSurface().isValid());
-      }
-
-      @Override
-      public void surfaceChanged(final SurfaceHolder holder, final int format, final int width, final int height) {
-        Log.i(TAG, "surfaceChanged: " + width + "x" + height + " valid=" + holder.getSurface().isValid());
-        MainActivity.this.surfaceReady = true;
-        AndroidEnv.setSurface(holder.getSurface(), width, height);
-        MainActivity.this.maybeStartGame();
-      }
-
-      @Override
-      public void surfaceDestroyed(final SurfaceHolder holder) {
-        Log.i(TAG, "surfaceDestroyed");
-        MainActivity.this.surfaceReady = false;
-        // Blocks until the game thread releases the EGL surface (or ~2s)
-        AndroidEnv.surfaceDestroyed();
-      }
-    });
+    // First run (or a rerun after an incomplete unpack): stage disc images
+    // before the engine starts. -e force_setup 1 reopens the screen to
+    // manage discs on an unpacked install.
+    if(this.isUnpacked() && !this.getIntent().getBooleanExtra("force_setup", false)) {
+      this.showGame();
+    } else {
+      this.showSetup();
+    }
 
     // Track physical gamepad hotplug
     final InputManager inputManager = (InputManager)this.getSystemService(INPUT_SERVICE);
@@ -141,6 +118,53 @@ public final class MainActivity extends Activity {
     }, null);
   }
 
+  private boolean isUnpacked() {
+    return new File(this.getFilesDir(), "files/version").isFile();
+  }
+
+  private void showSetup() {
+    this.setupView = new SetupView(this, new File(this.getFilesDir(), "isos"), this::showGame);
+    this.setContentView(this.setupView);
+  }
+
+  private void showGame() {
+    this.setupView = null;
+    this.gameUi = true;
+
+    this.surfaceView = new SurfaceView(this);
+    this.touchControls = new TouchControlsView(this);
+
+    final ImeTargetView imeView = new ImeTargetView(this);
+    AndroidEnv.setImeView(imeView);
+
+    final FrameLayout root = new FrameLayout(this);
+    root.addView(this.surfaceView, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+    root.addView(imeView, new FrameLayout.LayoutParams(1, 1));
+    root.addView(this.touchControls, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+    this.setContentView(root);
+
+    this.surfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
+      @Override
+      public void surfaceCreated(final SurfaceHolder holder) {
+        Log.i(TAG, "surfaceCreated: valid=" + holder.getSurface().isValid());
+      }
+
+      @Override
+      public void surfaceChanged(final SurfaceHolder holder, final int format, final int width, final int height) {
+        Log.i(TAG, "surfaceChanged: " + width + "x" + height + " valid=" + holder.getSurface().isValid());
+        AndroidEnv.setSurface(holder.getSurface(), width, height);
+        AndroidEnv.startGameOnce();
+      }
+
+      @Override
+      public void surfaceDestroyed(final SurfaceHolder holder) {
+        Log.i(TAG, "surfaceDestroyed");
+        // Blocks until the game thread releases the EGL surface (or ~2s)
+        AndroidEnv.surfaceDestroyed();
+      }
+    });
+  }
+
   // ------------------------------------------------------------------
   // Input routing -> AndroidInput queue (consumed by tickInput on the game thread)
   // ------------------------------------------------------------------
@@ -149,6 +173,11 @@ public final class MainActivity extends Activity {
   public boolean dispatchKeyEvent(final KeyEvent event) {
     final int keyCode = event.getKeyCode();
     if(keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_MUTE) {
+      return super.dispatchKeyEvent(event);
+    }
+
+    // While the setup view is showing, keys/d-pad belong to the UI toolkit
+    if(!this.gameUi) {
       return super.dispatchKeyEvent(event);
     }
 
@@ -161,6 +190,10 @@ public final class MainActivity extends Activity {
 
   @Override
   public boolean dispatchGenericMotionEvent(final MotionEvent event) {
+    if(!this.gameUi) {
+      return super.dispatchGenericMotionEvent(event);
+    }
+
     if(AndroidInput.handleGenericMotionEvent(event)) {
       return true;
     }
@@ -170,6 +203,10 @@ public final class MainActivity extends Activity {
 
   @Override
   public boolean dispatchTouchEvent(final MotionEvent event) {
+    if(!this.gameUi) {
+      return super.dispatchTouchEvent(event);
+    }
+
     if(this.touchControls.handleTouch(event)) {
       return true;
     }
@@ -241,46 +278,11 @@ public final class MainActivity extends Activity {
     AL10.resumeAll();
   }
 
-  private void maybeStartGame() {
-    if(!this.surfaceReady) {
-      return;
-    }
-
-    if(!this.hasIso()) {
-      // No ISO imported yet - let the user pick one; the game starts on
-      // the next resume once isos/ is populated.
-      this.startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), PICK_ISO);
-      return;
-    }
-
-    AndroidEnv.startGameOnce();
-  }
-
-  private boolean hasIso() {
-    final File[] isos = new File(this.getFilesDir(), "isos").listFiles();
-    return isos != null && isos.length > 0;
-  }
-
   @Override
   protected void onActivityResult(final int requestCode, final int resultCode, final Intent data) {
-    if(requestCode == PICK_ISO && resultCode == RESULT_OK && data != null) {
-      this.importIso(data.getData());
+    if(this.setupView != null) {
+      this.setupView.onPickerResult(requestCode, resultCode, data);
     }
-  }
-
-  private void importIso(final Uri uri) {
-    new Thread(() -> {
-      try(final InputStream in = this.getContentResolver().openInputStream(uri)) {
-        final File dest = new File(this.getFilesDir(), "isos/game.bin");
-        try(final OutputStream out = new FileOutputStream(dest)) {
-          in.transferTo(out);
-        }
-        Log.i(TAG, "Imported ISO to " + dest);
-      } catch(final IOException e) {
-        Log.e(TAG, "ISO import failed", e);
-      }
-      this.runOnUiThread(this::maybeStartGame);
-    }).start();
   }
 
   /** Extract bundled assets (gfx/) to the working directory once per version. */
