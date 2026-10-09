@@ -34,6 +34,28 @@ android {
 
   ndkVersion '25.2.9519653'
 
+  signingConfigs {
+    // CI injects SIGNING_* env vars (secrets -> decoded keystore path,
+    // passwords, alias). Absent locally, where debug signing suffices and
+    // assembleRelease produces an unsigned APK.
+    release {
+      if(System.getenv('SIGNING_KEYSTORE_PATH') != null) {
+        storeFile file(System.getenv('SIGNING_KEYSTORE_PATH'))
+        storePassword System.getenv('SIGNING_STORE_PASSWORD')
+        keyAlias System.getenv('SIGNING_KEY_ALIAS')
+        keyPassword System.getenv('SIGNING_KEY_PASSWORD')
+      }
+    }
+  }
+
+  buildTypes {
+    release {
+      if(System.getenv('SIGNING_KEYSTORE_PATH') != null) {
+        signingConfig signingConfigs.release
+      }
+    }
+  }
+
   externalNativeBuild {
     cmake {
       path file('src/main/cpp/CMakeLists.txt')
