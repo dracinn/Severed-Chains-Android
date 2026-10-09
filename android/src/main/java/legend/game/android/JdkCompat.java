@@ -7,19 +7,29 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
 
+import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.IntBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Iterator;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+
+import legend.game.unpacker.FileBackedFileData;
+import legend.game.unpacker.FileData;
 
 /**
  * Replacements for JDK APIs that exist on desktop Java but not on Android.
@@ -185,6 +195,119 @@ public final class JdkCompat {
           throw new RuntimeException(e);
         }
       }
+    }
+  }
+
+  /**
+   * FileBackedFileData serves every read through a synchronized
+   * lseek+read syscall pair; the unpacker's per-byte loops turn that into a
+   * syscall storm on Android flash. Each spilled tmp file is mapped once and
+   * read through the page cache instead — absolute ByteBuffer reads are
+   * lock-free and live outside the Java heap. Writes stay on the
+   * RandomAccessFile, which is coherent with the shared mapping.
+   */
+  private static final ConcurrentHashMap<RandomAccessFile, ByteBuffer> MAPPED_UNPACK_FILES = new ConcurrentHashMap<>();
+  private static final ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
+
+  private static ByteBuffer mappedUnpackFile(final RandomAccessFile file) throws IOException {
+    ByteBuffer buf = MAPPED_UNPACK_FILES.get(file);
+
+    if(buf == null) {
+      final long length = file.length();
+      buf = length == 0
+        ? EMPTY_BUFFER
+        : file.getChannel().map(FileChannel.MapMode.READ_ONLY, 0, length).order(ByteOrder.nativeOrder());
+      MAPPED_UNPACK_FILES.put(file, buf);
+    }
+
+    return buf;
+  }
+
+  /** Bulk-reads {@code size} bytes at {@code fileOffset}; backing for FileBackedFileData.getBytes(). */
+  public static byte[] mmapGetBytes(final RandomAccessFile file, final int fileOffset, final int size) {
+    try {
+      final byte[] data = new byte[size];
+      get(mappedUnpackFile(file), fileOffset, data);
+      return data;
+    } catch(final IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /** Bulk-reads into {@code dest}; backing for FileBackedFileData.read(). */
+  public static void mmapRead(final RandomAccessFile file, final int fileOffset, final byte[] dest, final int destOffset, final int size) {
+    try {
+      get(mappedUnpackFile(file), fileOffset, dest, destOffset, size);
+    } catch(final IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static byte mmapReadByte(final RandomAccessFile file, final int fileOffset) {
+    try {
+      return mappedUnpackFile(file).get(fileOffset);
+    } catch(final IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /** Matches {@code MathHelper.getShort} — native (little-endian on Android) order. */
+  public static short mmapReadShort(final RandomAccessFile file, final int fileOffset) {
+    try {
+      return mappedUnpackFile(file).getShort(fileOffset);
+    } catch(final IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /** Matches {@code MathHelper.getInt} — native (little-endian on Android) order. */
+  public static int mmapReadInt(final RandomAccessFile file, final int fileOffset) {
+    try {
+      return mappedUnpackFile(file).getInt(fileOffset);
+    } catch(final IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * When a PathNode's data spans an entire spilled tmp file, renames it to
+   * the destination instead of streaming a copy — saves ~1.4 GB of write+read
+   * for the untouched STR/XA files. Returns false for slices and heap data
+   * so the caller falls back to a normal write.
+   */
+  private static Field fbPath, fbOffset, fbSize, fbFile;
+
+  public static boolean moveFileData(final FileData data, final Path dest) throws IOException {
+    if(!(data instanceof FileBackedFileData)) {
+      return false;
+    }
+
+    try {
+      if(fbPath == null) {
+        fbPath = FileBackedFileData.class.getDeclaredField("path");
+        fbOffset = FileBackedFileData.class.getDeclaredField("offset");
+        fbSize = FileBackedFileData.class.getDeclaredField("size");
+        fbFile = FileBackedFileData.class.getDeclaredField("file");
+        fbPath.setAccessible(true);
+        fbOffset.setAccessible(true);
+        fbSize.setAccessible(true);
+        fbFile.setAccessible(true);
+      }
+
+      final RandomAccessFile raf = (RandomAccessFile)fbFile.get(data);
+      if(fbOffset.getInt(data) != 0 || fbSize.getInt(data) != raf.length()) {
+        return false;
+      }
+
+      try {
+        Files.move((Path)fbPath.get(data), dest, StandardCopyOption.REPLACE_EXISTING);
+      } catch(final IOException e) {
+        return false; // rename is atomic; fall back to streaming a copy
+      }
+
+      return true;
+    } catch(final ReflectiveOperationException | RuntimeException e) {
+      return false;
     }
   }
 

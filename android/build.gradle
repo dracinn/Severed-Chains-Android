@@ -290,6 +290,72 @@ import java.awt.image.BufferedImage;
     'public static Path ROOT = legend.game.android.JdkCompat.absolute(Path.of(".", "files"));',
     'Files.createDirectories(Path.of("./isos"));':
     'Files.createDirectories(legend.game.android.JdkCompat.absolute(Path.of("./isos")));',
+    // Whole spilled tmp files rename to their destination instead of
+    // streaming a copy (saves ~1.4 GB for untouched STR/XA files).
+    '''      try(final OutputStream writer = Files.newOutputStream(path, StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
+        node.data.write(writer);
+      }''':
+    '''      if(!legend.game.android.JdkCompat.moveFileData(node.data, path)) {
+        try(final OutputStream writer = Files.newOutputStream(path, StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
+          node.data.write(writer);
+        }
+      }''',
+  ],
+  // Low-memory unpacking backs each source file with a RandomAccessFile and
+  // every readByte/readShort/readInt is a synchronized lseek+read syscall —
+  // the leaf-transform phase is a syscall storm on Android flash. Serve the
+  // reads from a shared read-only mmap per spilled file instead (writes stay
+  // on the RAF). See JdkCompat.mappedUnpackFile.
+  'legend/game/unpacker/FileBackedFileData.java': [
+    '''    synchronized(this.file) {
+      try {
+        this.file.seek(this.offset);
+        final byte[] data = new byte[this.size];
+        this.file.read(data);
+        return data;
+      } catch(final IOException e) {
+        throw new RuntimeException(e);
+      }
+    }''':
+    '''    return legend.game.android.JdkCompat.mmapGetBytes(this.file, this.offset, this.size);''',
+    '''    synchronized(this.file) {
+      try {
+        this.file.seek(this.offset + srcOffset);
+        this.file.read(dest, destOffset, size);
+      } catch(final IOException e) {
+        throw new RuntimeException(e);
+      }
+    }''':
+    '''    legend.game.android.JdkCompat.mmapRead(this.file, this.offset + srcOffset, dest, destOffset, size);''',
+    '''    synchronized(this.file) {
+      try {
+        this.file.seek(this.offset + offset);
+        return this.file.readByte();
+      } catch(final IOException e) {
+        throw new RuntimeException(e);
+      }
+    }''':
+    '''    return legend.game.android.JdkCompat.mmapReadByte(this.file, this.offset + offset);''',
+    '''    synchronized(this.file) {
+      try {
+        this.file.seek(this.offset + offset);
+        this.file.read(this.buffer, 0, 2);
+        return MathHelper.getShort(this.buffer, 0);
+      } catch(final IOException e) {
+        throw new RuntimeException(e);
+      }
+    }''':
+    '''    return legend.game.android.JdkCompat.mmapReadShort(this.file, this.offset + offset);''',
+    '''    synchronized(this.file) {
+      try {
+        this.file.seek(this.offset + offset);
+        this.file.read(this.buffer, 0, 4);
+        return MathHelper.getInt(this.buffer, 0);
+      } catch(final IOException e) {
+        throw new RuntimeException(e);
+      }
+    }''':
+    '''    return legend.game.android.JdkCompat.mmapReadInt(this.file, this.offset + offset);''',
   ],
   'legend/game/saves/SaveManager.java': [
     'private final Path dir = Paths.get("saves");':
@@ -304,6 +370,17 @@ import java.awt.image.BufferedImage;
     'Files.createDirectories(legend.game.android.JdkCompat.absolute(Path.of("saves")));',
     'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
     'new ScriptPatcher(legend.game.android.JdkCompat.absolute(Path.of("./patches")), legend.game.android.JdkCompat.absolute(Path.of("./files")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/cache")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/backups")))',
+    // ScriptManager (script-recompiler jar) absolutizes include paths
+    // internally, so relative ./patches roots resolve under /.
+    'new ScriptManager(List.of(Path.of("./patches/libs"), Path.of("./patches/scripts")), Path.of("./patches"))':
+    'new ScriptManager(List.of(legend.game.android.JdkCompat.absolute(Path.of("./patches/libs")), legend.game.android.JdkCompat.absolute(Path.of("./patches/scripts"))), legend.game.android.JdkCompat.absolute(Path.of("./patches")))',
+    // ART ignores user.dir so heap-mode unpacking OOMs during populate on
+    // ~500MB heaps; upstream handles it with an OOM->relaunch dance that
+    // crashes ScriptPatcher on the half-populated tree. Force low-memory
+    // unpacking up front — mmap reads (FileBackedFileData transform) keep it
+    // fast. In-memory only; the flag isn't persisted by this call.
+    '          try {\n            Unpacker.unpack();':
+    '          legend.core.Config.enableLowMemoryUnpacker();\n          try {\n            Unpacker.unpack();',
   ],
   'legend/game/unpacker/scripts/ScriptSearcher.java': [
     'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
