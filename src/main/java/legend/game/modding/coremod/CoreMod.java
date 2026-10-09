@@ -56,6 +56,7 @@ import legend.game.modding.coremod.config.MusicEffectsOverTimeGranularityConfigE
 import legend.game.modding.coremod.config.MusicInterpolationPrecisionConfigEntry;
 import legend.game.modding.coremod.config.MusicPitchResolutionConfigEntry;
 import legend.game.modding.coremod.config.MusicVolumeConfigEntry;
+import legend.game.modding.coremod.config.PerfOverlayConfigEntry;
 import legend.game.modding.coremod.config.PixelateModeConfigEntry;
 import legend.game.modding.coremod.config.QuickTextModeConfigEntry;
 import legend.game.modding.coremod.config.ReduceMotionFlashingConfigEntry;
@@ -196,6 +197,7 @@ public class CoreMod {
   public static final RegistryDelegate<ElementIconConfig> DISPLAY_ELEMENT_ICON_CONFIG = CONFIG_REGISTRAR.register("element_icon_config", ElementIconConfig::new);
   public static final RegistryDelegate<BoolConfigEntry> EQUIP_EFFECTS_IN_DRAGOON = CONFIG_REGISTRAR.register("equip_effects_in_dragoon", EquipEffectsInDragoonConfig::new);
   public static final RegistryDelegate<BoolConfigEntry> SHOW_FPS = CONFIG_REGISTRAR.register("show_fps", () -> new BoolConfigEntry(false, ConfigStorageLocation.GLOBAL, ConfigCategory.USER_INTERFACE));
+  public static final RegistryDelegate<PerfOverlayConfigEntry> PERF_OVERLAY_CONFIG = CONFIG_REGISTRAR.register("perf_overlay", PerfOverlayConfigEntry::new);
 
   private static final Registrar<InputAction, InputActionRegistryEvent> INPUT_ACTION_REGISTRAR = new Registrar<>(GameEngine.REGISTRIES.inputActions, MOD_ID);
 

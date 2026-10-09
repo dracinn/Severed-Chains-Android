@@ -34,6 +34,7 @@ public final class MainActivity extends Activity {
 
   private SurfaceView surfaceView;
   private TouchControlsView touchControls;
+  private PerfOverlayView perfOverlay;
   private SetupView setupView;
   private boolean gameUi;
   private int mousePointerId = -1;
@@ -133,6 +134,7 @@ public final class MainActivity extends Activity {
 
     this.surfaceView = new SurfaceView(this);
     this.touchControls = new TouchControlsView(this);
+    this.perfOverlay = new PerfOverlayView(this);
 
     final ImeTargetView imeView = new ImeTargetView(this);
     AndroidEnv.setImeView(imeView);
@@ -141,6 +143,7 @@ public final class MainActivity extends Activity {
     root.addView(this.surfaceView, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
     root.addView(imeView, new FrameLayout.LayoutParams(1, 1));
     root.addView(this.touchControls, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+    root.addView(this.perfOverlay, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
     this.setContentView(root);
 
     this.surfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
