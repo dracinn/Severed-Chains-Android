@@ -63,3 +63,7 @@ local.properties
 /android/.cxx/
 /android/.externalNativeBuild/
 android-release.jks
+
+# Extracted by RetroButtonsMod at runtime (bundled copies live in src/main/resources/retro_buttons/)
+/gfx/fonts/retro.json
+/gfx/fonts/retro.png

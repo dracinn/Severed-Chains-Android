@@ -44,6 +44,44 @@ public final class InputCodepoints {
   public static final char PS_BUTTON_TRIANGLE = 0xe203;
   public static final char PS_BUTTON_TOUCHPAD = 0xe204;
   public static final char PS_BUTTON_GUIDE = 0xe205;
+  public static final char PS_BUTTON_SHARE = 0xe206;
+  public static final char PS_BUTTON_OPTIONS = 0xe207;
+  public static final char PS_BUTTON_L1 = 0xe208;
+  public static final char PS_BUTTON_R1 = 0xe209;
+  public static final char PS_BUTTON_L2 = 0xe20a;
+  public static final char PS_BUTTON_R2 = 0xe20b;
+  public static final char PS_BUTTON_L3 = 0xe20c;
+  public static final char PS_BUTTON_R3 = 0xe20d;
+  public static final char PS_DPAD_UP = 0xe20e;
+  public static final char PS_DPAD_DOWN = 0xe20f;
+  public static final char PS_DPAD_LEFT = 0xe210;
+  public static final char PS_DPAD_RIGHT = 0xe211;
+  public static final char PS_LEFT_AXIS_X = 0xe212;
+  public static final char PS_LEFT_AXIS_Y = 0xe213;
+  public static final char PS_RIGHT_AXIS_X = 0xe214;
+  public static final char PS_RIGHT_AXIS_Y = 0xe215;
+
+  public static final char SWITCH_BUTTON_A = 0xe400;
+  public static final char SWITCH_BUTTON_B = 0xe401;
+  public static final char SWITCH_BUTTON_X = 0xe402;
+  public static final char SWITCH_BUTTON_Y = 0xe403;
+  public static final char SWITCH_BUTTON_MINUS = 0xe404;
+  public static final char SWITCH_BUTTON_PLUS = 0xe405;
+  public static final char SWITCH_BUTTON_HOME = 0xe406;
+  public static final char SWITCH_BUTTON_L = 0xe407;
+  public static final char SWITCH_BUTTON_ZL = 0xe408;
+  public static final char SWITCH_BUTTON_R = 0xe409;
+  public static final char SWITCH_BUTTON_ZR = 0xe40a;
+  public static final char SWITCH_DPAD_UP = 0xe40b;
+  public static final char SWITCH_DPAD_DOWN = 0xe40c;
+  public static final char SWITCH_DPAD_LEFT = 0xe40d;
+  public static final char SWITCH_DPAD_RIGHT = 0xe40e;
+  public static final char SWITCH_LEFT_STICK = 0xe40f;
+  public static final char SWITCH_RIGHT_STICK = 0xe410;
+  public static final char SWITCH_LEFT_AXIS_X = 0xe411;
+  public static final char SWITCH_LEFT_AXIS_Y = 0xe412;
+  public static final char SWITCH_RIGHT_AXIS_X = 0xe413;
+  public static final char SWITCH_RIGHT_AXIS_Y = 0xe414;
 
   public static final char GENERIC_LEFT_PADDLE1 = 0xe300;
   public static final char GENERIC_RIGHT_PADDLE1 = 0xe301;
@@ -112,8 +150,162 @@ public final class InputCodepoints {
             return PS_BUTTON_TRIANGLE;
           }
 
+          case SELECT -> {
+            return PS_BUTTON_SHARE;
+          }
+
+          case START -> {
+            return PS_BUTTON_OPTIONS;
+          }
+
+          case LEFT_BUMPER -> {
+            return PS_BUTTON_L1;
+          }
+
+          case RIGHT_BUMPER -> {
+            return PS_BUTTON_R1;
+          }
+
+          case LEFT_TRIGGER -> {
+            return PS_BUTTON_L2;
+          }
+
+          case RIGHT_TRIGGER -> {
+            return PS_BUTTON_R2;
+          }
+
+          case LEFT_STICK -> {
+            return PS_BUTTON_L3;
+          }
+
+          case RIGHT_STICK -> {
+            return PS_BUTTON_R3;
+          }
+
+          case DPAD_UP -> {
+            return PS_DPAD_UP;
+          }
+
+          case DPAD_DOWN -> {
+            return PS_DPAD_DOWN;
+          }
+
+          case DPAD_LEFT -> {
+            return PS_DPAD_LEFT;
+          }
+
+          case DPAD_RIGHT -> {
+            return PS_DPAD_RIGHT;
+          }
+
+          case LEFT_AXIS_X -> {
+            return PS_LEFT_AXIS_X;
+          }
+
+          case LEFT_AXIS_Y -> {
+            return PS_LEFT_AXIS_Y;
+          }
+
+          case RIGHT_AXIS_X -> {
+            return PS_RIGHT_AXIS_X;
+          }
+
+          case RIGHT_AXIS_Y -> {
+            return PS_RIGHT_AXIS_Y;
+          }
+
           case GUIDE -> {
             return PS_BUTTON_GUIDE;
+          }
+        }
+      }
+
+      case SWITCH -> {
+        switch(codepoint) {
+          // Switch face buttons are lettered opposite to Xbox at the same
+          // positions: bottom=B, right=A, left=Y, top=X
+          case A -> {
+            return SWITCH_BUTTON_B;
+          }
+
+          case B -> {
+            return SWITCH_BUTTON_A;
+          }
+
+          case X -> {
+            return SWITCH_BUTTON_Y;
+          }
+
+          case Y -> {
+            return SWITCH_BUTTON_X;
+          }
+
+          case SELECT -> {
+            return SWITCH_BUTTON_MINUS;
+          }
+
+          case START -> {
+            return SWITCH_BUTTON_PLUS;
+          }
+
+          case LEFT_BUMPER -> {
+            return SWITCH_BUTTON_L;
+          }
+
+          case LEFT_TRIGGER -> {
+            return SWITCH_BUTTON_ZL;
+          }
+
+          case RIGHT_BUMPER -> {
+            return SWITCH_BUTTON_R;
+          }
+
+          case RIGHT_TRIGGER -> {
+            return SWITCH_BUTTON_ZR;
+          }
+
+          case DPAD_UP -> {
+            return SWITCH_DPAD_UP;
+          }
+
+          case DPAD_DOWN -> {
+            return SWITCH_DPAD_DOWN;
+          }
+
+          case DPAD_LEFT -> {
+            return SWITCH_DPAD_LEFT;
+          }
+
+          case DPAD_RIGHT -> {
+            return SWITCH_DPAD_RIGHT;
+          }
+
+          case LEFT_STICK -> {
+            return SWITCH_LEFT_STICK;
+          }
+
+          case RIGHT_STICK -> {
+            return SWITCH_RIGHT_STICK;
+          }
+
+          case LEFT_AXIS_X -> {
+            return SWITCH_LEFT_AXIS_X;
+          }
+
+          case LEFT_AXIS_Y -> {
+            return SWITCH_LEFT_AXIS_Y;
+          }
+
+          case RIGHT_AXIS_X -> {
+            return SWITCH_RIGHT_AXIS_X;
+          }
+
+          case RIGHT_AXIS_Y -> {
+            return SWITCH_RIGHT_AXIS_Y;
+          }
+
+          case GUIDE -> {
+            return SWITCH_BUTTON_HOME;
           }
         }
       }
