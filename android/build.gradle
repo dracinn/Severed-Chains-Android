@@ -16,6 +16,32 @@ def lwjglNatives = osName.contains('mac') ? (isArm ? 'natives-macos-arm64' : 'na
                  : osName.contains('win') ? 'natives-windows'
                  : (isArm ? 'natives-linux-arm64' : 'natives-linux')
 
+// Release version: CI injects ANDROID_VERSION_NAME with the tag (e.g. v0.1.2);
+// locally we fall back to the latest git tag, then a dev default.
+def buildVersionName = { ->
+  final envName = System.getenv('ANDROID_VERSION_NAME')
+  if(envName != null && !envName.isEmpty()) {
+    return envName.replaceFirst('^v', '')
+  }
+  try {
+    final proc = ['git', 'describe', '--tags', '--abbrev=0'].execute(null, rootDir)
+    if(proc.waitFor() == 0) {
+      return proc.text.trim().replaceFirst('^v', '')
+    }
+  } catch(final Exception ignored) {
+  }
+  return '1.0'
+}()
+
+// versionCode tracks the tag (0.1.2 -> 102) so upgrades always install; falls
+// back to 4 to stay above the versionCode used by pre-tag releases.
+def buildVersionCode = { ->
+  final matcher = buildVersionName =~ /^(\d+)\.(\d+)\.(\d+)/
+  return matcher.find()
+    ? matcher.group(1).toInteger() * 10_000 + matcher.group(2).toInteger() * 100 + matcher.group(3).toInteger()
+    : 4
+}()
+
 android {
   namespace = 'legend.game.android'
   compileSdk = 34
@@ -24,8 +50,8 @@ android {
     applicationId = 'com.legendofdragoon.severedchains'
     minSdk = 26
     targetSdk = 34
-    versionCode = 4
-    versionName = '1.0'
+    versionCode = buildVersionCode
+    versionName = buildVersionName
 
     ndk {
       abiFilters 'arm64-v8a', 'x86_64'
