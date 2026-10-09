@@ -508,9 +508,18 @@ tasks.matching { it.name.startsWith('externalNativeBuild') }.configureEach {
 def sharedClassesDir = layout.buildDirectory.dir('classes/shared')
 
 def sdkDir = {
-  def props = new Properties()
-  rootProject.file('local.properties').withInputStream { props.load(it) }
-  props.getProperty('sdk.dir') ?: System.getenv('ANDROID_HOME')
+  // local.properties (sdk.dir) wins; CI sets ANDROID_HOME/ANDROID_SDK_ROOT
+  // instead and has no local.properties — don't require the file to exist.
+  def propsFile = rootProject.file('local.properties')
+  if(propsFile.exists()) {
+    def props = new Properties()
+    propsFile.withInputStream { props.load(it) }
+    if(props.getProperty('sdk.dir') != null) {
+      return props.getProperty('sdk.dir')
+    }
+  }
+
+  return System.getenv('ANDROID_HOME') ?: System.getenv('ANDROID_SDK_ROOT') ?: android.sdkDirectory.absolutePath
 }
 def androidJar = "${sdkDir()}/platforms/${android.compileSdkVersion}/android.jar"
 
