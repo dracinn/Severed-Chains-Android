@@ -302,9 +302,23 @@ public final class MainActivity extends Activity {
     this.extractAssetDir("gfx");
     this.extractAssetDir("lang");
     this.extractAssetDir("patches");
+    // mods/ mirrors APK assets exactly; wipe it first so files from mods
+    // removed in a newer build don't linger on upgraded installs.
+    deleteRecursively(new File(this.getFilesDir(), "mods"));
     this.extractAssetDir("mods");
     this.extractAssetDir("log4j2.xml");
     marker.createNewFile();
+  }
+
+  private static void deleteRecursively(final File file) {
+    final File[] children = file.listFiles();
+    if(children != null) {
+      for(final File child : children) {
+        deleteRecursively(child);
+      }
+    }
+    //noinspection ResultOfMethodCallIgnored
+    file.delete();
   }
 
   private void extractAssetDir(final String path) throws IOException {
