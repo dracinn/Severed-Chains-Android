@@ -65,6 +65,7 @@ import legend.game.modding.coremod.config.SaveAnywhereConfig;
 import legend.game.modding.coremod.config.SecondaryCharacterXpMultiplierConfigEntry;
 import legend.game.modding.coremod.config.SfxVolumeConfigEntry;
 import legend.game.modding.coremod.config.ShowAdvancedOptionsConfigEntry;
+import legend.game.modding.coremod.config.TouchFaceButtonsConfigEntry;
 import legend.game.modding.coremod.config.TransformationModeConfigEntry;
 import legend.game.modding.coremod.config.UnlockPartyConfig;
 import legend.game.modding.coremod.shops.EquipmentShopExtension;
@@ -110,6 +111,7 @@ public class CoreMod {
   public static final RegistryDelegate<BoolConfigEntry> DISABLE_MOUSE_INPUT_CONFIG = CONFIG_REGISTRAR.register("disable_mouse_input", DisableMouseInputConfigEntry::new);
   public static final RegistryDelegate<BoolConfigEntry> RUMBLE_CONFIG = CONFIG_REGISTRAR.register("rumble", () -> new BoolConfigEntry(true, ConfigStorageLocation.GLOBAL, ConfigCategory.CONTROLS));
   public static final RegistryDelegate<RumbleIntensityConfigEntry> RUMBLE_INTENSITY_CONFIG = CONFIG_REGISTRAR.register("rumble_intensity", RumbleIntensityConfigEntry::new);
+  public static final RegistryDelegate<TouchFaceButtonsConfigEntry> TOUCH_FACE_BUTTONS_CONFIG = CONFIG_REGISTRAR.register("touch_face_buttons", TouchFaceButtonsConfigEntry::new);
   public static final RegistryDelegate<IgnoreSteamInputModeConfigEntry> IGNORE_STEAM_INPUT_MODE_CONFIG = CONFIG_REGISTRAR.register("ignore_steam_input_mode", IgnoreSteamInputModeConfigEntry::new);
   public static final RegistryDelegate<BoolConfigEntry> ALLOW_WIDESCREEN_CONFIG = CONFIG_REGISTRAR.register("allow_widescreen", AllowWidescreenConfigEntry::new);
   public static final RegistryDelegate<LegacyWidescreenModeConfig> LEGACY_WIDESCREEN_MODE_CONFIG = CONFIG_REGISTRAR.register("submap_widescreen_mode", LegacyWidescreenModeConfig::new);

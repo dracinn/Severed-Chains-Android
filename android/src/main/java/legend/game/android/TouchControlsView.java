@@ -14,6 +14,7 @@ import android.view.View;
 import legend.core.platform.AndroidInput;
 import legend.core.platform.input.InputAxis;
 import legend.core.platform.input.InputButton;
+import legend.core.platform.input.TouchFaceButtonStyle;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -41,6 +42,10 @@ public class TouchControlsView extends View {
   private static final int SYMBOL_CROSS = Color.rgb(150, 180, 255);
   private static final int SYMBOL_SQUARE = Color.rgb(255, 160, 200);
   private static final int SYMBOL_CIRCLE = Color.rgb(255, 140, 140);
+  private static final int LETTER_RED = Color.rgb(255, 90, 80);
+  private static final int LETTER_YELLOW = Color.rgb(255, 210, 60);
+  private static final int LETTER_GREEN = Color.rgb(120, 220, 120);
+  private static final int LETTER_BLUE = Color.rgb(110, 170, 255);
 
   /** A control zone for round buttons, pill buttons, and trigger axes. */
   private static final class Ctrl {
@@ -78,8 +83,12 @@ public class TouchControlsView extends View {
   private final Paint sheenPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   private final Paint labelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   private final Paint symbolPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+  private final Paint letterPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   private final Path triPath = new Path();
   private final RectF tmpRect = new RectF();
+
+  /** Face-button glyph style pushed from the Controls config (game thread -> UI). */
+  private volatile TouchFaceButtonStyle faceButtonStyle = TouchFaceButtonStyle.PLAYSTATION;
 
   /** pointerId -> x,y for fingers that landed on a control or the stick */
   private final SparseArray<float[]> active = new SparseArray<>();
@@ -121,7 +130,15 @@ public class TouchControlsView extends View {
     this.labelPaint.setFakeBoldText(true);
     this.symbolPaint.setStyle(Paint.Style.STROKE);
     this.symbolPaint.setStrokeCap(Paint.Cap.ROUND);
+    this.letterPaint.setTextAlign(Paint.Align.CENTER);
+    this.letterPaint.setFakeBoldText(true);
     AndroidInput.overlay = this;
+  }
+
+  /** Called on the UI thread by AndroidPlatformManager when the Controls config changes. */
+  public void setFaceButtonStyle(final TouchFaceButtonStyle style) {
+    this.faceButtonStyle = style;
+    this.invalidate();
   }
 
   private void layout() {
@@ -447,8 +464,43 @@ public class TouchControlsView extends View {
     this.drawFaceSymbol(canvas, c);
   }
 
-  /** PlayStation symbol inside a face button, drawn procedurally. */
+  /** Face-button symbol in the configured style, drawn procedurally. */
   private void drawFaceSymbol(final Canvas canvas, final Ctrl c) {
+    if(this.faceButtonStyle == TouchFaceButtonStyle.XBOX) {
+      // Xbox layout: Y top, B right, A bottom, X left
+      final String letter = switch(c.button) {
+        case InputButton.Y -> "Y";
+        case InputButton.B -> "B";
+        case InputButton.A -> "A";
+        default -> "X";
+      };
+      this.drawLetter(canvas, c, letter, switch(c.button) {
+        case InputButton.Y -> LETTER_YELLOW;
+        case InputButton.B -> LETTER_RED;
+        case InputButton.A -> LETTER_GREEN;
+        default -> LETTER_BLUE;
+      });
+      return;
+    }
+
+    if(this.faceButtonStyle == TouchFaceButtonStyle.SWITCH) {
+      // Nintendo layout: X top, A right, B bottom, Y left
+      final String letter = switch(c.button) {
+        case InputButton.Y -> "X";
+        case InputButton.B -> "A";
+        case InputButton.A -> "B";
+        default -> "Y";
+      };
+      this.drawLetter(canvas, c, letter, switch(c.button) {
+        case InputButton.Y -> LETTER_BLUE;
+        case InputButton.B -> LETTER_RED;
+        case InputButton.A -> LETTER_YELLOW;
+        default -> LETTER_GREEN;
+      });
+      return;
+    }
+
+    // PlayStation symbols
     final float s = c.r * 0.32f;
     if(c.button == InputButton.Y) {
       this.symbolPaint.setColor(SYMBOL_TRIANGLE);
@@ -470,6 +522,12 @@ public class TouchControlsView extends View {
       this.tmpRect.set(c.x - s * 0.85f, c.y - s * 0.85f, c.x + s * 0.85f, c.y + s * 0.85f);
       canvas.drawRect(this.tmpRect, this.symbolPaint);
     }
+  }
+
+  private void drawLetter(final Canvas canvas, final Ctrl c, final String letter, final int color) {
+    this.letterPaint.setColor(color);
+    this.letterPaint.setTextSize(c.r * 0.95f);
+    canvas.drawText(letter, c.x, c.y - (this.letterPaint.descent() + this.letterPaint.ascent()) / 2, this.letterPaint);
   }
 
   @Override

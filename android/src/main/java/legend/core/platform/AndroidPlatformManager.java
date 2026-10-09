@@ -29,7 +29,9 @@ import legend.core.platform.input.InputGamepadType;
 import legend.core.platform.input.InputKey;
 import legend.core.platform.input.KeyInputActivation;
 import legend.core.platform.input.ScancodeInputActivation;
+import legend.core.platform.input.TouchFaceButtonStyle;
 import legend.game.android.AndroidEnv;
+import legend.game.android.TouchControlsView;
 import legend.game.modding.events.input.InputPressedEvent;
 import legend.game.modding.events.input.InputReleasedEvent;
 import org.apache.logging.log4j.LogManager;
@@ -54,6 +56,7 @@ import static legend.game.modding.coremod.CoreMod.MENU_OUTER_DEADZONE_CONFIG;
 import static legend.game.modding.coremod.CoreMod.MOVEMENT_INNER_DEADZONE_CONFIG;
 import static legend.game.modding.coremod.CoreMod.MOVEMENT_OUTER_DEADZONE_CONFIG;
 import static legend.game.modding.coremod.CoreMod.RECEIVE_INPUT_ON_INACTIVE_WINDOW_CONFIG;
+import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_BUTTONS_CONFIG;
 
 /**
  * Android PlatformManager. Mirrors upstream SdlPlatformManager's tickInput()
@@ -77,6 +80,7 @@ public class AndroidPlatformManager extends PlatformManager {
   private final Map<InputAction, InputActionState> actionStates = new HashMap<>();
   private final Map<InputAction, AxisInputState> axisActionStates = new HashMap<>();
   private boolean clearActionStates;
+  private TouchFaceButtonStyle lastFaceButtonStyle;
 
   private final IntSet gamepads = new IntOpenHashSet();
   private int lastGamepad = -1;
@@ -474,6 +478,16 @@ public class AndroidPlatformManager extends PlatformManager {
       this.clearActionStates = false;
       this.actionStates.clear();
       this.axisActionStates.clear();
+    }
+
+    // Push the face-button glyph style to the touch overlay when it changes
+    final TouchFaceButtonStyle faceButtonStyle = CONFIG.getConfig(TOUCH_FACE_BUTTONS_CONFIG.get());
+    if(faceButtonStyle != this.lastFaceButtonStyle) {
+      this.lastFaceButtonStyle = faceButtonStyle;
+      final TouchControlsView overlay = AndroidInput.overlay;
+      if(overlay != null) {
+        overlay.post(() -> overlay.setFaceButtonStyle(faceButtonStyle));
+      }
     }
   }
 
