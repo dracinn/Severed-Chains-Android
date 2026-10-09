@@ -22,6 +22,13 @@ This fork keeps the game complete and faithful on Android while making it comfor
 
 **Physical controllers** are still fully supported, just like upstream.
 
+**Mods baked in**
+
+- **Dragoon Modifier** — the official difficulty and customization mod. Pick from several difficulty modes (including Hard and Hell), show monster HP bars, enable enrage bonuses, and more.
+
+It's the [LoD Modding community](https://github.com/Legend-of-Dragoon-Modding/sc-dragoon-modifier)'s own mod, kept up to date with its upstream source.
+
+
 **Versioning and updates**
 
 - Each release reports its real version number, so installs upgrade cleanly.

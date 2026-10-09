@@ -296,11 +296,11 @@ test {
 sourceSets {
   main {
     java {
-      srcDirs = ["src/main/java"]
+      srcDirs = ["src/main/java", "third_party/sc-dragoon-modifier/src/main/java"]
       exclude ".gradle", "build", "files"
     }
     resources {
-      srcDirs = ["src/main/resources"]
+      srcDirs = ["src/main/resources", "third_party/sc-dragoon-modifier/src/main/resources"]
     }
   }
 }
