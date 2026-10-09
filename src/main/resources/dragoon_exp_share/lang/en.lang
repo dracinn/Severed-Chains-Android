@@ -1,0 +1,5 @@
+# Mod metadata
+dragoon_exp_share.name=Dragoon XP Share
+
+dragoon_exp_share.config.secondary_dragoon_xp_multiplier.label=Secondary Character Dragoon XP Gain
+dragoon_exp_share.config.secondary_dragoon_xp_multiplier.help=Percentage of dragoon XP that party members who are not in your active battle party will gain
