@@ -16,17 +16,21 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * On-screen gamepad overlay. Draws a translucent d-pad (left) and PlayStation
- * face-button diamond (right) plus shoulder/select/start, kept inside the
- * pillarboxed margins of the 4:3 game image. Emits gamepad button/axis events
+ * On-screen gamepad overlay. Draws a floating analog stick (left) and a
+ * PlayStation face-button diamond (right) plus shoulder/select/start, kept
+ * inside the pillarboxed margins of the 4:3 game image. The stick is not
+ * fixed: a touch anywhere in the left zone anchors it under the thumb and
+ * drags emit LEFT_X/LEFT_Y axis values. Emits gamepad button/axis events
  * (deviceId -1) into the AndroidInput queue; touches that hit nothing are
  * left for the touch-to-mouse path. Hides itself when a physical gamepad
  * reports input, reappears on the next touch.
  */
 public class TouchControlsView extends View {
   private static final int ALPHA = 90; // ~35%
+  /** Fraction of stick radius below which a deflection reads as centred. */
+  private static final float STICK_DEADZONE = 0.06f;
 
-  /** A control zone. D-pad produces up to two direction buttons from a single touch. */
+  /** A control zone for round buttons and trigger axes. */
   private static final class Ctrl {
     final String label;
     float x;
@@ -34,7 +38,6 @@ public class TouchControlsView extends View {
     float r;
     InputButton button;
     InputAxis axis;
-    boolean dpad;
 
     Ctrl(final String label) {
       this.label = label;
@@ -51,25 +54,37 @@ public class TouchControlsView extends View {
       c.axis = axis;
       return c;
     }
-
-    static Ctrl dpad() {
-      final Ctrl c = new Ctrl("");
-      c.dpad = true;
-      return c;
-    }
   }
 
   private final List<Ctrl> controls = new ArrayList<>();
-  private final Ctrl dpad = Ctrl.dpad();
   private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   private final Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
   private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-  /** pointerId -> x,y for fingers that landed on a control */
+  /** pointerId -> x,y for fingers that landed on a control or the stick */
   private final SparseArray<float[]> active = new SparseArray<>();
   /** Tokens (InputButton / InputAxis) currently held by active pointers */
   private final Set<Object> heldTokens = new HashSet<>();
   private boolean gestureConsumed;
+
+  /** Floating stick: -1 when no finger owns it. */
+  private int stickPointerId = -1;
+  private float stickAnchorX;
+  private float stickAnchorY;
+  /** Knob deflection in -1..1 */
+  private float stickDeflX;
+  private float stickDeflY;
+  private float lastStickAxisX;
+  private float lastStickAxisY;
+
+  /** Rest position and travel radius of the stick base. */
+  private float stickHomeX;
+  private float stickHomeY;
+  private float stickR;
+  /** Left-side region in which a touchdown claims the stick. */
+  private float stickZoneTop;
+  private float stickZoneRight;
+  private float stickZoneBottom;
 
   private float dp;
 
@@ -93,11 +108,14 @@ public class TouchControlsView extends View {
 
     this.controls.clear();
 
-    // D-pad in the left pillarbox margin
-    this.dpad.x = w * 0.09f;
-    this.dpad.y = h * 0.70f;
-    this.dpad.r = 60 * this.dp;
-    this.controls.add(this.dpad);
+    // Stick rests in the left pillarbox margin and can be anchored anywhere
+    // in the left zone; buttons keep priority so the zone may overlap them.
+    this.stickHomeX = w * 0.09f;
+    this.stickHomeY = h * 0.70f;
+    this.stickR = 60 * this.dp;
+    this.stickZoneRight = w * 0.30f;
+    this.stickZoneTop = h * 0.25f;
+    this.stickZoneBottom = h * 0.92f;
 
     // Face-button diamond in the right pillarbox margin
     final float fx = w * 0.91f;
@@ -165,9 +183,18 @@ public class TouchControlsView extends View {
       case MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
         final int idx = ev.getActionIndex();
         final int id = ev.getPointerId(idx);
-        if(this.hit(ev.getX(idx), ev.getY(idx)) != null) {
+        final float x = ev.getX(idx);
+        final float y = ev.getY(idx);
+        if(this.hit(x, y) != null) {
           this.gestureConsumed = true;
-          this.active.put(id, new float[] {ev.getX(idx), ev.getY(idx)});
+          this.active.put(id, new float[] {x, y});
+        } else if(this.stickPointerId == -1 && this.inStickZone(x, y)) {
+          this.stickPointerId = id;
+          this.stickAnchorX = x;
+          this.stickAnchorY = y;
+          this.gestureConsumed = true;
+          this.active.put(id, new float[] {x, y});
+          this.invalidate();
         }
       }
 
@@ -183,7 +210,11 @@ public class TouchControlsView extends View {
 
       case MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> {
         final int idx = ev.getActionIndex();
-        this.active.remove(ev.getPointerId(idx));
+        final int id = ev.getPointerId(idx);
+        this.active.remove(id);
+        if(id == this.stickPointerId) {
+          this.releaseStick();
+        }
       }
     }
 
@@ -200,30 +231,69 @@ public class TouchControlsView extends View {
     return true;
   }
 
+  private void releaseStick() {
+    this.stickPointerId = -1;
+    this.stickDeflX = 0;
+    this.stickDeflY = 0;
+    if(this.lastStickAxisX != 0) {
+      this.lastStickAxisX = 0;
+      AndroidInput.gamepadAxis(AndroidInput.TOUCH_DEVICE_ID, InputAxis.LEFT_X, 0);
+    }
+    if(this.lastStickAxisY != 0) {
+      this.lastStickAxisY = 0;
+      AndroidInput.gamepadAxis(AndroidInput.TOUCH_DEVICE_ID, InputAxis.LEFT_Y, 0);
+    }
+    this.invalidate();
+  }
+
+  /** Recompute deflection for the owning finger and emit changed axes. */
+  private void updateStick(final float x, final float y) {
+    float dx = (x - this.stickAnchorX) / this.stickR;
+    float dy = (y - this.stickAnchorY) / this.stickR;
+    final float len = (float)Math.sqrt(dx * dx + dy * dy);
+    if(len > 1.0f) {
+      dx /= len;
+      dy /= len;
+    }
+    if(Math.abs(dx) < STICK_DEADZONE) {
+      dx = 0;
+    }
+    if(Math.abs(dy) < STICK_DEADZONE) {
+      dy = 0;
+    }
+
+    this.stickDeflX = dx;
+    this.stickDeflY = dy;
+
+    if(dx != this.lastStickAxisX) {
+      this.lastStickAxisX = dx;
+      AndroidInput.gamepadAxis(AndroidInput.TOUCH_DEVICE_ID, InputAxis.LEFT_X, dx);
+    }
+    if(dy != this.lastStickAxisY) {
+      this.lastStickAxisY = dy;
+      AndroidInput.gamepadAxis(AndroidInput.TOUCH_DEVICE_ID, InputAxis.LEFT_Y, dy);
+    }
+
+    this.invalidate();
+  }
+
   private void updateHeldTokens() {
     final Set<Object> tokens = new HashSet<>();
 
     for(int i = 0; i < this.active.size(); i++) {
+      if(this.active.keyAt(i) == this.stickPointerId) {
+        final float[] pos = this.active.valueAt(i);
+        this.updateStick(pos[0], pos[1]);
+        continue;
+      }
+
       final float[] pos = this.active.valueAt(i);
       final Ctrl c = this.hit(pos[0], pos[1]);
       if(c == null) {
         continue;
       }
 
-      if(c.dpad) {
-        final float dx = (pos[0] - c.x) / c.r;
-        final float dy = (pos[1] - c.y) / c.r;
-        if(dx < -0.35f) {
-          tokens.add(InputButton.DPAD_LEFT);
-        } else if(dx > 0.35f) {
-          tokens.add(InputButton.DPAD_RIGHT);
-        }
-        if(dy < -0.35f) {
-          tokens.add(InputButton.DPAD_UP);
-        } else if(dy > 0.35f) {
-          tokens.add(InputButton.DPAD_DOWN);
-        }
-      } else if(c.axis != null) {
+      if(c.axis != null) {
         tokens.add(c.axis);
       } else if(c.button != null) {
         tokens.add(c.button);
@@ -256,6 +326,10 @@ public class TouchControlsView extends View {
     }
   }
 
+  private boolean inStickZone(final float x, final float y) {
+    return x < this.stickZoneRight && y > this.stickZoneTop && y < this.stickZoneBottom;
+  }
+
   private Ctrl hit(final float x, final float y) {
     for(final Ctrl c : this.controls) {
       final float dx = x - c.x;
@@ -273,27 +347,25 @@ public class TouchControlsView extends View {
       return;
     }
 
+    // Stick base sits at the anchor while owned, home position otherwise
+    final float baseX = this.stickPointerId != -1 ? this.stickAnchorX : this.stickHomeX;
+    final float baseY = this.stickPointerId != -1 ? this.stickAnchorY : this.stickHomeY;
+    canvas.drawCircle(baseX, baseY, this.stickR, this.fillPaint);
+    canvas.drawCircle(baseX, baseY, this.stickR, this.strokePaint);
+    canvas.drawCircle(baseX + this.stickDeflX * this.stickR, baseY + this.stickDeflY * this.stickR, this.stickR * 0.4f, this.fillPaint);
+    canvas.drawCircle(baseX + this.stickDeflX * this.stickR, baseY + this.stickDeflY * this.stickR, this.stickR * 0.4f, this.strokePaint);
+
     for(final Ctrl c : this.controls) {
-      if(c.dpad) {
-        canvas.drawCircle(c.x, c.y, c.r, this.fillPaint);
-        canvas.drawCircle(c.x, c.y, c.r, this.strokePaint);
-        final float o = c.r * 0.55f;
-        this.drawLabel(canvas, "▲", c.x, c.y - o);
-        this.drawLabel(canvas, "▼", c.x, c.y + o);
-        this.drawLabel(canvas, "◀", c.x - o, c.y);
-        this.drawLabel(canvas, "▶", c.x + o, c.y);
-      } else {
-        final boolean held = this.heldTokens.contains(c.button != null ? c.button : c.axis);
-        if(held) {
-          this.fillPaint.setARGB(ALPHA + 60, 80, 80, 80);
-        }
-        canvas.drawCircle(c.x, c.y, c.r, this.fillPaint);
-        if(held) {
-          this.fillPaint.setARGB(ALPHA, 40, 40, 40);
-        }
-        canvas.drawCircle(c.x, c.y, c.r, this.strokePaint);
-        this.drawLabel(canvas, c.label, c.x, c.y);
+      final boolean held = this.heldTokens.contains(c.button != null ? c.button : c.axis);
+      if(held) {
+        this.fillPaint.setARGB(ALPHA + 60, 80, 80, 80);
       }
+      canvas.drawCircle(c.x, c.y, c.r, this.fillPaint);
+      if(held) {
+        this.fillPaint.setARGB(ALPHA, 40, 40, 40);
+      }
+      canvas.drawCircle(c.x, c.y, c.r, this.strokePaint);
+      this.drawLabel(canvas, c.label, c.x, c.y);
     }
   }
 
