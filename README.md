@@ -25,10 +25,9 @@ This fork keeps the game complete and faithful on Android while making it comfor
 **Mods baked in**
 
 - **Dragoon Modifier** — the official difficulty and customization mod. Pick from several difficulty modes (including Hard and Hell), show monster HP bars, enable enrage bonuses, and more.
-- **Stardust Indicators** — a sparkle appears over uncollected Stardust so you don't have to hunt for them.
-- **The Legend of Tides** — a complete fishing game with fishing spots, rods, bait, a fish collection, and themed rewards.
 
-These are community mods — Stardust Indicators and The Legend of Tides are maintained by [avionanx](https://github.com/avionanx), and Dragoon Modifier is the [LoD Modding community](https://github.com/Legend-of-Dragoon-Modding/sc-dragoon-modifier)'s own — all kept up to date with their upstream sources.
+It's the [LoD Modding community](https://github.com/Legend-of-Dragoon-Modding/sc-dragoon-modifier)'s own mod, kept up to date with its upstream source.
+
 
 **Versioning and updates**
 

@@ -165,8 +165,6 @@ tasks.register('stageSharedSources', Sync) {
   from '../src/main/java'
   // Vendored upstream mods (third_party/; update with
   // `git subtree pull --prefix=third_party/<dir> <repo> main --squash`)
-  from '../third_party/Stardust-Indicators/src/main/java'
-  from '../third_party/tlot/src/main/java'
   from '../third_party/sc-dragoon-modifier/src/main/java'
   into layout.buildDirectory.dir('shared-sources')
   sharedSourceExcludes.each { exclude it }
@@ -645,8 +643,6 @@ tasks.register('packageSharedClasses', Jar) {
   // Upstream classpath resources (mod lang files, etc.) must ride along:
   // mergeDebugJavaResource puts them at APK root where getResource finds them
   from '../src/main/resources'
-  from '../third_party/Stardust-Indicators/src/main/resources'
-  from '../third_party/tlot/src/main/resources'
   from '../third_party/sc-dragoon-modifier/src/main/resources'
   // Main.main points log4j2.configurationFile at the relative "log4j2.xml";
   // it does not exist on device, so log4j falls back to a classpath lookup
@@ -791,14 +787,8 @@ tasks.register('stageAssets', Copy) {
   from('../patches') {
     into 'patches'
   }
-  // Built-in mod assets read via Path.of("mods/...") (sparkle frames for
-  // Stardust Indicators); extracted to the working dir alongside gfx/.
-  from('../third_party/Stardust-Indicators/mods') {
-    into 'mods'
-  }
-  from('../third_party/tlot/mods') {
-    into 'mods'
-  }
+  // Built-in mod assets read via Path.of("mods/...") (Dragoon Modifier
+  // stat tables/portraits); extracted to the working dir alongside gfx/.
   from('../third_party/sc-dragoon-modifier/mods') {
     into 'mods'
   }
