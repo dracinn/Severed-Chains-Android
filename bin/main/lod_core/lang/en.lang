@@ -1,0 +1,455 @@
+# Mod metadata
+lod_core.name=Legend of Dragoon (core)
+
+# Config categories
+lod_core.config.category.configure=Configure
+lod_core.config.category.gameplay.label=Gameplay
+lod_core.config.category.graphics.label=Graphics
+lod_core.config.category.postprocessing.label=Post-Processing
+lod_core.config.category.user_interface.label=User Interface
+lod_core.config.category.audio.label=Audio
+lod_core.config.category.controls.label=Controls
+lod_core.config.category.other.label=Other
+
+# Font names
+lod_core.font.original.name=Original
+lod_core.font.smooth.name=Smooth
+lod_core.font.invalid.name=<INVALID>
+
+# Config presets
+lod_core.config_presets.severed_chains=Severed Chains
+lod_core.config_presets.modified=%s (Modified)
+lod_core.config_presets.custom=Custom configuration
+lod_core.config_presets.vanilla=Vanilla
+lod_core.config_presets.speedrunner=Speedrunner
+
+# UI text
+lod_core.ui.hotkey=%s (%s)
+
+lod_core.ui.title.uncategorized_saves=Uncategorized saves found. Please enter a name for your campaign.
+lod_core.ui.title.campaign_name=Campaign name:
+lod_core.ui.title.campaign_name_in_use=Campaign name already\nin use
+lod_core.ui.title.ps1_memcard=PS1 memory card found. Please enter a name for your campaign.
+lod_core.ui.title.ps1_memcard_delete_confirm=Delete the memory card file?
+lod_core.ui.title.ps1_memcard_convert_failed=Failed to convert memcard
+lod_core.ui.title.launching_updater=Launching updater...
+lod_core.ui.title.hotkey=(%s)
+lod_core.ui.fps=%.2f/%d FPS
+
+lod_core.ui.updater.updater_not_found=updater.jar not found. Please re-download Severed Chains.
+lod_core.ui.updater.java_not_found=java not found. Cannot launch updater.
+lod_core.ui.updater.launching_updater=Launching updater...
+lod_core.ui.updater.updater_launched=Updater launched. Game will now close.
+lod_core.ui.updater.updater_launch_failed=Failed to launch updater.
+
+lod_core.ui.message_box.yes=Yes
+lod_core.ui.message_box.no=No
+
+lod_core.ui.input_box.accept=Accept
+lod_core.ui.input_box.cancel=Cancel
+
+lod_core.ui.new_campaign.campaign_name=Campaign name
+lod_core.ui.new_campaign.campaign_name_in_use=Campaign name already\nin use
+lod_core.ui.new_campaign.campaign=Campaign
+lod_core.ui.new_campaign.options=Edit Options
+lod_core.ui.new_campaign.options_presets=Options Presets
+lod_core.ui.new_campaign.edit_presets=Edit Presets
+lod_core.ui.new_campaign.load_preset_confirm=Load this preset?\n%s
+lod_core.ui.new_campaign.mods=Mods
+lod_core.ui.new_campaign.start_game=Start Game
+lod_core.ui.new_campaign.unlimited_saves=Severed Chains has unlimited save slots and we recommend\nyou save in a new slot each time.
+
+lod_core.ui.campaign_selection.title=Campaigns
+lod_core.ui.campaign_selection.mods=Mods
+lod_core.ui.campaign_selection.delete=Delete
+lod_core.ui.campaign_selection.back=Back
+lod_core.ui.campaign_selection.change_mods_confirm=Changing mods can cause\nproblems, continue?
+lod_core.ui.campaign_selection.delete_campaign_confirm=Are you sure you want to\ndelete this campaign?
+lod_core.ui.campaign_selection.missing_mods_confirm=Missing mods, continue?
+lod_core.ui.campaign_selection.installed_mods_changed=Installed mods have changed,\nwould you like to enable them?
+lod_core.ui.campaign_selection.failed_to_delete_campaign=Failed to delete campaign
+
+lod_core.ui.load_game.loading=Loading...
+lod_core.ui.load_game.load_confirm=Load this save?
+lod_core.ui.load_game.load_fail=This save cannot be loaded
+lod_core.ui.load_game.cannot_delete_last_save=Cannot delete last save
+lod_core.ui.load_game.delete_confirm=Are you sure you want to\ndelete this save?
+lod_core.ui.load_game.delete_fail=Failed to delete save
+lod_core.ui.load_game.delete=Delete
+lod_core.ui.load_game.back=Back
+lod_core.ui.load_game.invalid_save=Invalid save
+
+lod_core.ui.save_game.save_game=Save Game
+lod_core.ui.save_game.loading=Loading...
+lod_core.ui.save_game.new_save=<new save>
+lod_core.ui.save_game.save_name=Save name:
+lod_core.ui.save_game.save_name_in_use=Save name already\nin use
+lod_core.ui.save_game.saved=Game saved
+lod_core.ui.save_game.save_failed=Failed to save game
+lod_core.ui.save_game.overwrite_confirm=Overwrite save?
+lod_core.ui.save_game.cannot_delete_last_save=Cannot delete last save
+lod_core.ui.save_game.delete_confirm=Are you sure you want to\ndelete this save?
+lod_core.ui.save_game.delete_fail=Failed to delete save
+lod_core.ui.save_game.delete=Delete
+lod_core.ui.save_game.back=Back
+
+lod_core.ui.mods.required=Required mod
+lod_core.ui.mods.tooltip=?
+lod_core.ui.mods.error=Crashed: %s
+lod_core.ui.mods.wrong_version=Wrong version: %s
+lod_core.ui.mods.help=Help
+lod_core.ui.mods.back=Back
+
+lod_core.ui.options_presets.list=Select a Preset
+lod_core.ui.options_presets.edit=Edit Selected
+lod_core.ui.options_presets.delete=Delete Selected
+lod_core.ui.options_presets.delete_confirm=Are you sure you want\nto delete this preset?
+lod_core.ui.options_presets.delete_failed=Failed to delete options preset
+lod_core.ui.options_presets.add=Create New Preset
+lod_core.ui.options_presets.add_name=Preset Name:
+lod_core.ui.options_presets.add_exists=That name is already\nin use
+lod_core.ui.options_presets.edit_global=Edit
+lod_core.ui_options_presets.global_options=Global Options
+lod_core.ui.options_presets.failed_to_save_preset=Failed to save options preset
+lod_core.ui.options_presets.failed_to_load_preset=Failed to load options preset
+lod_core.ui.options_presets.failed_to_load_presets=Failed to load options presets
+lod_core.ui.options_presets.save_changes=Would you like to\nsave your changes?
+lod_core.ui.options_presets.invalid_preset=This preset is\ninvalid
+lod_core.ui.options_presets.back=Back
+lod_core.ui.options_presets.skipped_settings=Skipped %d invalid or unavailable preset settings; see log for details
+
+lod_core.ui.options.advanced=Advanced
+lod_core.ui.options.help=Help
+lod_core.ui.options.back=Back
+lod_core.ui.options.error=Error
+lod_core.ui.options.locked=Locked
+lod_core.ui.options.locked_by=Locked by %s
+lod_core.ui.options.tooltip=?
+lod_core.ui.options.colour_random=Random
+lod_core.ui.options.colour_preview=UI colour preview
+lod_core.ui.options.colour_preview_first=First choice
+lod_core.ui.options.colour_preview_second=Second choice
+
+lod_core.ui.options_category.back=Back
+lod_core.ui.options_category.some_options_not_available=Note: many options will only appear\nin presets or while in-game
+
+lod_core.ui.about.click_on_any_link_to_open=Click on any link to open it
+lod_core.ui.about.view_link=View Link
+lod_core.ui.about.open_link=Open Link
+lod_core.ui.about.back=Back
+lod_core.ui.about.tooltip=?
+lod_core.ui.about.discord=Legend of Dragoon & Severed Chains Discord Community
+lod_core.ui.about.youtube=Legend of Dragoon & Severed Chains YouTube
+lod_core.ui.about.fandom=Legend of Dragoon Global Fandom Website
+lod_core.ui.about.wiki=Legend of Dragoon Wiki
+lod_core.ui.about.project=Severed Chains Project Page
+lod_core.ui.about.github=Severed Chains GitHub Page
+lod_core.ui.about.issue=Report an Issue
+lod_core.ui.about.lod_credits=The Legend of Dragoon Credits
+lod_core.ui.about.sc_credits=Severed Chains Credits
+lod_core.ui.about.sc_credits_creator=Creator
+lod_core.ui.about.sc_credits_lead_developer=Lead Developer
+lod_core.ui.about.sc_credits_developer=Developers
+lod_core.ui.about.sc_credits_contributor=Contributors
+lod_core.ui.about.sc_credits_community=Community Manager
+lod_core.ui.about.sc_credits_tester=Notable Testers
+lod_core.ui.about.sc_credits_helpers=Community Helpers
+lod_core.ui.about.sc_credits_canadians=Canadians
+lod_core.ui.about.sc_credits_honourary_canadians=Honourary Canadians
+lod_core.ui.about.sc_credits_thanks=Special Thanks
+lod_core.ui.about.sc_credits_thirdparty=Third Party Assets
+
+lod_core.ui.too_many_items.too_many_items_confirm=Inventory full. Would you\nlike to swap?
+lod_core.ui.too_many_items.discard_items_confirm=Discard these items?
+lod_core.ui.too_many_items.cannot_be_discarded=This item cannot\nbe discarded
+lod_core.ui.too_many_items.overflow=Overflow
+lod_core.ui.too_many_items.items=Items
+lod_core.ui.too_many_items.equipment=Equipment
+lod_core.ui.too_many_items.sort=Sort
+
+lod_core.ui.shop.category_buy=Buy
+lod_core.ui.shop.category_sell=Sell
+lod_core.ui.shop.category_carried=Carried
+lod_core.ui.shop.category_leave=Leave
+lod_core.ui.shop.items=Items
+lod_core.ui.shop.equipment=Equipment
+lod_core.ui.shop.goods=Goods
+lod_core.ui.shop.gold=Gold
+lod_core.ui.shop.not_enough_gold=Not enough gold
+lod_core.ui.shop.carrying=Carrying: %d
+lod_core.ui.shop.buy=Buy %s?
+lod_core.ui.shop.equip=Equip %s?
+lod_core.ui.shop.sell=Sell %s?
+lod_core.ui.shop.inventory_full=Inventory full
+lod_core.ui.shop.cannot_equip=Cannot equip
+lod_core.ui.shop.failed_to_equip=Failed to equip\n%s
+lod_core.ui.shop.already_have_good=You already have\n%s
+lod_core.ui.shop.shop_empty=This shop has nothing\nto buy
+lod_core.ui.shop.what_do_you_want_to_sell=What do you want\nto sell?
+lod_core.ui.shop.you_have_nothing_to_sell=You have nothing\nto sell
+
+lod_core.ui.ingame_menu.use_item=Use Item
+lod_core.ui.ingame_menu.equipment=Equipment
+lod_core.ui.ingame_menu.inventory=Inventory
+lod_core.ui.ingame_menu.goods=Goods
+lod_core.ui.ingame_menu.mogul_dabas=Diiig
+lod_core.ui.ingame_menu.quit=Quit
+lod_core.ui.ingame_menu.quit_confirm=Quit to main menu?
+lod_core.ui.ingame_menu.status=Status
+lod_core.ui.ingame_menu.additions=Additions
+lod_core.ui.ingame_menu.replace=Replace
+lod_core.ui.ingame_menu.options=Options
+lod_core.ui.ingame_menu.load=Load
+lod_core.ui.ingame_menu.save=Save
+
+lod_core.ui.additions.no_additions=No additions available
+
+lod_core.ui.equipment.unequip=Unequip
+
+lod_core.ui.post_battle.addition_unlocked=Addition Unlocked
+lod_core.ui.post_battle.spell_unlocked=Spell Unlocked
+
+lod_core.ui.item_list.items=Items
+lod_core.ui.item_list.equipment=Equipment
+lod_core.ui.item_list.sort=Sort
+lod_core.ui.item_list.discard=Discard
+lod_core.ui.item_list.back=Back
+lod_core.ui.item_list.discard_confirm=Discard?
+
+lod_core.ui.goods.goods=Goods
+
+# Core items
+lod_core.items.nothing.name=Nothing
+lod_core.items.nothing.description=Nothing
+lod_core.items.nothing.battle_description=Nothing
+
+# Global config
+lod_core.config.controller_keybinds.label=Controls
+lod_core.config.controller_keybinds.configure=Configure...
+lod_core.config.menu_inner_deadzone.label=Menu Deadzone (Inner)
+lod_core.config.menu_outer_deadzone.label=Menu Deadzone (Outer)
+lod_core.config.movement_inner_deadzone.label=Movement Deadzone (Inner)
+lod_core.config.movement_outer_deadzone.label=Movement Deadzone (Outer)
+lod_core.config.disable_mouse_input.label=Disable Mouse Input
+lod_core.config.receive_input_on_inactive_window.label=Receive Input on Inactive Window
+lod_core.config.rumble.label=Rumble
+lod_core.config.rumble_intensity.label=Rumble Intensity
+lod_core.config.touch_face_buttons.label=Touch Face Button Style
+lod_core.config.touch_face_buttons.help=Which console's button glyphs the on-screen touch controls draw (Android only)
+lod_core.config.touch_face_buttons.PLAYSTATION=PlayStation
+lod_core.config.touch_face_buttons.XBOX=Xbox
+lod_core.config.touch_face_buttons.SWITCH=Switch
+lod_core.config.touch_controls_opacity.label=Touch Controls Opacity
+lod_core.config.touch_controls_opacity.help=Opacity of the on-screen touch face buttons and joystick (Android only). Drag the empty middle of the face buttons to move them; pinch there to resize.
+lod_core.config.touch_face_x.label=Touch Face Buttons X
+lod_core.config.touch_face_y.label=Touch Face Buttons Y
+lod_core.config.touch_face_scale.label=Touch Face Buttons Scale
+lod_core.config.allow_widescreen.label=3D Widescreen
+lod_core.config.allow_widescreen.help=Use widescreen mode in 3D areas (world map, battle)
+lod_core.config.submap_widescreen_mode.label=2D Widescreen Mode
+lod_core.config.submap_widescreen_mode.help=Widescreen mode in 2D areas (towns, dungeons, etc.)\nExpanded lets you to see more but you may see strange things near the edges of the screen.
+lod_core.config.submap_widescreen_mode.EXPANDED=Expanded
+lod_core.config.submap_widescreen_mode.FORCED_4_3=Forced 4:3
+lod_core.config.submap_widescreen_mode.STRETCHED=Stretched
+lod_core.config.fullscreen.label=Fullscreen
+lod_core.config.resolution.label=Resolution
+lod_core.config.resolution.help=Native is generally recommended and will render at the exact size of the game window.\nUsing higher resolutions than your window size may improve image quality by anti-aliasing (SSAA).
+lod_core.config.resolution.ORIGINAL=240p (original)
+lod_core.config.resolution._480=480p
+lod_core.config.resolution._720=720p
+lod_core.config.resolution._1080=1080p
+lod_core.config.resolution._1440=1440p
+lod_core.config.resolution._4K=4K
+lod_core.config.resolution._8K=8K
+lod_core.config.resolution.NATIVE=Native (window size)
+lod_core.config.monitor.label=Monitor
+lod_core.config.reduce_motion_flashing.label=Reduce Motion/Flashing
+lod_core.config.reduce_motion_flashing.help=Reduces some fast motion and flashing. May help people who\nare sensitive to fast motion or flashing lights/colours.\n\nWARNING: use at your own risk. We cannot guarantee that\nthis feature will make the game safe to play for anyone.
+lod_core.config.frame_skip.label=Frame Skip
+lod_core.config.frame_skip.help=Skips frames to increase performance when game speed is higher than 1x.
+lod_core.config.audio_device.label=Audio Device
+lod_core.config.master_volume.label=Volume - All
+lod_core.config.music_volume.label=Volume - Music
+lod_core.config.sfx_volume.label=Volume - SFX
+lod_core.config.fmv_volume.label=Volume - FMV
+lod_core.config.music_interpolation_precision.label = Interpolation Precision
+lod_core.config.music_interpolation_precision.Quarter = Quarter
+lod_core.config.music_interpolation_precision.Half = Half
+lod_core.config.music_interpolation_precision.Retail = Retail
+lod_core.config.music_interpolation_precision.Double = Double
+lod_core.config.music_interpolation_precision.Quadruple = Quadruple
+lod_core.config.music_pitch_resolution.label = Pitch Resolution
+lod_core.config.music_pitch_resolution.Quarter = Quarter
+lod_core.config.music_pitch_resolution.Half = Half
+lod_core.config.music_pitch_resolution.Retail = Retail
+lod_core.config.music_pitch_resolution.Double = Double
+lod_core.config.music_pitch_resolution.Quadruple = Quadruple
+lod_core.config.music_pitch_resolution.Octuple = Octuple
+lod_core.config.music_effects_over_time_granularity.label = Effects Granularity
+lod_core.config.music_effects_over_time_granularity.Retail = Retail
+lod_core.config.music_effects_over_time_granularity.Double = Double
+lod_core.config.music_effects_over_time_granularity.Quadruple = Quadruple
+lod_core.config.music_effects_over_time_granularity.Octuple = Octuple
+lod_core.config.music_effects_over_time_granularity.Sexdecuple = Sexdecuple
+lod_core.config.music_effects_over_time_granularity.Duotrigintuple = Duotrigintuple
+lod_core.config.create_crash_save.label=Auto-Save on Crash
+lod_core.config.create_crash_save.help=If the game crashes, attempt to save the game\nautomatically (does not overwrite existing save)
+lod_core.config.ignore_steam_input_mode.label=Steam Input Fix
+lod_core.config.ignore_steam_input_mode.help=Fixes duplicate keyboard input when Steam is running and Steam Input is\nenabled. Only change this if your keyboard isn't working.\n\nIgnore when gamepad used - ignores keyboard when gamepad buttons are pressed\nOff - allow duplicate inputs from Steam Input
+lod_core.config.ignore_steam_input_mode.VIRTUAL_KEYBOARD_ID=Ignore virtual (recommended)
+lod_core.config.ignore_steam_input_mode.IGNORE_WHEN_GAMEPAD_USED=Ignore when gamepad used
+lod_core.config.ignore_steam_input_mode.NONE=Off (allow Steam Input)
+lod_core.config.retail_font.label=Font
+lod_core.config.language.label=Language (WIP, Menu Only)
+lod_core.config.language.help=Language support is a work in progress and most of the game will still display in English
+lod_core.config.show_fps.label=Show FPS
+
+# Shader config
+lod_core.config.shader_enable_crt.label=CRT Enabled
+lod_core.config.shader_scanlines_opacity.label=CRT: Scanline Opacity
+lod_core.config.shader_grille_opacity.label=CRT: Grille Opacity
+lod_core.config.shader_pixelate.label=CRT: Pixelate
+lod_core.config.shader_pixelate.NONE=None
+lod_core.config.shader_pixelate.P240=240p (Original)
+lod_core.config.shader_pixelate.P480=480p
+lod_core.config.shader_pixelate.P720=720p
+lod_core.config.shader_pixelate.NATIVE_1_4=1/4 x Native
+lod_core.config.shader_pixelate.NATIVE_1_3=1/3 x Native
+lod_core.config.shader_pixelate.NATIVE_1_2=1/2 x Native
+lod_core.config.shader_roll.label=CRT: Roll
+lod_core.config.shader_roll_speed.label=CRT: Roll Speed
+lod_core.config.shader_roll_size.label=CRT: Roll Size
+lod_core.config.shader_roll_variation.label=CRT: Roll Variation
+lod_core.config.shader_roll_intensity.label=CRT: Roll Intensity
+lod_core.config.shader_noise_opacity.label=CRT: Noise Opacity
+lod_core.config.shader_noise_speed.label=CRT: Noise Speed
+lod_core.config.shader_static_intensity.label=CRT: Static Intensity
+lod_core.config.shader_aberration.label=CRT: Aberration
+lod_core.config.shader_brightness.label=CRT: Brightness
+lod_core.config.shader_discolour.label=CRT: Discolour
+lod_core.config.shader_edge_warp.label=CRT: Edge Warp Intensity
+lod_core.config.shader_vignette_intensity.label=CRT: Vignette Intensity
+lod_core.config.shader_vignette_opacity.label=CRT: Vignette Opacity
+lod_core.config.shader_bloom_intensity.label=CRT: Bloom Intensity
+lod_core.config.shader_bloom_threshold.label=CRT: Bloom Threshold
+lod_core.config.shader_bloom_radius.label=CRT: Bloom Radius
+
+# FMV config
+lod_core.config.fmv.skip_keyboard = Press %s to skip
+lod_core.config.fmv.skip_controller = Press %s to skip
+lod_core.config.fmv.skip_mouse = Click again to skip
+
+# Campaign config
+lod_core.config.indicator_mode.label=Indicator Mode
+lod_core.config.indicator_mode.help=Map indicators such as doors. Momentary shows indicators briefly and then hides them.
+lod_core.config.indicator_mode.OFF=Off
+lod_core.config.indicator_mode.MOMENTARY=Momentary
+lod_core.config.indicator_mode.ON=On
+lod_core.config.inventory_size.label=Inventory Size
+lod_core.config.encounter_rate.label=Encounter Rate
+lod_core.config.encounter_rate.help=Retail: original experience (bugged). 75%% fewer encounters than intended when walking in 2/4 directions.\nIntended: what the devs intended. Lots of encounters.\nAverage: recommended. Same number of encounters as retail but averaged in all directions.
+lod_core.config.encounter_rate.RETAIL=Retail
+lod_core.config.encounter_rate.AVERAGE=Average
+lod_core.config.encounter_rate.INTENDED=Intended
+lod_core.config.encounter_rate.NONE=None
+lod_core.config.addition_mode.label=Addition Mode
+lod_core.config.addition_mode.NORMAL=Normal
+lod_core.config.addition_mode.AUTOMATIC=Automatic
+lod_core.config.auto_dragoon_addition.label=Automatic Dragoon Addition
+lod_core.config.addition_overlay_mode.label=Addition Overlay Mode
+lod_core.config.addition_overlay_mode.help=No reticule: only shows middle square\nNo HUD: removes addition HUD entirely
+lod_core.config.addition_overlay_mode.FULL=Normal
+lod_core.config.addition_overlay_mode.PARTIAL=No reticule
+lod_core.config.addition_overlay_mode.OFF=No HUD
+lod_core.config.addition_overlay_size.label=Addition Overlay Size
+lod_core.config.addition_overlay_size.help=Adjusts the size of the attack quick time event reticule.\nNote: players tend to find additions easier with larger reticules.
+lod_core.config.addition_timing_window.label=Addition Timing Window
+lod_core.config.addition_timing_window.help=Adjusts the timing window for addition button presses.\n100%% = original difficulty, 200%% = double the window (easier), etc.
+lod_core.config.transformation_mode.label=Dragoon Transformation Mode
+lod_core.config.transformation_mode.NORMAL=Normal
+lod_core.config.transformation_mode.SHORT=Short
+lod_core.config.quick_text.label=Quick Text
+lod_core.config.quick_text.help=Controls how fast text appears in textboxes.\nHold: hold the confirm button to speed up textboxes\nAlways: textboxes are always sped up\nInstant: textboxes and text appear instantly
+lod_core.config.quick_text.HOLD=Hold
+lod_core.config.quick_text.ALWAYS=Always
+lod_core.config.quick_text.INSTANT=Instant
+lod_core.config.auto_text.label=Automatic Text Advance
+lod_core.config.auto_text_delay.label=Automatic Text Delay (seconds)
+lod_core.config.save_anywhere.label=Save Anywhere
+lod_core.config.save_anywhere.help=WARNING: do not save during story events, while crossing stepping stones, etc.
+lod_core.config.auto_save_after_battle.label=Save Anywhere: Auto-Save After Battle
+lod_core.config.auto_save_after_battle.help=Automatically creates a new save after returning to a savable sub map from battle.
+lod_core.config.disable_status_effects.label=Disable Status Effects
+lod_core.config.enemy_hp_bars.label=Enemy HP Bars
+lod_core.config.mash_mode.label=Button Mash Mode
+lod_core.config.mash_mode.MASH=Mash
+lod_core.config.mash_mode.HOLD=Hold
+lod_core.config.mash_mode.AUTO=Automatic
+lod_core.config.secondary_character_xp_multiplier.label=Secondary Character XP Gain
+lod_core.config.secondary_character_xp_multiplier.help=Percentage of XP that characters who are not in your active party will gain
+lod_core.config.battle_transition_mode.label=Battle Transition
+lod_core.config.battle_transition_mode.NORMAL=Normal
+lod_core.config.battle_transition_mode.FAST=Fast
+lod_core.config.battle_transition_mode.INSTANT=Instant
+lod_core.config.unlock_party.label=Unlock Party
+lod_core.config.unlock_party.help=Allows removing Dart from party and playing with 1 or 2 characters
+lod_core.config.icon_set.label=Icon Set
+lod_core.config.icon_set.help=Enhanced changes some item and equipment icons to icons that were cut from the game
+lod_core.config.icon_set.ENHANCED=Enhanced
+lod_core.config.icon_set.RETAIL=Retail
+lod_core.config.run_by_default.label=Run by default
+lod_core.config.run_by_default.help=When enabled, the character will run by default and walk when the run input is held
+lod_core.config.item_group_sort_mode.label=Item group sorting
+lod_core.config.item_group_sort_mode.help=Controls sorting within groups (e.g. potions, spells) of items
+lod_core.config.item_group_sort_mode.ALPHABETICAL=Alphabetical
+lod_core.config.item_group_sort_mode.RETAIL=Retail
+lod_core.config.element_icon_config.label=Elemental Icon Display
+lod_core.config.element_icon_config.help=Displays an icon beside damage numbers that will indicate the types of damage.
+lod_core.config.equip_effects_in_dragoon.label=Enable Equip Effects in Dragoon
+lod_core.config.equip_effects_in_dragoon.help=Enables regen and on hit effects from equips in Dragoon form
+
+lod_core.input_actions.menu_up.name=Menu: up
+lod_core.input_actions.menu_down.name=Menu: down
+lod_core.input_actions.menu_left.name=Menu: left
+lod_core.input_actions.menu_right.name=Menu: right
+lod_core.input_actions.menu_top.name=Menu: top
+lod_core.input_actions.menu_bottom.name=Menu: bottom
+lod_core.input_actions.menu_home.name=Menu: home
+lod_core.input_actions.menu_end.name=Menu: end
+lod_core.input_actions.menu_page_up.name=Menu: page up
+lod_core.input_actions.menu_page_down.name=Menu: page down
+lod_core.input_actions.menu_confirm.name=Menu: confirm
+lod_core.input_actions.menu_back.name=Menu: back
+lod_core.input_actions.menu_delete.name=Menu: delete
+lod_core.input_actions.menu_advanced.name=Menu: advanced
+lod_core.input_actions.menu_sort.name=Menu: sort
+lod_core.input_actions.menu_help.name=Menu: help
+lod_core.input_actions.menu_mods.name=Menu: mods
+lod_core.input_actions.menu_textbox_confirm.name=Menu: textbox confirm
+lod_core.input_actions.menu_unequip.name=Menu: unequip
+
+lod_core.input_actions.title_update.name=Title: download update
+lod_core.input_actions.title_convert_memcard.name=Title: convert memcard
+
+lod_core.input_actions.fmv_skip.name=FMV: skip
+
+lod_core.input_actions.general_toggle_fullscreen.name=General: toggle fullscreen
+lod_core.input_actions.general_speed_up.name=General: speed up
+lod_core.input_actions.general_slow_down.name=General: slow down
+lod_core.input_actions.general_toggle_speed.name=General: toggle speed
+lod_core.input_actions.general_turbo.name=General: turbo
+
+lod_core.input_actions.freecam_toggle.name=Freecam: toggle
+lod_core.input_actions.freecam_forward.name=Freecam: forward
+lod_core.input_actions.freecam_backward.name=Freecam: backward
+lod_core.input_actions.freecam_left.name=Freecam: left
+lod_core.input_actions.freecam_right.name=Freecam: right
+lod_core.input_actions.freecam_up.name=Freecam: up
+lod_core.input_actions.freecam_down.name=Freecam: down
+
+lod_core.input_actions.debug_open_debugger.name=Debug: open debugger
+lod_core.input_actions.debug_pause.name=Debug: pause
+lod_core.input_actions.debug_frame_advance.name=Debug: frame advance
+lod_core.input_actions.debug_frame_advance_hold.name=Debug: frame advance (hold)
+lod_core.input_actions.debug_toggle_wireframe.name=Debug: toggle wireframe
+lod_core.input_actions.debug_reload_shaders.name=Debug: reload shaders

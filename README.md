@@ -22,13 +22,6 @@ This fork keeps the game complete and faithful on Android while making it comfor
 
 **Physical controllers** are still fully supported, just like upstream.
 
-**Mods baked in**
-
-- **Stardust Indicators** — a sparkle appears over uncollected Stardust so you don't have to hunt for them.
-- **The Legend of Tides** — a complete fishing game with fishing spots, rods, bait, a fish collection, and themed rewards.
-
-Both are community mods maintained by [avionanx](https://github.com/avionanx) and kept up to date with their upstream sources.
-
 **Versioning and updates**
 
 - Each release reports its real version number, so installs upgrade cleanly.

@@ -165,8 +165,6 @@ tasks.register('stageSharedSources', Sync) {
   from '../src/main/java'
   // Vendored upstream mods (third_party/; update with
   // `git subtree pull --prefix=third_party/<dir> <repo> main --squash`)
-  from '../third_party/Stardust-Indicators/src/main/java'
-  from '../third_party/tlot/src/main/java'
   into layout.buildDirectory.dir('shared-sources')
   sharedSourceExcludes.each { exclude it }
 }
@@ -644,8 +642,6 @@ tasks.register('packageSharedClasses', Jar) {
   // Upstream classpath resources (mod lang files, etc.) must ride along:
   // mergeDebugJavaResource puts them at APK root where getResource finds them
   from '../src/main/resources'
-  from '../third_party/Stardust-Indicators/src/main/resources'
-  from '../third_party/tlot/src/main/resources'
   // Main.main points log4j2.configurationFile at the relative "log4j2.xml";
   // it does not exist on device, so log4j falls back to a classpath lookup
   from('../log4j2.xml') {
@@ -788,14 +784,6 @@ tasks.register('stageAssets', Copy) {
   // Unpacker patch data (replacements, scripts, libs) read via Path.of
   from('../patches') {
     into 'patches'
-  }
-  // Built-in mod assets read via Path.of("mods/...") (sparkle frames for
-  // Stardust Indicators); extracted to the working dir alongside gfx/.
-  from('../third_party/Stardust-Indicators/mods') {
-    into 'mods'
-  }
-  from('../third_party/tlot/mods') {
-    into 'mods'
   }
   // Extracted to the working dir alongside gfx/ for the log4j config path
   from('../log4j2.xml') {
