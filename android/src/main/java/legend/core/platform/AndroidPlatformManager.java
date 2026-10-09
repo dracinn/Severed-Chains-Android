@@ -56,7 +56,11 @@ import static legend.game.modding.coremod.CoreMod.MENU_OUTER_DEADZONE_CONFIG;
 import static legend.game.modding.coremod.CoreMod.MOVEMENT_INNER_DEADZONE_CONFIG;
 import static legend.game.modding.coremod.CoreMod.MOVEMENT_OUTER_DEADZONE_CONFIG;
 import static legend.game.modding.coremod.CoreMod.RECEIVE_INPUT_ON_INACTIVE_WINDOW_CONFIG;
+import static legend.game.modding.coremod.CoreMod.TOUCH_CONTROLS_OPACITY_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_BUTTONS_CONFIG;
+import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_SCALE_CONFIG;
+import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_X_CONFIG;
+import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_Y_CONFIG;
 
 /**
  * Android PlatformManager. Mirrors upstream SdlPlatformManager's tickInput()
@@ -81,6 +85,10 @@ public class AndroidPlatformManager extends PlatformManager {
   private final Map<InputAction, AxisInputState> axisActionStates = new HashMap<>();
   private boolean clearActionStates;
   private TouchFaceButtonStyle lastFaceButtonStyle;
+  private float lastTouchOpacity = Float.NaN;
+  private float lastTouchFaceX = Float.NaN;
+  private float lastTouchFaceY = Float.NaN;
+  private float lastTouchFaceScale = Float.NaN;
 
   private final IntSet gamepads = new IntOpenHashSet();
   private int lastGamepad = -1;
@@ -480,6 +488,14 @@ public class AndroidPlatformManager extends PlatformManager {
       this.axisActionStates.clear();
     }
 
+    // Persist a face-cluster move/resize the overlay reported on the UI thread
+    final float[] pendingFaceLayout = AndroidInput.consumePendingFaceLayout();
+    if(pendingFaceLayout != null) {
+      CONFIG.setConfig(TOUCH_FACE_X_CONFIG.get(), pendingFaceLayout[0]);
+      CONFIG.setConfig(TOUCH_FACE_Y_CONFIG.get(), pendingFaceLayout[1]);
+      CONFIG.setConfig(TOUCH_FACE_SCALE_CONFIG.get(), pendingFaceLayout[2]);
+    }
+
     // Push the face-button glyph style to the touch overlay when it changes
     final TouchFaceButtonStyle faceButtonStyle = CONFIG.getConfig(TOUCH_FACE_BUTTONS_CONFIG.get());
     if(faceButtonStyle != this.lastFaceButtonStyle) {
@@ -487,6 +503,30 @@ public class AndroidPlatformManager extends PlatformManager {
       final TouchControlsView overlay = AndroidInput.overlay;
       if(overlay != null) {
         overlay.post(() -> overlay.setFaceButtonStyle(faceButtonStyle));
+      }
+    }
+
+    // Push touch-control opacity to the overlay when it changes
+    final float touchOpacity = CONFIG.getConfig(TOUCH_CONTROLS_OPACITY_CONFIG.get());
+    if(touchOpacity != this.lastTouchOpacity) {
+      this.lastTouchOpacity = touchOpacity;
+      final TouchControlsView overlay = AndroidInput.overlay;
+      if(overlay != null) {
+        overlay.post(() -> overlay.setOpacity(touchOpacity));
+      }
+    }
+
+    // Push the face-cluster position/scale to the overlay when it changes
+    final float faceX = CONFIG.getConfig(TOUCH_FACE_X_CONFIG.get());
+    final float faceY = CONFIG.getConfig(TOUCH_FACE_Y_CONFIG.get());
+    final float faceScale = CONFIG.getConfig(TOUCH_FACE_SCALE_CONFIG.get());
+    if(faceX != this.lastTouchFaceX || faceY != this.lastTouchFaceY || faceScale != this.lastTouchFaceScale) {
+      this.lastTouchFaceX = faceX;
+      this.lastTouchFaceY = faceY;
+      this.lastTouchFaceScale = faceScale;
+      final TouchControlsView overlay = AndroidInput.overlay;
+      if(overlay != null) {
+        overlay.post(() -> overlay.setFaceLayout(faceX, faceY, faceScale));
       }
     }
   }

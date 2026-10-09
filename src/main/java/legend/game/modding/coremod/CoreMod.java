@@ -43,6 +43,7 @@ import legend.game.modding.coremod.config.EquipEffectsInDragoonConfig;
 import legend.game.modding.coremod.config.FmvVolumeConfigEntry;
 import legend.game.modding.coremod.config.FrameSkipConfigEntry;
 import legend.game.modding.coremod.config.FullscreenConfigEntry;
+import legend.game.modding.coremod.config.HiddenFloatConfigEntry;
 import legend.game.modding.coremod.config.IgnoreSteamInputModeConfigEntry;
 import legend.game.modding.coremod.config.IndicatorModeConfigEntry;
 import legend.game.modding.coremod.config.InventorySizeConfigEntry;
@@ -65,6 +66,7 @@ import legend.game.modding.coremod.config.SaveAnywhereConfig;
 import legend.game.modding.coremod.config.SecondaryCharacterXpMultiplierConfigEntry;
 import legend.game.modding.coremod.config.SfxVolumeConfigEntry;
 import legend.game.modding.coremod.config.ShowAdvancedOptionsConfigEntry;
+import legend.game.modding.coremod.config.TouchControlsOpacityConfigEntry;
 import legend.game.modding.coremod.config.TouchFaceButtonsConfigEntry;
 import legend.game.modding.coremod.config.TransformationModeConfigEntry;
 import legend.game.modding.coremod.config.UnlockPartyConfig;
@@ -112,6 +114,11 @@ public class CoreMod {
   public static final RegistryDelegate<BoolConfigEntry> RUMBLE_CONFIG = CONFIG_REGISTRAR.register("rumble", () -> new BoolConfigEntry(true, ConfigStorageLocation.GLOBAL, ConfigCategory.CONTROLS));
   public static final RegistryDelegate<RumbleIntensityConfigEntry> RUMBLE_INTENSITY_CONFIG = CONFIG_REGISTRAR.register("rumble_intensity", RumbleIntensityConfigEntry::new);
   public static final RegistryDelegate<TouchFaceButtonsConfigEntry> TOUCH_FACE_BUTTONS_CONFIG = CONFIG_REGISTRAR.register("touch_face_buttons", TouchFaceButtonsConfigEntry::new);
+  public static final RegistryDelegate<TouchControlsOpacityConfigEntry> TOUCH_CONTROLS_OPACITY_CONFIG = CONFIG_REGISTRAR.register("touch_controls_opacity", TouchControlsOpacityConfigEntry::new);
+  /** Face-button cluster position/scale, written back by the touch overlay; no menu control. */
+  public static final RegistryDelegate<HiddenFloatConfigEntry> TOUCH_FACE_X_CONFIG = CONFIG_REGISTRAR.register("touch_face_x", () -> new HiddenFloatConfigEntry(0.91f));
+  public static final RegistryDelegate<HiddenFloatConfigEntry> TOUCH_FACE_Y_CONFIG = CONFIG_REGISTRAR.register("touch_face_y", () -> new HiddenFloatConfigEntry(0.70f));
+  public static final RegistryDelegate<HiddenFloatConfigEntry> TOUCH_FACE_SCALE_CONFIG = CONFIG_REGISTRAR.register("touch_face_scale", () -> new HiddenFloatConfigEntry(1.0f));
   public static final RegistryDelegate<IgnoreSteamInputModeConfigEntry> IGNORE_STEAM_INPUT_MODE_CONFIG = CONFIG_REGISTRAR.register("ignore_steam_input_mode", IgnoreSteamInputModeConfigEntry::new);
   public static final RegistryDelegate<BoolConfigEntry> ALLOW_WIDESCREEN_CONFIG = CONFIG_REGISTRAR.register("allow_widescreen", AllowWidescreenConfigEntry::new);
   public static final RegistryDelegate<LegacyWidescreenModeConfig> LEGACY_WIDESCREEN_MODE_CONFIG = CONFIG_REGISTRAR.register("submap_widescreen_mode", LegacyWidescreenModeConfig::new);
