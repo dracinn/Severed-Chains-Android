@@ -2,6 +2,12 @@ package legend.core.platform;
 
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
+import android.os.CombinedVibration;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.os.VibratorManager;
+import android.view.InputDevice;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.longs.Long2FloatMap;
@@ -510,10 +516,14 @@ public class AndroidPlatformManager extends PlatformManager {
     this.rumbleSmallCurrentIntensity = smallIntensity;
 
     if(this.lastRumbleGamepad != this.lastGamepad) {
+      if(this.lastRumbleGamepad != -1) {
+        this.cancelRumble(this.lastRumbleGamepad);
+      }
+
       this.lastRumbleGamepad = this.lastGamepad;
     }
 
-    // No rumble on Android yet
+    this.vibrate(this.lastGamepad, bigIntensity, smallIntensity, ms);
   }
 
   @Override
@@ -533,6 +543,85 @@ public class AndroidPlatformManager extends PlatformManager {
 
   @Override
   public void stopRumble() {
+    if(this.lastRumbleGamepad != -1) {
+      this.cancelRumble(this.lastRumbleGamepad);
+    }
+  }
+
+  // ms == 0 means "run until the next rumble()/stopRumble()", so sustained
+  // rumbles get a long duration that a later call cancels. InputDevice
+  // vibrators don't need the VIBRATE permission.
+  private void vibrate(final int deviceId, final float bigIntensity, final float smallIntensity, final int ms) {
+    final InputDevice device = InputDevice.getDevice(deviceId);
+    if(device == null) {
+      return;
+    }
+
+    final int duration = ms > 0 ? ms : 30_000;
+
+    if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      final VibratorManager manager = device.getVibratorManager();
+      final int[] ids = manager.getVibratorIds();
+      if(ids.length == 0) {
+        return;
+      }
+
+      // First motor is the strong/low-frequency one on dual-motor pads;
+      // single-motor pads get the stronger of the two channels.
+      final CombinedVibration.ParallelCombination combo = CombinedVibration.startParallel();
+      boolean any = false;
+      for(int i = 0; i < ids.length; i++) {
+        final float intensity = ids.length == 1 ? Math.max(bigIntensity, smallIntensity) : i == 0 ? bigIntensity : smallIntensity;
+        if(intensity > 0) {
+          combo.addVibrator(ids[i], VibrationEffect.createOneShot(duration, amplitude(intensity)));
+          any = true;
+        }
+      }
+
+      if(any) {
+        manager.vibrate(combo.combine());
+      } else {
+        manager.cancel();
+      }
+    } else {
+      this.legacyVibrate(device, Math.max(bigIntensity, smallIntensity), duration);
+    }
+  }
+
+  @SuppressWarnings("deprecation") // InputDevice.getVibrator is the only option pre-API 31
+  private void legacyVibrate(final InputDevice device, final float intensity, final int duration) {
+    final Vibrator vibrator = device.getVibrator();
+    if(!vibrator.hasVibrator()) {
+      return;
+    }
+
+    if(intensity > 0) {
+      vibrator.vibrate(VibrationEffect.createOneShot(duration, amplitude(intensity)));
+    } else {
+      vibrator.cancel();
+    }
+  }
+
+  private void cancelRumble(final int deviceId) {
+    final InputDevice device = InputDevice.getDevice(deviceId);
+    if(device == null) {
+      return;
+    }
+
+    if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      device.getVibratorManager().cancel();
+    } else {
+      this.legacyCancel(device);
+    }
+  }
+
+  @SuppressWarnings("deprecation")
+  private void legacyCancel(final InputDevice device) {
+    device.getVibrator().cancel();
+  }
+
+  private static int amplitude(final float intensity) {
+    return Math.max(1, Math.min(255, Math.round(intensity * 255)));
   }
 
   private void updateAxisAction(final InputAction action, final long axisInput, final float value, final int gamepadId, final int axisId, final int rawValue) {
