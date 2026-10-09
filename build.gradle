@@ -296,11 +296,11 @@ test {
 sourceSets {
   main {
     java {
-      srcDirs = ["src/main/java", "third_party/Stardust-Indicators/src/main/java"]
+      srcDirs = ["src/main/java", "third_party/Stardust-Indicators/src/main/java", "third_party/tlot/src/main/java"]
       exclude ".gradle", "build", "files"
     }
     resources {
-      srcDirs = ["src/main/resources", "third_party/Stardust-Indicators/src/main/resources"]
+      srcDirs = ["src/main/resources", "third_party/Stardust-Indicators/src/main/resources", "third_party/tlot/src/main/resources"]
     }
   }
 }

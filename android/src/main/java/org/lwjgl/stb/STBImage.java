@@ -52,6 +52,10 @@ public final class STBImage {
     return out;
   }
 
+  public static void stbi_image_free(final ByteBuffer image) {
+    // Java-side buffer; nothing to free.
+  }
+
   public static String stbi_failure_reason() {
     return failureReason;
   }
