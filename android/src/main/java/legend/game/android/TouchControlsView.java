@@ -26,7 +26,10 @@ import java.util.Set;
  * PlayStation face-button diamond (right) plus shoulder/select/start, kept
  * inside the pillarboxed margins of the 4:3 game image. The stick is not
  * fixed: a touch anywhere in the left zone anchors it under the thumb and
- * drags emit LEFT_X/LEFT_Y axis values. Emits gamepad button/axis events
+ * drags emit LEFT_X/LEFT_Y axis values. The face-button cluster can be
+ * moved by dragging the empty middle of the diamond and resized by
+ * pinching there; the result is persisted via AndroidInput.reportFaceLayout.
+ * Emits gamepad button/axis events
  * (deviceId -1) into the AndroidInput queue; touches that hit nothing are
  * left for the touch-to-mouse path. Hides itself when a physical gamepad
  * reports input, reappears on the next touch.
@@ -34,6 +37,11 @@ import java.util.Set;
 public class TouchControlsView extends View {
   /** Fraction of stick radius below which a deflection reads as centred. */
   private static final float STICK_DEADZONE = 0.06f;
+  private static final float MIN_FACE_SCALE = 0.5f;
+  private static final float MAX_FACE_SCALE = 2.0f;
+  /** Face-cluster unit offsets, multiplied by the (scaled) diamond offset. */
+  private static final float FACE_OFF_DP = 48f;
+  private static final float FACE_R_DP = 26f;
 
   private static final int GOLD = Color.rgb(212, 175, 55);
   private static final int CREAM = Color.rgb(235, 225, 200);
@@ -58,6 +66,9 @@ public class TouchControlsView extends View {
     float ph;
     InputButton button;
     InputAxis axis;
+    /** Face-cluster member: unit diamond offsets (-1..1) around the centre. */
+    float ox;
+    float oy;
 
     Ctrl(final String label) {
       this.label = label;
@@ -89,6 +100,31 @@ public class TouchControlsView extends View {
 
   /** Face-button glyph style pushed from the Controls config (game thread -> UI). */
   private volatile TouchFaceButtonStyle faceButtonStyle = TouchFaceButtonStyle.PLAYSTATION;
+  /** Opacity multiplier for the face buttons and joystick, from Controls config. */
+  private volatile float opacity = 1.0f;
+  /** Face-cluster position (fraction of view) and scale, pushed from config. */
+  private volatile float faceCxN = 0.91f;
+  private volatile float faceCyN = 0.70f;
+  private volatile float faceScaleN = 1.0f;
+
+  /** Face-cluster state in view pixels, refreshed by layoutFaceCluster(). */
+  private final List<Ctrl> faceCtrls = new ArrayList<>();
+  private float faceCx;
+  private float faceCy;
+  private float faceScale = 1.0f;
+  private float faceBoundR;
+
+  /** Move/resize gesture on the face cluster: -1 when not owned. */
+  private int faceMovePointerId = -1;
+  private int faceScalePointerId = -1;
+  private float faceMoveX;
+  private float faceMoveY;
+  private float faceScaleX;
+  private float faceScaleY;
+  private float grabDX;
+  private float grabDY;
+  private float pinchStartDist;
+  private float pinchStartScale;
 
   /** pointerId -> x,y for fingers that landed on a control or the stick */
   private final SparseArray<float[]> active = new SparseArray<>();
@@ -141,6 +177,26 @@ public class TouchControlsView extends View {
     this.invalidate();
   }
 
+  /** Called on the UI thread by AndroidPlatformManager when the Controls config changes. */
+  public void setOpacity(final float opacity) {
+    this.opacity = opacity;
+    this.invalidate();
+  }
+
+  /** Called on the UI thread by AndroidPlatformManager when the persisted face-cluster layout changes. */
+  public void setFaceLayout(final float normalizedX, final float normalizedY, final float scale) {
+    this.faceCxN = normalizedX;
+    this.faceCyN = normalizedY;
+    this.faceScaleN = scale;
+    if(this.dp != 0) {
+      this.faceCx = normalizedX * this.getWidth();
+      this.faceCy = normalizedY * this.getHeight();
+      this.faceScale = Math.max(MIN_FACE_SCALE, Math.min(MAX_FACE_SCALE, scale));
+      this.layoutFaceCluster();
+      this.invalidate();
+    }
+  }
+
   private void layout() {
     final float w = this.getWidth();
     final float h = this.getHeight();
@@ -151,6 +207,7 @@ public class TouchControlsView extends View {
     this.symbolPaint.setStrokeWidth(2.5f * this.dp);
 
     this.controls.clear();
+    this.faceCtrls.clear();
 
     // Stick rests in the left pillarbox margin and can be anchored anywhere
     // in the left zone; buttons keep priority so the zone may overlap them.
@@ -161,15 +218,17 @@ public class TouchControlsView extends View {
     this.stickZoneTop = h * 0.25f;
     this.stickZoneBottom = h * 0.92f;
 
-    // Face-button diamond in the right pillarbox margin
-    final float fx = w * 0.91f;
-    final float fy = h * 0.70f;
-    final float off = 48 * this.dp;
-    final float br = 26 * this.dp;
-    this.add(this.ctrl("\u2715", InputButton.A, fx, fy + off, br));              // bottom
-    this.add(this.ctrl("\u25cb", InputButton.B, fx + off, fy, br));              // right
-    this.add(this.ctrl("\u25a1", InputButton.X, fx - off, fy, br));              // left
-    this.add(this.ctrl("\u25b3", InputButton.Y, fx, fy - off, br));              // top
+    // Face-button diamond; position/scale come from config (drag the centre
+    // gap to move, pinch to resize)
+    this.faceScale = Math.max(MIN_FACE_SCALE, Math.min(MAX_FACE_SCALE, this.faceScaleN));
+    this.faceCx = this.faceCxN * w;
+    this.faceCy = this.faceCyN * h;
+    this.faceCtrls.add(this.faceCtrl("\u2715", InputButton.A, 0, 1));    // bottom
+    this.faceCtrls.add(this.faceCtrl("\u25cb", InputButton.B, 1, 0));    // right
+    this.faceCtrls.add(this.faceCtrl("\u25a1", InputButton.X, -1, 0));   // left
+    this.faceCtrls.add(this.faceCtrl("\u25b3", InputButton.Y, 0, -1));   // top
+    this.layoutFaceCluster();
+    this.controls.addAll(this.faceCtrls);
 
     // Shoulder pills along the top edge
     final float sw = 72 * this.dp;
@@ -210,6 +269,38 @@ public class TouchControlsView extends View {
     return c;
   }
 
+  private Ctrl faceCtrl(final String label, final InputButton button, final float ox, final float oy) {
+    final Ctrl c = Ctrl.button(label, button);
+    c.ox = ox;
+    c.oy = oy;
+    return c;
+  }
+
+  /** Positions the face-button discs around the current centre/scale. */
+  private void layoutFaceCluster() {
+    final float w = this.getWidth();
+    final float h = this.getHeight();
+    final float off = FACE_OFF_DP * this.dp * this.faceScale;
+    final float br = FACE_R_DP * this.dp * this.faceScale;
+    this.faceBoundR = off + br + 14 * this.dp;
+
+    // Keep the cluster centre where at least part of it stays reachable
+    this.faceCx = Math.max(this.faceBoundR * 0.4f, Math.min(w - this.faceBoundR * 0.4f, this.faceCx));
+    this.faceCy = Math.max(this.faceBoundR * 0.4f, Math.min(h - this.faceBoundR * 0.4f, this.faceCy));
+
+    for(final Ctrl c : this.faceCtrls) {
+      c.x = this.faceCx + c.ox * off;
+      c.y = this.faceCy + c.oy * off;
+      c.r = br;
+    }
+  }
+
+  private boolean inFaceCluster(final float x, final float y) {
+    final float dx = x - this.faceCx;
+    final float dy = y - this.faceCy;
+    return dx * dx + dy * dy <= this.faceBoundR * this.faceBoundR;
+  }
+
   @Override
   protected void onSizeChanged(final int w, final int h, final int oldw, final int oldh) {
     this.layout();
@@ -235,7 +326,14 @@ public class TouchControlsView extends View {
         final int id = ev.getPointerId(idx);
         final float x = ev.getX(idx);
         final float y = ev.getY(idx);
-        if(this.hit(x, y) != null) {
+        if(this.faceMovePointerId != -1 && this.faceScalePointerId == -1 && this.inFaceCluster(x, y)) {
+          // Second finger while dragging the cluster: pinch to resize
+          this.faceScalePointerId = id;
+          this.faceScaleX = x;
+          this.faceScaleY = y;
+          this.pinchStartDist = Math.max(1.0f, (float)Math.hypot(x - this.faceMoveX, y - this.faceMoveY));
+          this.pinchStartScale = this.faceScale;
+        } else if(this.hit(x, y) != null) {
           this.gestureConsumed = true;
           this.active.put(id, new float[] {x, y});
         } else if(this.stickPointerId == -1 && this.inStickZone(x, y)) {
@@ -245,17 +343,33 @@ public class TouchControlsView extends View {
           this.gestureConsumed = true;
           this.active.put(id, new float[] {x, y});
           this.invalidate();
+        } else if(this.faceMovePointerId == -1 && this.inFaceCluster(x, y)) {
+          // Finger in the empty middle of the diamond: drag to move the cluster
+          this.faceMovePointerId = id;
+          this.faceMoveX = x;
+          this.faceMoveY = y;
+          this.grabDX = x - this.faceCx;
+          this.grabDY = y - this.faceCy;
+          this.gestureConsumed = true;
         }
       }
 
       case MotionEvent.ACTION_MOVE -> {
         for(int i = 0; i < ev.getPointerCount(); i++) {
-          final float[] pos = this.active.get(ev.getPointerId(i));
+          final int pid = ev.getPointerId(i);
+          final float[] pos = this.active.get(pid);
           if(pos != null) {
             pos[0] = ev.getX(i);
             pos[1] = ev.getY(i);
+          } else if(pid == this.faceMovePointerId) {
+            this.faceMoveX = ev.getX(i);
+            this.faceMoveY = ev.getY(i);
+          } else if(pid == this.faceScalePointerId) {
+            this.faceScaleX = ev.getX(i);
+            this.faceScaleY = ev.getY(i);
           }
         }
+        this.updateFaceGesture();
       }
 
       case MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> {
@@ -264,6 +378,21 @@ public class TouchControlsView extends View {
         this.active.remove(id);
         if(id == this.stickPointerId) {
           this.releaseStick();
+        }
+        if(id == this.faceScalePointerId) {
+          this.faceScalePointerId = -1;
+        }
+        if(id == this.faceMovePointerId) {
+          this.faceMovePointerId = -1;
+          this.faceScalePointerId = -1;
+          this.persistFaceLayout();
+        }
+        if(ev.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+          if(this.faceMovePointerId != -1) {
+            this.faceMovePointerId = -1;
+            this.faceScalePointerId = -1;
+            this.persistFaceLayout();
+          }
         }
       }
     }
@@ -274,11 +403,38 @@ public class TouchControlsView extends View {
 
     this.updateHeldTokens();
 
-    if(this.active.size() == 0 || ev.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+    if(this.active.size() == 0 && this.faceMovePointerId == -1 || ev.getActionMasked() == MotionEvent.ACTION_CANCEL) {
       this.gestureConsumed = false;
     }
 
     return true;
+  }
+
+  /** Apply the latest move/scale pointer positions to the cluster. */
+  private void updateFaceGesture() {
+    if(this.faceMovePointerId == -1) {
+      return;
+    }
+
+    this.faceCx = this.faceMoveX - this.grabDX;
+    this.faceCy = this.faceMoveY - this.grabDY;
+
+    if(this.faceScalePointerId != -1) {
+      final float dist = Math.max(1.0f, (float)Math.hypot(this.faceScaleX - this.faceMoveX, this.faceScaleY - this.faceMoveY));
+      this.faceScale = Math.max(MIN_FACE_SCALE, Math.min(MAX_FACE_SCALE, this.pinchStartScale * dist / this.pinchStartDist));
+    }
+
+    this.layoutFaceCluster();
+    this.invalidate();
+  }
+
+  /** Hand the normalized cluster position/scale to the game thread for config persistence. */
+  private void persistFaceLayout() {
+    final float w = this.getWidth();
+    final float h = this.getHeight();
+    if(w > 0 && h > 0) {
+      AndroidInput.reportFaceLayout(this.faceCx / w, this.faceCy / h, this.faceScale);
+    }
   }
 
   private void releaseStick() {
@@ -404,10 +560,10 @@ public class TouchControlsView extends View {
     // Stick base sits at the anchor while owned, home position otherwise
     final float baseX = this.stickPointerId != -1 ? this.stickAnchorX : this.stickHomeX;
     final float baseY = this.stickPointerId != -1 ? this.stickAnchorY : this.stickHomeY;
-    this.halo(canvas, baseX, baseY, this.stickR * 1.35f, GOLD, 24);
-    this.discPaint.setColor(Color.argb(120, Color.red(DARK), Color.green(DARK), Color.blue(DARK)));
+    this.halo(canvas, baseX, baseY, this.stickR * 1.35f, GOLD, this.a(24));
+    this.discPaint.setColor(Color.argb(this.a(120), Color.red(DARK), Color.green(DARK), Color.blue(DARK)));
     canvas.drawCircle(baseX, baseY, this.stickR, this.discPaint);
-    this.rimPaint.setColor(Color.argb(45, 255, 255, 255));
+    this.rimPaint.setColor(Color.argb(this.a(45), 255, 255, 255));
     canvas.drawCircle(baseX, baseY, this.stickR, this.rimPaint);
     this.rimPaint.setColor(GOLD);
 
@@ -415,11 +571,15 @@ public class TouchControlsView extends View {
     final float nx = baseX + this.stickDeflX * this.stickR;
     final float ny = baseY + this.stickDeflY * this.stickR;
     final float nr = this.stickR * 0.45f;
-    this.discPaint.setColor(Color.argb(235, Color.red(DARK), Color.green(DARK), Color.blue(DARK)));
+    this.discPaint.setColor(Color.argb(this.a(235), Color.red(DARK), Color.green(DARK), Color.blue(DARK)));
     canvas.drawCircle(nx, ny, nr, this.discPaint);
+    this.rimPaint.setAlpha(this.a(255));
     canvas.drawCircle(nx, ny, nr, this.rimPaint);
+    this.rimPaint.setAlpha(255);
     this.tmpRect.set(nx - nr + 4 * this.dp, ny - nr + 4 * this.dp, nx + nr - 4 * this.dp, ny + nr - 4 * this.dp);
+    this.sheenPaint.setAlpha(this.a(140));
     canvas.drawArc(this.tmpRect, 200f, 140f, false, this.sheenPaint);
+    this.sheenPaint.setAlpha(140);
 
     for(final Ctrl c : this.controls) {
       final boolean held = this.heldTokens.contains(c.button != null ? c.button : c.axis);
@@ -429,6 +589,11 @@ public class TouchControlsView extends View {
         this.drawDiscButton(canvas, c, held);
       }
     }
+
+    // Faint ring in the diamond's empty middle: the move/resize grip
+    this.rimPaint.setAlpha(this.a(45));
+    canvas.drawCircle(this.faceCx, this.faceCy, 7 * this.dp * this.faceScale, this.rimPaint);
+    this.rimPaint.setAlpha(255);
   }
 
   /** Soft radial glow behind a control. */
@@ -451,16 +616,23 @@ public class TouchControlsView extends View {
     canvas.drawText(c.label, c.x, c.y - (this.labelPaint.descent() + this.labelPaint.ascent()) / 2, this.labelPaint);
   }
 
+  /** Base alpha scaled by the configured touch-controls opacity. */
+  private int a(final int base) {
+    return Math.round(base * this.opacity);
+  }
+
   /** Round control (face buttons): dark disc, gold rim, sheen, PS symbol. */
   private void drawDiscButton(final Canvas canvas, final Ctrl c, final boolean held) {
-    this.halo(canvas, c.x, c.y, c.r * 1.6f, GOLD, 26);
-    this.discPaint.setColor(Color.argb(held ? 240 : 200, Color.red(DARK), Color.green(DARK), Color.blue(DARK)));
+    this.halo(canvas, c.x, c.y, c.r * 1.6f, GOLD, this.a(26));
+    this.discPaint.setColor(Color.argb(this.a(held ? 240 : 200), Color.red(DARK), Color.green(DARK), Color.blue(DARK)));
     canvas.drawCircle(c.x, c.y, c.r, this.discPaint);
-    this.rimPaint.setAlpha(held ? 255 : 190);
+    this.rimPaint.setAlpha(this.a(held ? 255 : 190));
     canvas.drawCircle(c.x, c.y, c.r, this.rimPaint);
     this.rimPaint.setAlpha(255);
     this.tmpRect.set(c.x - c.r + 3 * this.dp, c.y - c.r + 3 * this.dp, c.x + c.r - 3 * this.dp, c.y + c.r - 3 * this.dp);
+    this.sheenPaint.setAlpha(this.a(140));
     canvas.drawArc(this.tmpRect, 200f, 130f, false, this.sheenPaint);
+    this.sheenPaint.setAlpha(140);
     this.drawFaceSymbol(canvas, c);
   }
 
@@ -504,6 +676,7 @@ public class TouchControlsView extends View {
     final float s = c.r * 0.32f;
     if(c.button == InputButton.Y) {
       this.symbolPaint.setColor(SYMBOL_TRIANGLE);
+      this.symbolPaint.setAlpha(this.a(255));
       this.triPath.reset();
       this.triPath.moveTo(c.x, c.y - s);
       this.triPath.lineTo(c.x + s * 0.9f, c.y + s * 0.7f);
@@ -512,13 +685,16 @@ public class TouchControlsView extends View {
       canvas.drawPath(this.triPath, this.symbolPaint);
     } else if(c.button == InputButton.B) {
       this.symbolPaint.setColor(SYMBOL_CIRCLE);
+      this.symbolPaint.setAlpha(this.a(255));
       canvas.drawCircle(c.x, c.y, s * 0.85f, this.symbolPaint);
     } else if(c.button == InputButton.A) {
       this.symbolPaint.setColor(SYMBOL_CROSS);
+      this.symbolPaint.setAlpha(this.a(255));
       canvas.drawLine(c.x - s, c.y - s, c.x + s, c.y + s, this.symbolPaint);
       canvas.drawLine(c.x + s, c.y - s, c.x - s, c.y + s, this.symbolPaint);
     } else if(c.button == InputButton.X) {
       this.symbolPaint.setColor(SYMBOL_SQUARE);
+      this.symbolPaint.setAlpha(this.a(255));
       this.tmpRect.set(c.x - s * 0.85f, c.y - s * 0.85f, c.x + s * 0.85f, c.y + s * 0.85f);
       canvas.drawRect(this.tmpRect, this.symbolPaint);
     }
@@ -526,6 +702,7 @@ public class TouchControlsView extends View {
 
   private void drawLetter(final Canvas canvas, final Ctrl c, final String letter, final int color) {
     this.letterPaint.setColor(color);
+    this.letterPaint.setAlpha(this.a(255));
     this.letterPaint.setTextSize(c.r * 0.95f);
     canvas.drawText(letter, c.x, c.y - (this.letterPaint.descent() + this.letterPaint.ascent()) / 2, this.letterPaint);
   }

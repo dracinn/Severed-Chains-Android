@@ -63,6 +63,25 @@ public final class AndroidInput {
     }
   }
 
+  /**
+   * Face-button cluster position/scale written by the overlay on the UI
+   * thread after a move/resize gesture; consumed on the game thread by
+   * AndroidPlatformManager.tickInput to persist it into config.
+   * [normalizedX, normalizedY, scale]
+   */
+  private static volatile float[] pendingFaceLayout;
+
+  public static void reportFaceLayout(final float normalizedX, final float normalizedY, final float scale) {
+    pendingFaceLayout = new float[] {normalizedX, normalizedY, scale};
+  }
+
+  @Nullable
+  public static float[] consumePendingFaceLayout() {
+    final float[] layout = pendingFaceLayout;
+    pendingFaceLayout = null;
+    return layout;
+  }
+
   // ------------------------------------------------------------------
   // Producers (UI thread)
   // ------------------------------------------------------------------
