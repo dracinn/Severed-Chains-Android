@@ -2,7 +2,12 @@ package legend.game.android;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.RadialGradient;
+import android.graphics.RectF;
+import android.graphics.Shader;
 import android.util.SparseArray;
 import android.view.MotionEvent;
 import android.view.View;
@@ -26,16 +31,26 @@ import java.util.Set;
  * reports input, reappears on the next touch.
  */
 public class TouchControlsView extends View {
-  private static final int ALPHA = 90; // ~35%
   /** Fraction of stick radius below which a deflection reads as centred. */
   private static final float STICK_DEADZONE = 0.06f;
 
-  /** A control zone for round buttons and trigger axes. */
+  private static final int GOLD = Color.rgb(212, 175, 55);
+  private static final int CREAM = Color.rgb(235, 225, 200);
+  private static final int DARK = Color.rgb(20, 20, 28);
+  private static final int SYMBOL_TRIANGLE = Color.rgb(140, 230, 210);
+  private static final int SYMBOL_CROSS = Color.rgb(150, 180, 255);
+  private static final int SYMBOL_SQUARE = Color.rgb(255, 160, 200);
+  private static final int SYMBOL_CIRCLE = Color.rgb(255, 140, 140);
+
+  /** A control zone for round buttons, pill buttons, and trigger axes. */
   private static final class Ctrl {
     final String label;
     float x;
     float y;
     float r;
+    /** Pill dimensions; when pw > 0 the control is a rounded rect, not a circle. */
+    float pw;
+    float ph;
     InputButton button;
     InputAxis axis;
 
@@ -57,9 +72,14 @@ public class TouchControlsView extends View {
   }
 
   private final List<Ctrl> controls = new ArrayList<>();
-  private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  private final Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-  private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+  private final Paint discPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+  private final Paint rimPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+  private final Paint haloPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+  private final Paint sheenPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+  private final Paint labelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+  private final Paint symbolPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+  private final Path triPath = new Path();
+  private final RectF tmpRect = new RectF();
 
   /** pointerId -> x,y for fingers that landed on a control or the stick */
   private final SparseArray<float[]> active = new SparseArray<>();
@@ -90,13 +110,17 @@ public class TouchControlsView extends View {
 
   public TouchControlsView(final Context context) {
     super(context);
-    this.fillPaint.setARGB(ALPHA, 40, 40, 40);
-    this.fillPaint.setStyle(Paint.Style.FILL);
-    this.strokePaint.setARGB(ALPHA, 255, 255, 255);
-    this.strokePaint.setStyle(Paint.Style.STROKE);
-    this.strokePaint.setStrokeWidth(2f);
-    this.textPaint.setARGB(ALPHA + 80, 255, 255, 255);
-    this.textPaint.setTextAlign(Paint.Align.CENTER);
+    this.discPaint.setStyle(Paint.Style.FILL);
+    this.rimPaint.setStyle(Paint.Style.STROKE);
+    this.rimPaint.setColor(GOLD);
+    this.sheenPaint.setStyle(Paint.Style.STROKE);
+    this.sheenPaint.setColor(Color.argb(140, 255, 240, 190));
+    this.sheenPaint.setStrokeCap(Paint.Cap.ROUND);
+    this.labelPaint.setColor(CREAM);
+    this.labelPaint.setTextAlign(Paint.Align.CENTER);
+    this.labelPaint.setFakeBoldText(true);
+    this.symbolPaint.setStyle(Paint.Style.STROKE);
+    this.symbolPaint.setStrokeCap(Paint.Cap.ROUND);
     AndroidInput.overlay = this;
   }
 
@@ -104,7 +128,10 @@ public class TouchControlsView extends View {
     final float w = this.getWidth();
     final float h = this.getHeight();
     this.dp = this.getResources().getDisplayMetrics().density;
-    this.textPaint.setTextSize(16 * this.dp);
+    this.labelPaint.setTextSize(14 * this.dp);
+    this.rimPaint.setStrokeWidth(2.2f * this.dp);
+    this.sheenPaint.setStrokeWidth(2.5f * this.dp);
+    this.symbolPaint.setStrokeWidth(2.5f * this.dp);
 
     this.controls.clear();
 
@@ -121,32 +148,38 @@ public class TouchControlsView extends View {
     final float fx = w * 0.91f;
     final float fy = h * 0.70f;
     final float off = 48 * this.dp;
-    final float br = 24 * this.dp;
-    this.add(this.ctrl("✕", InputButton.A, fx, fy + off, br));              // bottom
-    this.add(this.ctrl("○", InputButton.B, fx + off, fy, br));              // right
-    this.add(this.ctrl("□", InputButton.X, fx - off, fy, br));              // left
-    this.add(this.ctrl("△", InputButton.Y, fx, fy - off, br));              // top
+    final float br = 26 * this.dp;
+    this.add(this.ctrl("\u2715", InputButton.A, fx, fy + off, br));              // bottom
+    this.add(this.ctrl("\u25cb", InputButton.B, fx + off, fy, br));              // right
+    this.add(this.ctrl("\u25a1", InputButton.X, fx - off, fy, br));              // left
+    this.add(this.ctrl("\u25b3", InputButton.Y, fx, fy - off, br));              // top
 
-    // Shoulder buttons
+    // Shoulder pills along the top edge
+    final float sw = 72 * this.dp;
+    final float sh = 34 * this.dp;
+    final float sy = sh / 2 + h * 0.02f;
     final Ctrl l2 = Ctrl.axis("L2", InputAxis.LEFT_TRIGGER);
-    l2.x = w * 0.05f; l2.y = h * 0.07f; l2.r = 26 * this.dp;
+    l2.x = w * 0.04f + sw / 2; l2.y = sy; l2.pw = sw; l2.ph = sh;
     this.controls.add(l2);
     final Ctrl l1 = Ctrl.button("L1", InputButton.LEFT_BUMPER);
-    l1.x = w * 0.05f; l1.y = h * 0.21f; l1.r = 26 * this.dp;
+    l1.x = l2.x + sw + 14 * this.dp; l1.y = sy; l1.pw = sw; l1.ph = sh;
     this.controls.add(l1);
     final Ctrl r2 = Ctrl.axis("R2", InputAxis.RIGHT_TRIGGER);
-    r2.x = w * 0.95f; r2.y = h * 0.07f; r2.r = 26 * this.dp;
+    r2.x = w * 0.96f - sw / 2; r2.y = sy; r2.pw = sw; r2.ph = sh;
     this.controls.add(r2);
     final Ctrl r1 = Ctrl.button("R1", InputButton.RIGHT_BUMPER);
-    r1.x = w * 0.95f; r1.y = h * 0.21f; r1.r = 26 * this.dp;
+    r1.x = r2.x - sw - 14 * this.dp; r1.y = sy; r1.pw = sw; r1.ph = sh;
     this.controls.add(r1);
 
-    // Select / Start
+    // Select / Start pills centred at the bottom edge
+    final float mw = 58 * this.dp;
+    final float mh = 26 * this.dp;
+    final float my = h * 0.94f;
     final Ctrl select = Ctrl.button("SEL", InputButton.SELECT);
-    select.x = w * 0.10f; select.y = h * 0.94f; select.r = 18 * this.dp;
+    select.x = w * 0.5f - mw / 2 - 8 * this.dp; select.y = my; select.pw = mw; select.ph = mh;
     this.controls.add(select);
     final Ctrl start = Ctrl.button("STA", InputButton.START);
-    start.x = w * 0.90f; start.y = h * 0.94f; start.r = 18 * this.dp;
+    start.x = w * 0.5f + mw / 2 + 8 * this.dp; start.y = my; start.pw = mw; start.ph = mh;
     this.controls.add(start);
   }
 
@@ -334,7 +367,11 @@ public class TouchControlsView extends View {
     for(final Ctrl c : this.controls) {
       final float dx = x - c.x;
       final float dy = y - c.y;
-      if(dx * dx + dy * dy <= c.r * c.r) {
+      if(c.pw > 0) {
+        if(Math.abs(dx) <= c.pw / 2 && Math.abs(dy) <= c.ph / 2) {
+          return c;
+        }
+      } else if(dx * dx + dy * dy <= c.r * c.r) {
         return c;
       }
     }
@@ -350,27 +387,89 @@ public class TouchControlsView extends View {
     // Stick base sits at the anchor while owned, home position otherwise
     final float baseX = this.stickPointerId != -1 ? this.stickAnchorX : this.stickHomeX;
     final float baseY = this.stickPointerId != -1 ? this.stickAnchorY : this.stickHomeY;
-    canvas.drawCircle(baseX, baseY, this.stickR, this.fillPaint);
-    canvas.drawCircle(baseX, baseY, this.stickR, this.strokePaint);
-    canvas.drawCircle(baseX + this.stickDeflX * this.stickR, baseY + this.stickDeflY * this.stickR, this.stickR * 0.4f, this.fillPaint);
-    canvas.drawCircle(baseX + this.stickDeflX * this.stickR, baseY + this.stickDeflY * this.stickR, this.stickR * 0.4f, this.strokePaint);
+    this.halo(canvas, baseX, baseY, this.stickR * 1.35f, GOLD, 24);
+    this.discPaint.setColor(Color.argb(120, Color.red(DARK), Color.green(DARK), Color.blue(DARK)));
+    canvas.drawCircle(baseX, baseY, this.stickR, this.discPaint);
+    this.rimPaint.setColor(Color.argb(45, 255, 255, 255));
+    canvas.drawCircle(baseX, baseY, this.stickR, this.rimPaint);
+    this.rimPaint.setColor(GOLD);
+
+    // Thumb orb: dark disc, gold rim, top sheen
+    final float nx = baseX + this.stickDeflX * this.stickR;
+    final float ny = baseY + this.stickDeflY * this.stickR;
+    final float nr = this.stickR * 0.45f;
+    this.discPaint.setColor(Color.argb(235, Color.red(DARK), Color.green(DARK), Color.blue(DARK)));
+    canvas.drawCircle(nx, ny, nr, this.discPaint);
+    canvas.drawCircle(nx, ny, nr, this.rimPaint);
+    this.tmpRect.set(nx - nr + 4 * this.dp, ny - nr + 4 * this.dp, nx + nr - 4 * this.dp, ny + nr - 4 * this.dp);
+    canvas.drawArc(this.tmpRect, 200f, 140f, false, this.sheenPaint);
 
     for(final Ctrl c : this.controls) {
       final boolean held = this.heldTokens.contains(c.button != null ? c.button : c.axis);
-      if(held) {
-        this.fillPaint.setARGB(ALPHA + 60, 80, 80, 80);
+      if(c.pw > 0) {
+        this.drawPill(canvas, c, held);
+      } else {
+        this.drawDiscButton(canvas, c, held);
       }
-      canvas.drawCircle(c.x, c.y, c.r, this.fillPaint);
-      if(held) {
-        this.fillPaint.setARGB(ALPHA, 40, 40, 40);
-      }
-      canvas.drawCircle(c.x, c.y, c.r, this.strokePaint);
-      this.drawLabel(canvas, c.label, c.x, c.y);
     }
   }
 
-  private void drawLabel(final Canvas canvas, final String label, final float x, final float y) {
-    canvas.drawText(label, x, y - (this.textPaint.descent() + this.textPaint.ascent()) / 2, this.textPaint);
+  /** Soft radial glow behind a control. */
+  private void halo(final Canvas canvas, final float x, final float y, final float r, final int color, final int alpha) {
+    this.haloPaint.setShader(new RadialGradient(x, y, r,
+        Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color)), Color.TRANSPARENT,
+        Shader.TileMode.CLAMP));
+    canvas.drawCircle(x, y, r, this.haloPaint);
+  }
+
+  /** Rounded-rect control (shoulders, select/start). */
+  private void drawPill(final Canvas canvas, final Ctrl c, final boolean held) {
+    this.discPaint.setColor(Color.argb(held ? 235 : 190, Color.red(DARK), Color.green(DARK), Color.blue(DARK)));
+    this.tmpRect.set(c.x - c.pw / 2, c.y - c.ph / 2, c.x + c.pw / 2, c.y + c.ph / 2);
+    canvas.drawRoundRect(this.tmpRect, c.ph / 2, c.ph / 2, this.discPaint);
+    this.rimPaint.setAlpha(held ? 255 : 180);
+    canvas.drawRoundRect(this.tmpRect, c.ph / 2, c.ph / 2, this.rimPaint);
+    this.rimPaint.setAlpha(255);
+    this.labelPaint.setAlpha(held ? 255 : 240);
+    canvas.drawText(c.label, c.x, c.y - (this.labelPaint.descent() + this.labelPaint.ascent()) / 2, this.labelPaint);
+  }
+
+  /** Round control (face buttons): dark disc, gold rim, sheen, PS symbol. */
+  private void drawDiscButton(final Canvas canvas, final Ctrl c, final boolean held) {
+    this.halo(canvas, c.x, c.y, c.r * 1.6f, GOLD, 26);
+    this.discPaint.setColor(Color.argb(held ? 240 : 200, Color.red(DARK), Color.green(DARK), Color.blue(DARK)));
+    canvas.drawCircle(c.x, c.y, c.r, this.discPaint);
+    this.rimPaint.setAlpha(held ? 255 : 190);
+    canvas.drawCircle(c.x, c.y, c.r, this.rimPaint);
+    this.rimPaint.setAlpha(255);
+    this.tmpRect.set(c.x - c.r + 3 * this.dp, c.y - c.r + 3 * this.dp, c.x + c.r - 3 * this.dp, c.y + c.r - 3 * this.dp);
+    canvas.drawArc(this.tmpRect, 200f, 130f, false, this.sheenPaint);
+    this.drawFaceSymbol(canvas, c);
+  }
+
+  /** PlayStation symbol inside a face button, drawn procedurally. */
+  private void drawFaceSymbol(final Canvas canvas, final Ctrl c) {
+    final float s = c.r * 0.32f;
+    if(c.button == InputButton.Y) {
+      this.symbolPaint.setColor(SYMBOL_TRIANGLE);
+      this.triPath.reset();
+      this.triPath.moveTo(c.x, c.y - s);
+      this.triPath.lineTo(c.x + s * 0.9f, c.y + s * 0.7f);
+      this.triPath.lineTo(c.x - s * 0.9f, c.y + s * 0.7f);
+      this.triPath.close();
+      canvas.drawPath(this.triPath, this.symbolPaint);
+    } else if(c.button == InputButton.B) {
+      this.symbolPaint.setColor(SYMBOL_CIRCLE);
+      canvas.drawCircle(c.x, c.y, s * 0.85f, this.symbolPaint);
+    } else if(c.button == InputButton.A) {
+      this.symbolPaint.setColor(SYMBOL_CROSS);
+      canvas.drawLine(c.x - s, c.y - s, c.x + s, c.y + s, this.symbolPaint);
+      canvas.drawLine(c.x + s, c.y - s, c.x - s, c.y + s, this.symbolPaint);
+    } else if(c.button == InputButton.X) {
+      this.symbolPaint.setColor(SYMBOL_SQUARE);
+      this.tmpRect.set(c.x - s * 0.85f, c.y - s * 0.85f, c.x + s * 0.85f, c.y + s * 0.85f);
+      canvas.drawRect(this.tmpRect, this.symbolPaint);
+    }
   }
 
   @Override
