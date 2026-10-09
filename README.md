@@ -25,8 +25,9 @@ This fork keeps the game complete and faithful on Android while making it comfor
 **Mods baked in**
 
 - **Dragoon Modifier** — the official difficulty and customization mod. Pick from several difficulty modes (including Hard and Hell), show monster HP bars, enable enrage bonuses, and more.
+- **Dragoon XP Share** — party members on the bench who have a dragoon spirit gain a share of dragoon XP too, adjustable in the config.
 
-It's the [LoD Modding community](https://github.com/Legend-of-Dragoon-Modding/sc-dragoon-modifier)'s own mod, kept up to date with its upstream source.
+Dragoon Modifier is the [LoD Modding community](https://github.com/Legend-of-Dragoon-Modding/sc-dragoon-modifier)'s own mod, kept up to date with its upstream source.
 
 
 **Versioning and updates**

@@ -33,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
 import static legend.core.GameEngine.EVENTS;
+import static legend.expshare.DragoonExpShareConfigs.SECONDARY_DRAGOON_XP_MULTIPLIER;
 import static legend.game.modding.coremod.CoreMod.AUTO_TEXT_CONFIG;
 import static legend.game.modding.coremod.CoreMod.AUTO_TEXT_DELAY_CONFIG;
 import static legend.game.modding.coremod.CoreMod.BATTLE_TRANSITION_MODE_CONFIG;
@@ -214,6 +215,7 @@ public final class ConfigPresetManager {
     config.setConfig(SAVE_ANYWHERE_CONFIG.get(), false);
     config.setConfig(UNLOCK_PARTY_CONFIG.get(), false);
     config.setConfig(SECONDARY_CHARACTER_XP_MULTIPLIER_CONFIG.get(), 0.5f);
+    config.setConfig(SECONDARY_DRAGOON_XP_MULTIPLIER.get(), 0.0f);
     config.setConfig(DISPLAY_ELEMENT_ICON_CONFIG.get(), false);
     config.setConfig(ICON_SET.get(), IconSet.RETAIL);
     config.setConfig(ITEM_GROUP_SORT_MODE.get(), ItemGroupSortMode.RETAIL);
