@@ -53,6 +53,8 @@ jobs:
     steps:
     - name: Clone repo
       uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
 
     - name: Stamp version
       run: |
@@ -82,8 +84,15 @@ jobs:
         SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
         SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
         SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
-        ANDROID_VERSION_NAME: ${{ github.ref_name }}
-      run: ./gradlew :android:assembleRelease
+      run: |
+        # Tag builds version off the tag; dispatch builds stamp latest tag + 1
+        # patch so the APK can update an installed release without a wipe.
+        if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+          ver="$GITHUB_REF_NAME"
+        else
+          ver="$(git tag -l 'v*' --sort=-v:refname | head -1 | sed 's/^v//' | awk -F. '{print $1"."$2"."$3+1}')"
+        fi
+        ANDROID_VERSION_NAME="$ver" ./gradlew :android:assembleRelease
 
     - name: Upload signed APK
       uses: actions/upload-artifact@v5
