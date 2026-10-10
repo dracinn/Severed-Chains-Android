@@ -303,6 +303,11 @@ lod_core.config.retail_font.label=Font
 lod_core.config.language.label=Language (WIP, Menu Only)
 lod_core.config.language.help=Language support is a work in progress and most of the game will still display in English
 lod_core.config.show_fps.label=Show FPS
+lod_core.config.perf_overlay.label=Performance Overlay
+lod_core.config.perf_overlay.help=On-screen performance HUD drawn over the game: FPS plus a frame-time graph and stats in Full mode (Android only)
+lod_core.config.perf_overlay.OFF=Off
+lod_core.config.perf_overlay.FPS=FPS
+lod_core.config.perf_overlay.FULL=Full
 
 # Shader config
 lod_core.config.shader_enable_crt.label=CRT Enabled

@@ -291,6 +291,11 @@ public class RenderEngine {
   private int fpsIndex;
   private float currentFps;
 
+  /** Rolling history of raw frame times (ns) for performance overlays, independent of fpsLimit. */
+  private final long[] frameTimeHistory = new long[120];
+  private int frameTimeHistoryIndex;
+  private int frameTimeHistoryCount;
+
   private Runnable renderCallback = () -> { };
 
   private static final float MOVE_SPEED = 0.96f;
@@ -422,6 +427,20 @@ public class RenderEngine {
 
   public float getCurrentFps() {
     return this.currentFps;
+  }
+
+  /**
+   * Copies up to {@code dst.length} of the most recent frame times (nanoseconds) into
+   * {@code dst}, oldest first. Returns the number of entries written.
+   */
+  public int copyFrameTimes(final long[] dst) {
+    final int count = Math.min(dst.length, this.frameTimeHistoryCount);
+    int src = (this.frameTimeHistoryIndex - count + this.frameTimeHistory.length) % this.frameTimeHistory.length;
+    for(int i = 0; i < count; i++) {
+      dst[i] = this.frameTimeHistory[src];
+      src = (src + 1) % this.frameTimeHistory.length;
+    }
+    return count;
   }
 
   public Runnable setRenderCallback(final Runnable renderCallback) {
@@ -813,6 +832,12 @@ public class RenderEngine {
         final long frameTime = System.nanoTime() - this.lastFrame;
         this.lastFrame = System.nanoTime();
         this.vsyncCount += 60.0d * Config.getGameSpeedMultiplier() / this.window.getFpsLimit();
+
+        this.frameTimeHistory[this.frameTimeHistoryIndex] = frameTime;
+        this.frameTimeHistoryIndex = (this.frameTimeHistoryIndex + 1) % this.frameTimeHistory.length;
+        if(this.frameTimeHistoryCount < this.frameTimeHistory.length) {
+          this.frameTimeHistoryCount++;
+        }
 
         final int fpsLimit = Math.max(1, RENDERER.window().getFpsLimit() / Config.getGameSpeedMultiplier());
         this.frameTimes[this.fpsIndex] = frameTime;
