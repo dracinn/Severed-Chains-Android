@@ -1,5 +1,6 @@
 package legend.game.android;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.hardware.input.InputManager;
@@ -31,6 +32,7 @@ import java.nio.file.Path;
  */
 public final class MainActivity extends Activity {
   private static final String TAG = "SC-Main";
+  private static final int REQ_LOG_STORAGE = 1;
 
   private SurfaceView surfaceView;
   private TouchControlsView touchControls;
@@ -49,6 +51,15 @@ public final class MainActivity extends Activity {
     this.getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
     AndroidEnv.init(this);
+
+    // Shared logs in Documents/Severed Chains/logs: crash logs in every build,
+    // verbose engine logs in debug builds. API 26-28 need WRITE_EXTERNAL_STORAGE
+    // at runtime; MediaStore covers 29+. If the user denies, logging is a no-op.
+    if(GameLog.needsPermission(this)) {
+      this.requestPermissions(new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQ_LOG_STORAGE);
+    }
+    GameLog.init(this);
+    GameLog.installCrashHandler();
 
     // Test hook: --ez force_es31 true exercises the GS-less ES 3.1 render
     // path on hardware that supports ES 3.2 (e.g. for Mali testing).

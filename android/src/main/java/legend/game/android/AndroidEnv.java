@@ -228,6 +228,9 @@ public final class AndroidEnv {
         legend.game.Main.main(new String[0]);
       } catch(final Throwable t) {
         Log.e("SC-Main", "Game engine crashed", t);
+        // This catch swallows engine fatals before the uncaught handler sees
+        // them — write the shared crash log here too.
+        GameLog.writeCrashLog(t);
       }
     }, "GameEngine");
     gameThread.start();

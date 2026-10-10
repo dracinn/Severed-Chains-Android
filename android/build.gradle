@@ -491,15 +491,18 @@ tasks.register('patchStagedSources') {
       final String original = text
 
       sharedLiteralTransforms[rel]?.each { literal, replacement ->
+        // Idempotency first: additive transforms keep the needle inside the
+        // replacement (e.g. Resolution rungs), so check the replacement is
+        // absent before matching the needle, or re-runs double-apply.
+        if(text.contains(replacement) || text.contains(replacement.replace('\n', '\r\n'))) {
+          return // already transformed by a previous run
+        }
         // Upstream files mix LF and CRLF; match either newline style and
         // preserve the file's own style in the replacement.
         String needle = literal
         if(!text.contains(needle)) {
           needle = literal.replace('\n', '\r\n')
           if(!text.contains(needle)) {
-            if(text.contains(replacement) || text.contains(replacement.replace('\n', '\r\n'))) {
-              return // already transformed by a previous run
-            }
             throw new GradleException("Staged-source transform missed ${rel}: '${literal}' (upstream changed; update sharedLiteralTransforms)")
           }
         }
