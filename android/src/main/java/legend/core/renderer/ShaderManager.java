@@ -50,7 +50,10 @@ public final class ShaderManager {
   }
 
   public static String transpileShader(final String source, final ShaderStage shaderStage, final IntRef uniformIndex) {
-    final String name = "shaders/" + shaderHash(source, shaderStage) + ".gles";
+    // Shaders ship as ES 3.10 and ES 3.20 variants; pick by context level
+    // (GlesCompat). Geometry shaders only exist in the 320 variant and are
+    // only compiled when the context supports them.
+    final String name = "shaders/" + shaderHash(source, shaderStage) + legend.game.android.GlesCompat.shaderSuffix() + ".gles";
     LOGGER.info("Loading pre-transpiled shader asset %s", name);
 
     final String gles = AndroidEnv.readAsset(name);

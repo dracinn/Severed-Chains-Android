@@ -151,6 +151,10 @@ public class AndroidWindow extends Window {
       throw new RuntimeException("eglMakeCurrent failed: " + EGL14.eglGetError());
     }
 
+    // ES feature level (e.g. Mali Midgard tops out at ES 3.1 - no geometry
+    // shaders); GlesCompat drives shader variants and mesh adaptation.
+    legend.game.android.GlesCompat.detect(android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_VERSION));
+
     EGL14.eglSwapInterval(this.display, 0);
   }
 
