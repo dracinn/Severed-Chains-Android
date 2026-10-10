@@ -45,6 +45,10 @@ uniform float bloom_threshold;
 uniform float bloom_radius;
 uniform vec4 turn_order_bounds;
 
+// CAS-style sharpen strength (0 = off). Sharpens the upscaled image when the
+// game renders below native resolution.
+uniform float upscale_sharpen;
+
 // Performs bilinear filtering manually on a texture
 vec4 textureBilinear(sampler2D tex, vec2 uv) {
   vec2 size = vec2(textureSize(tex, 0));
@@ -59,6 +63,30 @@ vec4 textureBilinear(sampler2D tex, vec2 uv) {
   vec4 t11 = texture(tex, ip + one);
 
   return mix(mix(t00, t10, f.x), mix(t01, t11, f.x), f.y);
+}
+
+// CAS-style sharpen: unsharp mask on the source samples with a neighborhood
+// clamp so edges don't halo. `center` is the already-computed output color;
+// neighbor samples come from the (possibly lower-res) source texture.
+vec3 casSharpen(sampler2D tex, vec2 uv, vec3 center, float amount) {
+  vec2 texel = 1.0 / vec2(textureSize(tex, 0));
+  vec3 n = textureBilinear(tex, uv - vec2(0.0, texel.y)).rgb;
+  vec3 s = textureBilinear(tex, uv + vec2(0.0, texel.y)).rgb;
+  vec3 e = textureBilinear(tex, uv + vec2(texel.x, 0.0)).rgb;
+  vec3 w = textureBilinear(tex, uv - vec2(texel.x, 0.0)).rgb;
+
+  vec3 nbMin = min(min(n, s), min(e, w));
+  vec3 nbMax = max(max(n, s), max(e, w));
+
+  // High-pass: center - blur == 5*center - (n+s+e+w)
+  vec3 sharp = center * 5.0 - (n + s + e + w);
+  vec3 outRgb = mix(center, sharp, amount);
+
+  // Soft clamp to neighborhood range (plus a little headroom) to prevent halos
+  vec3 softMin = min(nbMin, center);
+  vec3 softMax = max(nbMax, center);
+  vec3 range = softMax - softMin + 1e-4;
+  return clamp(outRgb, softMin - range * 0.1, softMax + range * 0.1);
 }
 
 // The Turn Order UI is too small to be legible below 480P,
@@ -136,6 +164,9 @@ void main() {
   frag = vec4(texture(screen, vertUv).rgb, 1.0f);
 
   if(!enableCrt) {
+    if(upscale_sharpen > 0.0) {
+      frag.rgb = casSharpen(screen, vertUv, frag.rgb, upscale_sharpen);
+    }
     return;
   }
 
@@ -289,4 +320,8 @@ void main() {
   }
 
   frag = text;
+
+  if(upscale_sharpen > 0.0) {
+    frag.rgb = casSharpen(screen, uv, frag.rgb, upscale_sharpen);
+  }
 }

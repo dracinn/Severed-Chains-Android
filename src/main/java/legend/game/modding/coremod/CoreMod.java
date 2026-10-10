@@ -70,6 +70,7 @@ import legend.game.modding.coremod.config.TouchControlsOpacityConfigEntry;
 import legend.game.modding.coremod.config.TouchFaceButtonsConfigEntry;
 import legend.game.modding.coremod.config.TransformationModeConfigEntry;
 import legend.game.modding.coremod.config.UnlockPartyConfig;
+import legend.game.modding.coremod.config.UpscalerConfigEntry;
 import legend.game.modding.coremod.shops.EquipmentShopExtension;
 import legend.game.modding.coremod.shops.GoodShopExtension;
 import legend.game.modding.coremod.shops.ItemShopExtension;
@@ -124,6 +125,7 @@ public class CoreMod {
   public static final RegistryDelegate<LegacyWidescreenModeConfig> LEGACY_WIDESCREEN_MODE_CONFIG = CONFIG_REGISTRAR.register("submap_widescreen_mode", LegacyWidescreenModeConfig::new);
   public static final RegistryDelegate<BoolConfigEntry> FULLSCREEN_CONFIG = CONFIG_REGISTRAR.register("fullscreen", FullscreenConfigEntry::new);
   public static final RegistryDelegate<ResolutionConfig> RESOLUTION_CONFIG = CONFIG_REGISTRAR.register("resolution", ResolutionConfig::new);
+  public static final RegistryDelegate<UpscalerConfigEntry> UPSCALER_CONFIG = CONFIG_REGISTRAR.register("upscaler", UpscalerConfigEntry::new);
   public static final RegistryDelegate<MonitorConfigEntry> MONITOR_CONFIG = CONFIG_REGISTRAR.register("monitor", MonitorConfigEntry::new);
   public static final RegistryDelegate<ReduceMotionFlashingConfigEntry> REDUCE_MOTION_FLASHING_CONFIG = CONFIG_REGISTRAR.register("reduce_motion_flashing", ReduceMotionFlashingConfigEntry::new);
   public static final RegistryDelegate<RetailFontConfigEntry> RETAIL_FONT_CONFIG = CONFIG_REGISTRAR.register("retail_font", RetailFontConfigEntry::new);

@@ -18,6 +18,7 @@ import legend.core.platform.input.InputMod;
 import legend.game.EngineState;
 import legend.game.combat.Battle;
 import legend.game.debugger.Debugger;
+import legend.game.modding.coremod.config.UpscalerMode;
 import legend.game.scripting.FlowControl;
 import legend.game.scripting.RunningScript;
 import legend.game.scripting.ScriptDescription;
@@ -95,6 +96,7 @@ import static legend.game.modding.coremod.CoreMod.SHADER_SCANLINES_OPACITY_CONFI
 import static legend.game.modding.coremod.CoreMod.SHADER_STATIC_INTENSITY_CONFIG;
 import static legend.game.modding.coremod.CoreMod.SHADER_VIGNETTE_INTENSITY_CONFIG;
 import static legend.game.modding.coremod.CoreMod.SHADER_VIGNETTE_OPACITY_CONFIG;
+import static legend.game.modding.coremod.CoreMod.UPSCALER_CONFIG;
 
 public class RenderEngine {
   private static final Logger LOGGER = LogManager.getFormatterLogger(RenderEngine.class);
@@ -248,7 +250,8 @@ public class RenderEngine {
       final ShaderUniformFloat bloomThreshold = shader.uniformFloat("bloom_threshold");
       final ShaderUniformFloat bloomRadius = shader.uniformFloat("bloom_radius");
       final ShaderUniformVec4 turnOrderBounds = shader.uniformVec4("turn_order_bounds");
-      return () -> new ShaderOptionsScreen(enableCrt, time, scanlinesOpacity, scanlinesWidth, grilleOpacity, resolution, pixelate, roll, rollSpeed, rollSize, rollVariation, distortIntensity, noiseOpacity, noiseSpeed, staticNoiseIntensity, aberration, brightness, discolour, warpAmount, vignetteIntensity, vignetteOpacity, bloomIntensity, bloomThreshold, bloomRadius, turnOrderBounds);
+      final ShaderUniformFloat upscaleSharpen = shader.uniformFloat("upscale_sharpen");
+      return () -> new ShaderOptionsScreen(enableCrt, time, scanlinesOpacity, scanlinesWidth, grilleOpacity, resolution, pixelate, roll, rollSpeed, rollSize, rollVariation, distortIntensity, noiseOpacity, noiseSpeed, staticNoiseIntensity, aberration, brightness, discolour, warpAmount, vignetteIntensity, vignetteOpacity, bloomIntensity, bloomThreshold, bloomRadius, turnOrderBounds, upscaleSharpen);
     }
   );
 
@@ -697,6 +700,7 @@ public class RenderEngine {
 
         final boolean enableCrt = CONFIG.getConfig(SHADER_ENABLE_CRT_CONFIG.get());
         screenShaderOptions.enableCrt(enableCrt);
+        screenShaderOptions.upscaleSharpen(CONFIG.getConfig(UPSCALER_CONFIG.get()) == UpscalerMode.SHARP ? 0.8f : 0.0f);
 
         if(enableCrt) {
           screenShaderOptions.enableCrt(true);
