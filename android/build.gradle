@@ -774,11 +774,71 @@ dependencies {
   jarPatch 'org.ow2.asm:asm:9.8'
 }
 
+// Patch gfx/shaders for Android before staging/transpiling. Upstream files
+// stay pristine; the staged copies feed both the asset extraction path and
+// ShaderTranspiler, so the runtime content-hash lookup stays consistent.
+def patchedShaders = layout.buildDirectory.dir('patched-gfx/shaders')
+
+tasks.register('patchGfxShaders', Copy) {
+  from('../gfx/shaders')
+  into patchedShaders
+  filesMatching('screen.fsh') {
+    // Copy.filter is invoked per line, so match single lines only.
+    filter { line ->
+      // FSR1-RCAS-style sharpened upscale for the internal-resolution option.
+      // Upstream presents the render buffer with a plain bilinear stretch;
+      // this sharpens the result when (and only when) it is upscaling.
+      if(line == 'void main() {') {
+        return '''// Android: contrast-adaptive sharpened upscale. Neighbours are sampled one
+// output texel away on the bilinear reconstruction, then the centre is
+// unsharp-masked and clamped to the neighbourhood min/max (ringing guard).
+vec3 casUpscale(sampler2D tex, vec2 uv) {
+  vec2 srcTexel = 1.0 / vec2(textureSize(tex, 0));
+  vec2 outTexel = fwidth(uv);
+
+  // Native res or downsampling: the bilinear tap is already correct.
+  if(outTexel.x >= srcTexel.x && outTexel.y >= srcTexel.y) {
+    return texture(tex, uv).rgb;
+  }
+
+  vec3 c = texture(tex, uv).rgb;
+  vec3 n = texture(tex, uv + vec2(0.0, outTexel.y)).rgb;
+  vec3 s = texture(tex, uv - vec2(0.0, outTexel.y)).rgb;
+  vec3 e = texture(tex, uv + vec2(outTexel.x, 0.0)).rgb;
+  vec3 w = texture(tex, uv - vec2(outTexel.x, 0.0)).rgb;
+
+  vec3 lo = min(c, min(min(n, s), min(e, w)));
+  vec3 hi = max(c, max(max(n, s), max(e, w)));
+
+  return clamp(c + (c - (n + s + e + w) * 0.25) * 0.5, lo, hi);
+}
+
+void main() {'''
+      }
+      if(line == '  frag = vec4(texture(screen, vertUv).rgb, 1.0f);') {
+        return '  frag = vec4(casUpscale(screen, vertUv), 1.0f);'
+      }
+      return line
+    }
+  }
+  doLast {
+    if(!new File(destinationDir, 'screen.fsh').text.contains('casUpscale')) {
+      throw new GradleException('screen.fsh transform missed: upstream changed; update patchGfxShaders')
+    }
+  }
+}
+
 // Stage upstream gfx/ as assets/gfx/ so MainActivity can extract it to the
 // app's working directory, preserving upstream's Path.of("gfx/...") reads.
+// Shaders come from the patched copies made by patchGfxShaders.
 tasks.register('stageAssets', Copy) {
+  dependsOn 'patchGfxShaders'
   from('../gfx') {
     into 'gfx'
+    exclude 'shaders/**'
+  }
+  from(patchedShaders) {
+    into 'gfx/shaders'
   }
   from('../lang') {
     into 'lang'
@@ -817,12 +877,12 @@ tasks.register('compileShaderTranspiler', JavaCompile) {
 }
 
 tasks.register('transpileShaders', JavaExec) {
-  dependsOn tasks.named('compileShaderTranspiler')
-  inputs.dir file('../gfx/shaders')
+  dependsOn tasks.named('compileShaderTranspiler'), 'patchGfxShaders'
+  inputs.dir patchedShaders
   outputs.dir layout.buildDirectory.dir('generated/assets/shaders')
   classpath = files(transpilerClasses) + configurations.transpile
   mainClass = 'ShaderTranspiler'
-  args file('../gfx/shaders').absolutePath, layout.buildDirectory.dir('generated/assets/shaders').get().asFile.absolutePath
+  args patchedShaders.get().asFile.absolutePath, layout.buildDirectory.dir('generated/assets/shaders').get().asFile.absolutePath
 }
 
 tasks.named('preBuild').configure {
