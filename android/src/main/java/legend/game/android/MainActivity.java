@@ -288,11 +288,14 @@ public final class MainActivity extends Activity {
     }
   }
 
-  /** Extract bundled assets (gfx/) to the working directory once per version. */
+  /** Extract bundled assets (gfx/) to the working directory once per install. */
   private void extractAssets() throws IOException {
-    final long version;
+    final String version;
     try {
-      version = this.getPackageManager().getPackageInfo(this.getPackageName(), 0).getLongVersionCode();
+      // Same-versionCode updates (dispatch/dev builds) still change
+      // lastUpdateTime, so bundled assets can never go stale.
+      final android.content.pm.PackageInfo info = this.getPackageManager().getPackageInfo(this.getPackageName(), 0);
+      version = info.getLongVersionCode() + "-" + info.lastUpdateTime;
     } catch(final android.content.pm.PackageManager.NameNotFoundException e) {
       throw new IOException(e);
     }
