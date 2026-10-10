@@ -50,6 +50,10 @@ public final class MainActivity extends Activity {
 
     AndroidEnv.init(this);
 
+    // Test hook: --ez force_es31 true exercises the GS-less ES 3.1 render
+    // path on hardware that supports ES 3.2 (e.g. for Mali testing).
+    GlesCompat.forceEs31 = this.getIntent().getBooleanExtra("force_es31", false);
+
     // Upstream log4j2.xml uses fileName="debug.log", staged with the Android
     // rewrite to ${sys:legend.baseDir}/debug.log (relative paths resolve
     // against /, which is read-only on Android).

@@ -49,10 +49,17 @@ public final class ShaderTranspiler {
         }
 
         final String source = Files.readString(file);
-        final String gles = transpile(source, stage);
-        final String outName = shaderHash(source, stage) + ".gles";
-        Files.writeString(outDir.resolve(outName), gles);
-        System.out.println("Transpiled " + name + " -> " + outName);
+        final String hash = shaderHash(source, stage);
+
+        // ES 3.20 output (geometry shader included) for ES 3.2+ contexts,
+        // plus an ES 3.10 variant of non-geometry stages for devices like
+        // Mali Midgard that top out at ES 3.1. Runtime picks by suffix via
+        // GlesCompat.shaderSuffix().
+        Files.writeString(outDir.resolve(hash + "-320.gles"), decompile(spirv(source, stage), 320));
+        if(stage != 1) {
+          Files.writeString(outDir.resolve(hash + "-310.gles"), decompile(spirv(source, stage), 310));
+        }
+        System.out.println("Transpiled " + name + " -> " + hash + "-*.gles");
       }
     }
   }
@@ -70,7 +77,7 @@ public final class ShaderTranspiler {
     return out.toString();
   }
 
-  private static String transpile(final String source, final int stageOrdinal) throws IOException {
+  private static ByteBuffer spirv(final String source, final int stageOrdinal) throws IOException {
     final int shadercStage = switch(stageOrdinal) {
       case 0 -> shaderc_vertex_shader;
       case 1 -> shaderc_geometry_shader;
@@ -99,10 +106,10 @@ public final class ShaderTranspiler {
     shaderc_compile_options_release(options);
     shaderc_compiler_release(compiler);
 
-    return decompile(spirv);
+    return spirv;
   }
 
-  private static String decompile(final ByteBuffer spirvBuffer) {
+  private static String decompile(final ByteBuffer spirvBuffer, final int version) {
     try(final MemoryStack stack = MemoryStack.stackPush()) {
       final IntBuffer spirvInts = spirvBuffer.asIntBuffer();
 
@@ -124,7 +131,12 @@ public final class ShaderTranspiler {
       final long options = optionsBuffer.get(0);
 
       spvc_compiler_options_set_bool(options, SPVC_COMPILER_OPTION_GLSL_ES, true);
-      spvc_compiler_options_set_uint(options, SPVC_COMPILER_OPTION_GLSL_VERSION, 320);
+      spvc_compiler_options_set_uint(options, SPVC_COMPILER_OPTION_GLSL_VERSION, version);
+
+      // Named shader I/O blocks are ES 3.2 core / GL_EXT_shader_io_blocks on
+      // ES 3.1 - flatten them so the 310 variant links without the extension.
+      final boolean flattenIo = version < 320;
+      spvc_compiler_options_set_bool(options, SPVC_COMPILER_OPTION_GLSL_FORCE_FLATTENED_IO_BLOCKS, flattenIo);
       spvc_compiler_install_compiler_options(compiler, options);
 
       final PointerBuffer resourcesBuffer = stack.mallocPointer(1);
@@ -140,6 +152,17 @@ public final class ShaderTranspiler {
       spvc_resources_get_resource_list_for_type(resources, SPVC_RESOURCE_TYPE_UNIFORM_BUFFER, resourceListBuffer, resourceCountBuffer);
       removeDecorations(compiler, resourceListBuffer.get(0), resourceCountBuffer.get(0), SpvDecorationBinding);
 
+      if(flattenIo) {
+        // Flattened members are emitted as <blockVar>_<member>, so give every
+        // block variable the same name across stages or the linked stages
+        // don't match (vs_out_* in the VS, _<id>_* in the FS). Plain
+        // (non-block) varyings keep their names and link untouched.
+        for(final int resourceType : new int[] {SPVC_RESOURCE_TYPE_STAGE_INPUT, SPVC_RESOURCE_TYPE_STAGE_OUTPUT}) {
+          spvc_resources_get_resource_list_for_type(resources, resourceType, resourceListBuffer, resourceCountBuffer);
+          renameBlockVars(compiler, resourceListBuffer.get(0), resourceCountBuffer.get(0));
+        }
+      }
+
       final PointerBuffer sourceBuffer = stack.mallocPointer(1);
       spvc_compiler_compile(compiler, sourceBuffer);
 
@@ -153,6 +176,18 @@ public final class ShaderTranspiler {
     for(int i = 0; i < count; i++) {
       final SpvcReflectedResource resource = SpvcReflectedResource.create(list + i * SpvcReflectedResource.SIZEOF);
       spvc_compiler_unset_decoration(compiler, resource.id(), decoration);
+    }
+  }
+
+  /** Renames struct-typed (interface block) stage I/O variables to a common name. */
+  private static void renameBlockVars(final long compiler, final long list, final long count) {
+    for(int i = 0; i < count; i++) {
+      final SpvcReflectedResource resource = SpvcReflectedResource.create(list + i * SpvcReflectedResource.SIZEOF);
+      final long type = spvc_compiler_get_type_handle(compiler, resource.base_type_id());
+
+      if(spvc_type_get_basetype(type) == SPVC_BASETYPE_STRUCT) {
+        spvc_compiler_set_name(compiler, resource.id(), "io");
+      }
     }
   }
 }

@@ -446,7 +446,25 @@ import java.awt.image.BufferedImage;
   // is android/src/main/java/legend/core/Updater.java.
   'legend/game/debugger/DebuggerController.java': [
     'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
-    'new ScriptPatcher(legend.game.android.JdkCompat.absolute(Path.of("./patches")), legend.game.android.JdkCompat.absolute(Path.of("./files")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/cache")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/backups")))',
+    'new ScriptPatcher(legend.game.android.JdkCompat.absolute(Path.of("./patches")), legend.game.android.JdkCompat.absolute(Path.of("./files")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/backups")))',
+  ],
+  'legend/core/renderer/opengles/GlesApi.java': [
+    // ES <3.2 (e.g. Mali Midgard) has no geometry shader stage: link the same
+    // vert+frag stages without the GS. Near-plane culling is replicated by a
+    // NaN trick patched into tmd.vsh; flat per-face PS1 depth degrades to
+    // per-vertex.
+    'return new GlesShader<>(name, vert, geom, frag, options);':
+    'return legend.game.android.GlesCompat.geometryShaders ? new GlesShader<>(name, vert, geom, frag, options) : new GlesShader<>(name, vert, frag, options);',
+    // GL_TRIANGLES_ADJACENCY doesn't exist below ES 3.2; adaptOrder/
+    // adaptIndices strip the 6-index adjacency records to plain triangles.
+    'return new GlesMesh(name, vertexOrder, vertexData, indices, false, false, null, BufferUsage.STATIC);':
+    'return new GlesMesh(name, legend.game.android.GlesCompat.adaptOrder(vertexOrder), vertexData, legend.game.android.GlesCompat.adaptIndices(vertexOrder, indices), false, false, null, BufferUsage.STATIC);',
+    'return new GlesMesh(name, vertexOrder, vertexData, indices, textured, translucent, translucencyMode, bufferUsage);':
+    'return new GlesMesh(name, legend.game.android.GlesCompat.adaptOrder(vertexOrder), vertexData, legend.game.android.GlesCompat.adaptIndices(vertexOrder, indices), textured, translucent, translucencyMode, bufferUsage);',
+    'return new GlesMesh(name, vertexOrder, vertexData, vertexCount, false, false, null, BufferUsage.STATIC);':
+    'return new GlesMesh(name, legend.game.android.GlesCompat.adaptOrder(vertexOrder), vertexData, vertexCount, false, false, null, BufferUsage.STATIC);',
+    'return new GlesMesh(name, vertexOrder, vertexData, vertexCount, textured, translucent, translucencyMode, bufferUsage);':
+    'return new GlesMesh(name, legend.game.android.GlesCompat.adaptOrder(vertexOrder), vertexData, vertexCount, textured, translucent, translucencyMode, bufferUsage);',
   ],
 ]
 
@@ -821,9 +839,36 @@ void main() {'''
       return line
     }
   }
+  filesMatching(['tmd.vsh', 'battle_tmd.vsh']) {
+    // Copy.filter is invoked per line, so match single lines only.
+    filter { line ->
+      // ES 3.1 devices (Mali Midgard) have no geometry shader, so the
+      // GS-linked program is skipped and tmd.gsh's near-plane face cull is
+      // replicated here per vertex: the GS culls the whole face when any
+      // vertex fails zfar >= viewspaceZ * 2.0, and a NaN clip position
+      // discards the whole primitive — same all-or-nothing result. On the
+      // ES 3.2 path this is a harmless duplicate of the GS's own test (the
+      // quad fourth-vertex test still only exists in the GS).
+      if(line == '  vs_out.depth = gl_Position.z;') {
+        return '''  vs_out.depth = gl_Position.z;
+
+  // Android: replicate tmd.gsh's near-plane face cull for the GS-less
+  // ES 3.1 path — a NaN clip position kills the whole primitive.
+  if(zfar >= vs_out.viewspaceZ * 2.0) {
+    gl_Position = vec4(0.0 / 0.0);
+  }'''
+      }
+      return line
+    }
+  }
   doLast {
     if(!new File(destinationDir, 'screen.fsh').text.contains('casUpscale')) {
       throw new GradleException('screen.fsh transform missed: upstream changed; update patchGfxShaders')
+    }
+    ['tmd.vsh', 'battle_tmd.vsh'].each {
+      if(!new File(destinationDir, it).text.contains('0.0 / 0.0')) {
+        throw new GradleException("${it} transform missed: upstream changed; update patchGfxShaders")
+      }
     }
   }
 }
@@ -882,6 +927,11 @@ tasks.register('transpileShaders', JavaExec) {
   outputs.dir layout.buildDirectory.dir('generated/assets/shaders')
   classpath = files(transpilerClasses) + configurations.transpile
   mainClass = 'ShaderTranspiler'
+  doFirst {
+    // Hash-named outputs; clear leftovers from older sources so the APK
+    // never ships stale shader assets.
+    delete layout.buildDirectory.dir('generated/assets/shaders')
+  }
   args patchedShaders.get().asFile.absolutePath, layout.buildDirectory.dir('generated/assets/shaders').get().asFile.absolutePath
 }
 
