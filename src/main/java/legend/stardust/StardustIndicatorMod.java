@@ -8,6 +8,8 @@ import legend.game.scripting.ScriptState;
 import legend.game.submap.SMap;
 import legend.game.submap.SubmapObject;
 import legend.game.submap.SubmapObject210;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.legendofdragoon.modloader.Mod;
 import org.legendofdragoon.modloader.events.EventListener;
 
@@ -33,6 +35,8 @@ import static legend.game.Scus94491BpeSegment_800b.gameState_800babc8;
  */
 @Mod(id = StardustIndicatorMod.MOD_ID, version = "^3.0.0")
 public class StardustIndicatorMod {
+  private static final Logger LOGGER = LogManager.getFormatterLogger(StardustIndicatorMod.class);
+
   public static final String MOD_ID = "stardust_indicator";
 
   /** Game var holding the collected stardust count ({@code gameState.stardust_9c}) */
@@ -89,19 +93,24 @@ public class StardustIndicatorMod {
       return;
     }
 
+    int scanned = 0;
     for(int i = 0; i < event.submapObjects.size(); i++) {
       final SubmapObject obj = event.submapObjects.get(i);
       if(obj.script == null) {
         continue;
       }
 
+      scanned++;
       final Marker marker = new Marker();
       marker.sobjIndex = i;
 
       if(this.scanForStardust(obj.script, marker)) {
+        LOGGER.info("Stardust granter: sobj %d (%s) flag=%d/%d", i, obj.script.name, marker.flagIndex, marker.flagArray);
         this.markers.add(marker);
       }
     }
+
+    LOGGER.info("Stardust scan: %d/%d objects grant stardust", this.markers.size(), scanned);
   }
 
   @EventListener
@@ -131,6 +140,7 @@ public class StardustIndicatorMod {
       final boolean collected = marker.flagIndex >= 0 && this.isFlagSet(marker.flagArray, marker.flagIndex);
 
       if(state == null || collected) {
+        LOGGER.info("Marker removed: sobj %d (state=%s flagSet=%b)", marker.sobjIndex, state == null ? "null" : "live", collected);
         this.releaseIndicator(marker);
         this.markers.remove(i);
       } else if(gameState_800babc8.indicatorsDisabled_4e3) {
@@ -139,6 +149,7 @@ public class StardustIndicatorMod {
         final SubmapObject210 sobj = (SubmapObject210)state.innerStruct_00;
         if(marker.indicatorIndex == -1) {
           marker.indicatorIndex = this.smap.addIndicator3d(INDICATOR_TYPE, sobj.model_00.coord2_14, 0.0f, -4.0f);
+          LOGGER.info("Indicator claimed: sobj %d slot %d", marker.sobjIndex, marker.indicatorIndex);
         } else {
           this.smap.setIndicator3d(marker.indicatorIndex, INDICATOR_TYPE, sobj.model_00.coord2_14, 0.0f, -4.0f);
         }

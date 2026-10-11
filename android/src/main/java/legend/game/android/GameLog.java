@@ -43,11 +43,19 @@ import java.util.concurrent.TimeUnit;
  * Both builds write crash-<ts>.log on uncaught exceptions and prune files
  * older than 14 days at startup. Debug builds additionally attach a verbose
  * log4j appender writing debug-<date>.log.
+ *
+ * At startup: archives the previous run's engine log (filesDir/debug.log),
+ * turns a native-crash marker into a crash log, and sends queued crash
+ * reports to the webhook in Documents/Severed Chains/webhook.txt if present.
  */
 public final class GameLog {
   private static final String TAG = "SC-GameLog";
   private static final String LOG_DIR = "Severed Chains/logs";
   private static final String REL_PATH = Environment.DIRECTORY_DOCUMENTS + "/" + LOG_DIR + "/";
+  /** Marker the native signal handler writes on a fatal crash */
+  public static final String NATIVE_CRASH_MARKER = "native-crash.marker";
+  /** Queue dir (in filesDir) of reports to POST to the user's webhook */
+  private static final String REPORT_QUEUE = "report-queue";
   private static final long MAX_AGE_MS = TimeUnit.DAYS.toMillis(14);
 
   private static Context appContext;
@@ -65,7 +73,171 @@ public final class GameLog {
     }
     prune();
     Log.i(TAG, "Shared logs ready -> Documents/" + LOG_DIR + (debuggable ? " (verbose)" : ""));
+    processPreviousRun(context);
     return true;
+  }
+
+  /**
+   * Startup maintenance, run off the calling thread's critical path where
+   * possible: archives the previous run's engine debug.log, converts a native
+   * crash marker into a crash log, and flushes queued reports to the webhook.
+   */
+  private static void processPreviousRun(final Context context) {
+    final File filesDir = context.getFilesDir();
+    final File engineLog = new File(filesDir, "debug.log");
+    final File marker = new File(filesDir, NATIVE_CRASH_MARKER);
+
+    // A native crash marker means the last run died on a signal the Java
+    // uncaught handler never saw. Turn it into a crash-<ts>.log and queue it.
+    if(marker.isFile()) {
+      String detail = "";
+      try {
+        detail = new String(java.nio.file.Files.readAllBytes(marker.toPath()));
+      } catch(final IOException ignored) { }
+      //noinspection ResultOfMethodCallIgnored
+      marker.delete();
+      writeCrashLog(new RuntimeException("Native crash (fatal signal)\n" + detail));
+      queueReport("Native crash on " + Build.MODEL + "\n" + detail
+        + "\n\nLast engine log lines:\n" + tail(engineLog, 50));
+    }
+
+    // Archive the previous run's engine log before the new run truncates it
+    if(engineLog.isFile() && engineLog.length() > 0) {
+      try(final OutputStream out = newLog("debug-" + timestamp() + ".log");
+          final java.io.InputStream in = new java.io.FileInputStream(engineLog)) {
+        in.transferTo(out);
+      } catch(final IOException e) {
+        Log.e(TAG, "Failed to archive engine log", e);
+      }
+    }
+
+    flushReportQueue();
+  }
+
+  /** Last n lines of a file, or "" when unreadable/missing. */
+  private static String tail(final File file, final int n) {
+    if(!file.isFile()) {
+      return "";
+    }
+    try {
+      final String[] lines = new String(java.nio.file.Files.readAllBytes(file.toPath())).split("\n");
+      final StringBuilder sb = new StringBuilder();
+      for(int i = Math.max(0, lines.length - n); i < lines.length; i++) {
+        sb.append(lines[i]).append('\n');
+      }
+      return sb.toString();
+    } catch(final IOException e) {
+      return "";
+    }
+  }
+
+  /** Queues a crash report body to be POSTed to the webhook on next launch. */
+  public static void queueReport(final String body) {
+    try {
+      final File dir = new File(appContext.getFilesDir(), REPORT_QUEUE);
+      //noinspection ResultOfMethodCallIgnored
+      dir.mkdirs();
+      java.nio.file.Files.write(new File(dir, "report-" + System.currentTimeMillis() + ".txt").toPath(), body.getBytes());
+    } catch(final IOException e) {
+      Log.e(TAG, "Failed to queue crash report", e);
+    }
+  }
+
+  /**
+   * Reads the webhook URL from Documents/Severed Chains/webhook.txt (a Discord
+   * webhook URL or a Telegram sendMessage bot URL like
+   * https://api.telegram.org/bot&lt;token&gt;/sendMessage?chat_id=&lt;id&gt;)
+   * and POSTs every queued report as a message. No-ops when the file or URL
+   * is absent. Runs on a background thread.
+   */
+  public static void flushReportQueue() {
+    final File dir = new File(appContext.getFilesDir(), REPORT_QUEUE);
+    final File[] pending = dir.listFiles();
+    if(pending == null || pending.length == 0) {
+      return;
+    }
+
+    new Thread(() -> {
+      final String url = readWebhookUrl();
+      if(url == null) {
+        return;
+      }
+
+      for(final File report : pending) {
+        try {
+          final String body = new String(java.nio.file.Files.readAllBytes(report.toPath()));
+          if(postReport(url, body)) {
+            //noinspection ResultOfMethodCallIgnored
+            report.delete();
+          }
+        } catch(final IOException | RuntimeException e) {
+          Log.e(TAG, "Failed to send report " + report.getName(), e);
+        }
+      }
+    }, "sc-report-flush").start();
+  }
+
+  private static String readWebhookUrl() {
+    if(Build.VERSION.SDK_INT < 29) {
+      final File f = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "Severed Chains/webhook.txt");
+      try {
+        if(f.isFile()) {
+          final String s = new String(java.nio.file.Files.readAllBytes(f.toPath())).trim();
+          return s.isEmpty() ? null : s;
+        }
+      } catch(final IOException ignored) { }
+      return null;
+    }
+
+    final ContentResolver res = appContext.getContentResolver();
+    final Uri files = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+    try(final Cursor c = res.query(files, new String[] {MediaStore.MediaColumns._ID},
+      MediaStore.MediaColumns.RELATIVE_PATH + "=? AND " + MediaStore.MediaColumns.DISPLAY_NAME + "=?",
+      new String[] {Environment.DIRECTORY_DOCUMENTS + "/Severed Chains/", "webhook.txt"}, null)) {
+      if(c == null || !c.moveToFirst()) {
+        return null;
+      }
+      final Uri item = Uri.withAppendedPath(files, String.valueOf(c.getLong(0)));
+      try(final java.io.InputStream in = res.openInputStream(item)) {
+        if(in == null) {
+          return null;
+        }
+        final String s = new String(in.readAllBytes()).trim();
+        return s.isEmpty() ? null : s;
+      }
+    } catch(final RuntimeException | IOException e) {
+      Log.e(TAG, "Failed to read webhook.txt", e);
+      return null;
+    }
+  }
+
+  private static boolean postReport(final String url, final String body) throws IOException {
+    // Keep inside the Discord (2000) and Telegram (4096) message limits
+    final String text = body.length() > 1900 ? body.substring(0, 1900) + "…" : body;
+    final String json = url.contains("discord") ? "{\"content\":" : "{\"text\":";
+    final java.net.HttpURLConnection conn = (java.net.HttpURLConnection)new java.net.URL(url).openConnection();
+    conn.setRequestMethod("POST");
+    conn.setRequestProperty("Content-Type", "application/json");
+    conn.setDoOutput(true);
+    conn.getOutputStream().write((json + jsonEscape("Severed Chains crash report:\n```\n" + text + "\n```") + "}").getBytes());
+    final int code = conn.getResponseCode();
+    conn.disconnect();
+    return code >= 200 && code < 300;
+  }
+
+  private static String jsonEscape(final String s) {
+    final StringBuilder sb = new StringBuilder("\"");
+    for(final char ch : s.toCharArray()) {
+      switch(ch) {
+        case '"' -> sb.append("\\\"");
+        case '\\' -> sb.append("\\\\");
+        case '\n' -> sb.append("\\n");
+        case '\r' -> sb.append("\\r");
+        case '\t' -> sb.append("\\t");
+        default -> sb.append(ch < 0x20 ? String.format("\\u%04x", (int)ch) : ch);
+      }
+    }
+    return sb.append('"').toString();
   }
 
   public static boolean needsPermission(final Context context) {
@@ -183,6 +355,10 @@ public final class GameLog {
     final Thread.UncaughtExceptionHandler previous = Thread.getDefaultUncaughtExceptionHandler();
     Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
       writeCrashLog(throwable);
+      final StringWriter sw = new StringWriter();
+      throwable.printStackTrace(new PrintWriter(sw));
+      queueReport("Uncaught exception on " + Build.MODEL + " (" + versionName() + ") in " + thread.getName()
+        + "\n```\n" + sw + "\n```\n\nLast engine log lines:\n" + tail(new File(appContext.getFilesDir(), "debug.log"), 50));
       if(previous != null) {
         previous.uncaughtException(thread, throwable);
       }
