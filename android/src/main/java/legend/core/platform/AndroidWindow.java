@@ -153,7 +153,21 @@ public class AndroidWindow extends Window {
 
     // ES feature level (e.g. Mali Midgard tops out at ES 3.1 - no geometry
     // shaders); GlesCompat drives shader variants and mesh adaptation.
-    legend.game.android.GlesCompat.detect(android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_VERSION));
+    final String glVersion = android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_VERSION);
+    legend.game.android.GlesCompat.detect(glVersion);
+
+    // Dump GL/EGL caps into the support log - the key data for triaging
+    // unsupported GPUs.
+    legend.game.android.GameLog.logGlInfo(
+      android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_VENDOR),
+      android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_RENDERER),
+      glVersion,
+      android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_SHADING_LANGUAGE_VERSION),
+      android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_EXTENSIONS),
+      EGL14.eglQueryString(this.display, EGL14.EGL_VENDOR),
+      EGL14.eglQueryString(this.display, EGL14.EGL_VERSION),
+      EGL14.eglQueryString(this.display, EGL14.EGL_CLIENT_APIS),
+      EGL14.eglQueryString(this.display, EGL14.EGL_EXTENSIONS));
 
     EGL14.eglSwapInterval(this.display, 0);
   }

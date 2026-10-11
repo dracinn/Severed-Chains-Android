@@ -1,6 +1,7 @@
 package legend.game.android;
 
 import android.Manifest;
+import android.app.ActivityManager;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
@@ -12,6 +13,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.util.DisplayMetrics;
 import android.util.Log;
 
 import org.apache.logging.log4j.Level;
@@ -28,6 +30,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -158,7 +161,62 @@ public final class GameLog {
     }
   }
 
-  /** Writes a crash-<ts>.log with the given throwable + device info. Safe to call during a crash. */
+  /** Device/SoC/OS snapshot for bug reports; also dumped into the verbose log header. */
+  private static String deviceBlock() {
+    if(appContext == null) {
+      return "";
+    }
+
+    long ramMb = -1;
+    try {
+      final ActivityManager am = (ActivityManager)appContext.getSystemService(Context.ACTIVITY_SERVICE);
+      final ActivityManager.MemoryInfo mem = new ActivityManager.MemoryInfo();
+      am.getMemoryInfo(mem);
+      ramMb = mem.totalMem / (1024 * 1024);
+    } catch(final RuntimeException e) {
+      Log.w(TAG, "Failed to read memory info", e);
+    }
+
+    final DisplayMetrics dm = appContext.getResources().getDisplayMetrics();
+
+    return "App: " + versionName() + (debuggable ? " debug" : " release") + "\n"
+      + "Device: " + Build.MANUFACTURER + " " + Build.MODEL + " (" + Build.DEVICE + ")\n"
+      + "Product/board/hardware: " + Build.PRODUCT + " / " + Build.BOARD + " / " + Build.HARDWARE + "\n"
+      + "Fingerprint: " + Build.FINGERPRINT + "\n"
+      + "Android: " + Build.VERSION.RELEASE + " (SDK " + Build.VERSION.SDK_INT + ", patch " + Build.VERSION.SECURITY_PATCH + ")\n"
+      + "ABIs: " + String.join(", ", Build.SUPPORTED_ABIS) + "\n"
+      + "RAM: " + ramMb + " MB\n"
+      + "Display: " + dm.widthPixels + "x" + dm.heightPixels + " @" + dm.densityDpi + "dpi\n"
+      + "Runtime: " + System.getProperty("java.vm.name") + " " + System.getProperty("java.vm.version") + "\n";
+  }
+
+  /** GL/EGL caps recorded once the context exists; goes into crash reports. */
+  private static String glBlock = "";
+
+  /**
+   * Records GL/EGL capabilities for support triage of unsupported GPUs.
+   * Called from AndroidWindow after the EGL context is current so all
+   * queries are valid; also mirrored to logcat and the verbose log.
+   */
+  public static void logGlInfo(final String glVendor, final String glRenderer, final String glVersion,
+                               final String glsl, final String glExtensions,
+                               final String eglVendor, final String eglVersion,
+                               final String eglClientApis, final String eglExtensions) {
+    glBlock = "GL_VENDOR: " + glVendor + "\n"
+      + "GL_RENDERER: " + glRenderer + "\n"
+      + "GL_VERSION: " + glVersion + "\n"
+      + "GLSL version: " + glsl + "\n"
+      + "Geometry shaders (ES 3.2 path): " + GlesCompat.geometryShaders + "\n"
+      + "EGL_VENDOR: " + eglVendor + "\n"
+      + "EGL_VERSION: " + eglVersion + "\n"
+      + "EGL_CLIENT_APIS: " + eglClientApis + "\n"
+      + "GL_EXTENSIONS: " + glExtensions + "\n"
+      + "EGL_EXTENSIONS: " + eglExtensions + "\n";
+    Log.i(TAG, "Graphics caps:\n" + glBlock);
+    writeVerbose("=== Graphics ===\n" + glBlock);
+  }
+
+  /** Writes a crash-<ts>.log with the given throwable + device/GL info. Safe to call during a crash. */
   public static void writeCrashLog(final Throwable throwable) {
     if(!writable()) {
       return;
@@ -166,9 +224,11 @@ public final class GameLog {
     try(final OutputStream out = newLog("crash-" + timestamp() + ".log")) {
       final PrintWriter w = new PrintWriter(out);
       w.println("Severed Chains crash log");
-      w.println("App: " + versionName() + (debuggable ? " debug" : " release"));
-      w.println("Device: " + Build.MANUFACTURER + " " + Build.MODEL);
-      w.println("Android: " + Build.VERSION.RELEASE + " (SDK " + Build.VERSION.SDK_INT + ")");
+      w.print(deviceBlock());
+      if(!glBlock.isEmpty()) {
+        w.println("=== Graphics ===");
+        w.print(glBlock);
+      }
       w.println("Time: " + new Date());
       w.println();
       throwable.printStackTrace(w);
@@ -191,6 +251,19 @@ public final class GameLog {
 
   private static OutputStream verboseStream;
 
+  /** Writes directly into the verbose debug log if it's open (no-op on release). */
+  private static synchronized void writeVerbose(final String text) {
+    if(verboseStream == null) {
+      return;
+    }
+    try {
+      verboseStream.write(text.getBytes(StandardCharsets.UTF_8));
+      verboseStream.flush();
+    } catch(final IOException e) {
+      Log.w(TAG, "Verbose log write failed", e);
+    }
+  }
+
   /**
    * Debug builds only: attaches a log4j appender mirroring all log output at
    * DEBUG level to the shared logs dir, and bumps the root logger to DEBUG.
@@ -208,6 +281,7 @@ public final class GameLog {
     if(verboseStream == null) {
       try {
         verboseStream = newLog("debug-" + timestamp() + ".log");
+        writeVerbose("=== Severed Chains Android " + timestamp() + " ===\n=== Device ===\n" + deviceBlock());
       } catch(final IOException e) {
         Log.e(TAG, "Failed to open verbose log", e);
         return;
