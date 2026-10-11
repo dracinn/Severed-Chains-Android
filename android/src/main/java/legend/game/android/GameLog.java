@@ -187,7 +187,8 @@ public final class GameLog {
       + "ABIs: " + String.join(", ", Build.SUPPORTED_ABIS) + "\n"
       + "RAM: " + ramMb + " MB\n"
       + "Display: " + dm.widthPixels + "x" + dm.heightPixels + " @" + dm.densityDpi + "dpi\n"
-      + "Runtime: " + System.getProperty("java.vm.name") + " " + System.getProperty("java.vm.version") + "\n";
+      + "Runtime: " + System.getProperty("java.vm.name") + " " + System.getProperty("java.vm.version") + "\n"
+      + "GL fallback level: " + GlesCompat.fallbackLevel + "\n";
   }
 
   /** GL/EGL caps recorded once the context exists; goes into crash reports. */

@@ -60,6 +60,9 @@ public final class MainActivity extends Activity {
     }
     GameLog.init(this);
     GameLog.installCrashHandler();
+    // Escalates the persisted GL fallback level if the previous run died
+    // during GL init (native driver crashes never reach the Java handler).
+    GlesCompat.init(this);
 
     // Test hook: --ez force_es31 true exercises the GS-less ES 3.1 render
     // path on hardware that supports ES 3.2 (e.g. for Mali testing).

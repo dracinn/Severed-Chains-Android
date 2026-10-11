@@ -72,6 +72,10 @@ public class AndroidWindow extends Window {
   }
 
   private void createEglContext() {
+    // If the process dies before the first frame lands (native driver
+    // crash), the marker survives and GlesCompat escalates the fallback
+    // level on next launch.
+    legend.game.android.GlesCompat.markGlInit();
     this.display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
     if(this.display == EGL14.EGL_NO_DISPLAY) {
       throw new RuntimeException("eglGetDisplay failed");
@@ -371,6 +375,7 @@ public class AndroidWindow extends Window {
     }
 
     EGL14.eglSwapBuffers(this.display, this.eglSurface);
+    legend.game.android.GlesCompat.glInitOk();
     this.events().onDraw();
     this.manager.clearPressed();
   }
