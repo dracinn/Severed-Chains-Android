@@ -1421,22 +1421,32 @@ public class SMap extends EngineState<SMap> {
     return FlowControl.CONTINUE;
   }
 
-  public void addIndicator(final int type, final float x, final float y) {
+  /** @return the indicator slot claimed, or -1 if none were free */
+  public int addIndicator(final int type, final float x, final float y) {
     for(int index = 0; index < 20; index++) {
       if(this.triangleIndicators_800c69fc.indicatorType_18[index] == -1) {
         this.setIndicator(index, type, x, y);
-        break;
+        return index;
       }
     }
+
+    return -1;
   }
 
-  public void addIndicator3d(final int type, final GsCOORDINATE2 coord2, final float screenspaceOffsetX, final float screenspaceOffsetY) {
+  /** @return the indicator slot claimed, or -1 if none were free */
+  public int addIndicator3d(final int type, final GsCOORDINATE2 coord2, final float screenspaceOffsetX, final float screenspaceOffsetY) {
     for(int index = 0; index < 20; index++) {
       if(this.triangleIndicators_800c69fc.indicatorType_18[index] == -1) {
         this.setIndicator3d(index, type, coord2, screenspaceOffsetX, screenspaceOffsetY);
-        break;
+        return index;
       }
     }
+
+    return -1;
+  }
+
+  public void removeIndicator(final int index) {
+    this.setIndicator(index, -1, 0.0f, 0.0f);
   }
 
   public void setIndicator(final int index, final int type, final float x, final float y) {

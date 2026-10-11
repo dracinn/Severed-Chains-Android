@@ -1,0 +1,5 @@
+# Mod metadata
+stardust_indicator.name=Stardust Indicator
+
+stardust_indicator.config.stardust_indicators.label=Stardust Indicators
+stardust_indicator.config.stardust_indicators.help=Show a triangle marker over stardust pickups that haven't been collected yet
