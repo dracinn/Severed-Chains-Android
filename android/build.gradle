@@ -475,6 +475,14 @@ import java.awt.image.BufferedImage;
     'return new GlesMesh(name, vertexOrder, vertexData, vertexCount, textured, translucent, translucencyMode, bufferUsage);':
     'return new GlesMesh(name, legend.game.android.GlesCompat.adaptOrder(vertexOrder), vertexData, vertexCount, textured, translucent, translucencyMode, bufferUsage);',
   ],
+  'legend/core/renderer/RenderEngine.java': [
+    // usePs1Depth only exists in tmd.gsh - skipped entirely on the ES <3.2
+    // path, so looking it up just logs "uniform not found" noise. Substitute
+    // upstream's own no-op uniform; the GS path is unchanged. Hits both the
+    // TMD and battle-TMD option factories (identical lines, replace-all).
+    'final ShaderUniformInt usePs1Depth = shader.uniformInt("usePs1Depth");':
+    'final ShaderUniformInt usePs1Depth = legend.game.android.GlesCompat.geometryShaders ? shader.uniformInt("usePs1Depth") : new legend.core.renderer.noop.NoopShader.UniformInt();',
+  ],
 ]
 
 tasks.register('patchStagedSources') {
