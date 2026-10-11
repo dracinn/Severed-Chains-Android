@@ -35,6 +35,15 @@ Dragoon Modifier is the [LoD Modding community](https://github.com/Legend-of-Dra
 - Each release reports its real version number, so installs upgrade cleanly.
 - Launcher icon featuring Dart, because it's LoD after all.
 
+## If the game won't start
+
+Severed Chains renders with OpenGL ES 3.2, with an automatic fallback to a compatibility mode on GPUs that don't fully support it (e.g. older Mali). If the app closes itself while starting up, **just open it again** — a launch that dies mid-initialization is remembered, and the next one automatically retries in the safer mode.
+
+If it still won't start:
+
+- Try the **ANGLE** graphics driver: enable Developer Options, then *Developer options → Preferred graphics driver → select Severed Chains → ANGLE*. This runs OpenGL on top of Vulkan and often works around broken vendor drivers.
+- Report the problem with the logs in `Documents/Severed Chains/logs/` — crash and debug logs there include your device model, GPU, and driver versions, which is what's needed to support new hardware. Debug APKs on the Releases page record the full engine log.
+
 ## Controls
 
 Gamepads are supported out of the box — connect one and pick it in the in-game options. Onscreen controls are the default for touch play and can be styled and arranged as described above.

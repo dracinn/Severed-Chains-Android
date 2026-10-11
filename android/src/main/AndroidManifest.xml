@@ -11,6 +11,13 @@
       android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
       android:largeHeap="true"
       android:allowBackup="false">
+    <!-- Request ANGLE (GLES-over-Vulkan) where the platform honors it:
+         Android 17+ reads prefer_angle; AOSP/LineageOS builds read
+         GLES_MODE. Ignored elsewhere - devices without ANGLE keep the
+         native driver. The developer-option driver picker remains the
+         manual workaround for buggy vendor GLES drivers. -->
+    <meta-data android:name="com.android.graphics.driver.prefer_angle" android:value="true" />
+    <meta-data android:name="com.android.angle.GLES_MODE" android:value="angle" />
     <activity
         android:name="legend.game.android.MainActivity"
         android:exported="true"

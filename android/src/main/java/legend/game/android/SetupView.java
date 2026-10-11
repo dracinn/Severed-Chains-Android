@@ -1,6 +1,7 @@
 package legend.game.android;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.Intent;
 import android.database.Cursor;
@@ -92,6 +93,15 @@ public final class SetupView extends ScrollView {
     info.setPadding(0, this.dp(12), 0, this.dp(4));
     content.addView(info);
 
+    final TextView gpuNote = new TextView(activity);
+    gpuNote.setText("If the game won't start on your device, open it again — it automatically " +
+      "retries in a compatibility mode. Crash and debug logs for bug reports are saved in " +
+      "Documents/Severed Chains/logs.");
+    gpuNote.setTextColor(COLOUR_DIM);
+    gpuNote.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+    gpuNote.setPadding(0, this.dp(4), 0, this.dp(4));
+    content.addView(gpuNote);
+
     final TextView freeSpace = new TextView(activity);
     freeSpace.setText(String.format(Locale.US, "Free space: %.1f GB", new StatFs(isosDir.getAbsolutePath()).getAvailableBytes() / 1e9));
     freeSpace.setTextColor(COLOUR_DIM);
@@ -125,7 +135,7 @@ public final class SetupView extends ScrollView {
     buttons.addView(pick, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
 
     this.startButton = new Button(activity);
-    this.startButton.setOnClickListener(v -> this.onStart.run());
+    this.startButton.setOnClickListener(v -> this.startWithNotice());
     buttons.addView(this.startButton, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
 
     this.importPanel = new LinearLayout(activity);
@@ -157,6 +167,36 @@ public final class SetupView extends ScrollView {
   protected void onDetachedFromWindow() {
     this.removeCallbacks(this.rescanTick);
     super.onDetachedFromWindow();
+  }
+
+  /**
+   * First Start press shows a one-time heads-up about the automatic GL
+   * fallback and the ANGLE workaround, so a crash at first boot isn't read
+   * as "the app is just broken" on unsupported GPUs.
+   */
+  private void startWithNotice() {
+    final File shown = new File(this.activity.getFilesDir(), "gl-notice-shown");
+    if(shown.isFile()) {
+      this.onStart.run();
+      return;
+    }
+
+    new AlertDialog.Builder(this.activity)
+      .setTitle("Graphics compatibility")
+      .setMessage("If the game closes itself while starting up, open it again — it " +
+        "automatically retries in a safer graphics mode.\n\nIf it still won't start, " +
+        "try the ANGLE graphics driver in Developer Options → Preferred graphics " +
+        "driver, and attach the logs from Documents/Severed Chains/logs when " +
+        "reporting problems.")
+      .setPositiveButton("Start", (d, w) -> {
+        try {
+          //noinspection ResultOfMethodCallIgnored
+          shown.createNewFile();
+        } catch(final IOException ignored) { }
+        this.onStart.run();
+      })
+      .setCancelable(false)
+      .show();
   }
 
   // ------------------------------------------------------------------
