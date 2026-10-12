@@ -483,6 +483,17 @@ import java.awt.image.BufferedImage;
     'final ShaderUniformInt usePs1Depth = shader.uniformInt("usePs1Depth");':
     'final ShaderUniformInt usePs1Depth = legend.game.android.GlesCompat.geometryShaders ? shader.uniformInt("usePs1Depth") : new legend.core.renderer.noop.NoopShader.UniformInt();',
   ],
+  'legend/core/Sort.java': [
+    // Upstream reflectively reuses java.util.TimSort's shared-workspace sort.
+    // ART's hidden-API enforcement blocks that method on older API levels
+    // (denied on API 33, allowed on 34) -> ExceptionInInitializerError on the
+    // first rendered frame. Keep the fast path where it works, fall back to
+    // public Arrays.sort (in-place, allocates its own workspace) otherwise.
+    '    try {\n      final Class<?> timSort = Class.forName("java.util.TimSort");\n      sort = timSort.getDeclaredMethod("sort", Object[].class, int.class, int.class, Comparator.class, Object[].class, int.class, int.class);\n      sort.setAccessible(true);\n    } catch(final ClassNotFoundException | NoSuchMethodException e) {\n      throw new RuntimeException(e);\n    }':
+    '    Method method = null;\n    try {\n      final Class<?> timSort = Class.forName("java.util.TimSort");\n      method = timSort.getDeclaredMethod("sort", Object[].class, int.class, int.class, Comparator.class, Object[].class, int.class, int.class);\n      method.setAccessible(true);\n    } catch(final Throwable ignored) {\n      System.err.println("Sort: java.util.TimSort.sort hidden API unavailable; using Arrays.sort fallback");\n    }\n    sort = method;',
+    '    try {\n      sort.invoke(null, a, lo, hi, c, work, workBase, workLen);\n    } catch(final IllegalAccessException | InvocationTargetException e) {\n      throw new RuntimeException(e);\n    }':
+    '    if(sort == null) {\n      java.util.Arrays.sort(a, lo, hi, c);\n      return;\n    }\n\n    try {\n      sort.invoke(null, a, lo, hi, c, work, workBase, workLen);\n    } catch(final IllegalAccessException | InvocationTargetException e) {\n      throw new RuntimeException(e);\n    }',
+  ],
 ]
 
 tasks.register('patchStagedSources') {
