@@ -850,7 +850,10 @@ public class RenderEngine {
           }
 
           this.currentFps = 1_000_000_000.0f * fpsLimit / avg;
-          RENDERER.window().setTitle("Severed Chains %s - FPS: %.2f/%d scale: %.2f res: %dx%d".formatted(Version.FULL_VERSION, this.currentFps, fpsLimit, RENDERER.getRenderHeight() / 240.0f, this.getNativeWidth(), this.getNativeHeight()));
+
+          if(!Version.isRelease()) {
+            RENDERER.window().setTitle("Severed Chains %s - FPS: %.2f/%d scale: %.2f res: %dx%d".formatted(Version.FULL_VERSION, this.currentFps, fpsLimit, RENDERER.getRenderHeight() / 240.0f, this.getNativeWidth(), this.getNativeHeight()));
+          }
         }
       }
 
@@ -1364,7 +1367,7 @@ public class RenderEngine {
   }
 
   private void onKeyPress(final Window window, final InputKey key, final InputKey scancode, final Set<InputMod> mods, final boolean repeat) {
-    if(!this.allowMovement) {
+    if(!Version.isRelease() && !this.allowMovement) {
       if(key == InputKey.TAB) {
         if(mods.contains(InputMod.SHIFT)) {
           legacyMode = Math.floorMod(legacyMode - 1, 3);

@@ -139,7 +139,7 @@ public class StatusScreen extends MenuScreen {
 
     final CharacterData2c character = gameState_800babc8.charData_32c.get(charIndex);
 
-    if(character.hasDragoon()) {
+    if(character.canUseSpells()) {
       final List<RegistryId> unlockedSpells = character.getUnlockedSpells();
       final int allSpellCount = character.getAllSpells().size();
 
@@ -167,6 +167,14 @@ public class StatusScreen extends MenuScreen {
         } else {
           this.downArrow.flags_00 |= Renderable58.FLAG_INVISIBLE;
         }
+      }
+    } else {
+      if(this.upArrow != null) {
+        this.upArrow.flags_00 |= Renderable58.FLAG_INVISIBLE;
+      }
+
+      if(this.downArrow != null) {
+        this.downArrow.flags_00 |= Renderable58.FLAG_INVISIBLE;
       }
     }
   }
