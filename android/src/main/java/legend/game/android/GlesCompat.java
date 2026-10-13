@@ -131,6 +131,29 @@ public final class GlesCompat {
     return geometryShaders ? "-320" : "-310";
   }
 
+  /**
+   * Logs the bit size of the framebuffer's depth attachment, if one is bound.
+   * GLES leaves the allocation of unsized depth internalformats up to the
+   * driver, so this proves what precision the scene FBO actually got.
+   * Called by a staged-source transform on GlesFrameBuffer.
+   */
+  public static void logDepthAttachment(final String fboName) {
+    final int[] params = new int[1];
+    android.opengl.GLES20.glGetFramebufferAttachmentParameteriv(
+      android.opengl.GLES20.GL_FRAMEBUFFER,
+      android.opengl.GLES20.GL_DEPTH_ATTACHMENT,
+      android.opengl.GLES20.GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, params, 0);
+    if(params[0] == android.opengl.GLES20.GL_NONE) {
+      return; // copy/blit FBOs have no depth attachment
+    }
+
+    android.opengl.GLES20.glGetFramebufferAttachmentParameteriv(
+      android.opengl.GLES20.GL_FRAMEBUFFER,
+      android.opengl.GLES20.GL_DEPTH_ATTACHMENT,
+      android.opengl.GLES30.GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE, params, 0);
+    Log.i(TAG, fboName + ": depth attachment = " + params[0] + " bits");
+  }
+
   /** GL_TRIANGLES_ADJACENCY doesn't exist below ES 3.2. */
   public static VertexOrder adaptOrder(final VertexOrder order) {
     return geometryShaders || order != VertexOrder.TRIANGLES_ADJACENCY ? order : VertexOrder.TRIANGLES;

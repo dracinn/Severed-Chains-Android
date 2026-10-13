@@ -127,6 +127,16 @@ public final class JdkCompat {
     return origin + random.nextFloat() * (bound - origin);
   }
 
+  /** Java 19 {@code Locale.of(language)} — absent from ART before API 34. */
+  public static java.util.Locale localeOf(final String language) {
+    return new java.util.Locale(language);
+  }
+
+  /** Java 19 {@code Locale.of(language, country)} — absent from ART before API 34. */
+  public static java.util.Locale localeOf(final String language, final String country) {
+    return new java.util.Locale(language, country);
+  }
+
   /** Java 13 {@code ByteBuffer.get(int, byte[])}. */
   public static ByteBuffer get(final ByteBuffer buffer, final int index, final byte[] dst) {
     return get(buffer, index, dst, 0, dst.length);
