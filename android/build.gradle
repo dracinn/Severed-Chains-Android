@@ -801,7 +801,7 @@ configurations {
 // the patched outputs plus their transitives declared explicitly.
 def unpatchedDeps = [
   'mod-loader.jar': configurations.detachedConfiguration(
-      dependencies.create('org.legendofdragoon:mod-loader:4.3.4')),
+      dependencies.create('org.legendofdragoon:mod-loader:4.3.5')),
   'script-recompiler.jar': configurations.detachedConfiguration(
       dependencies.create('org.legendofdragoon:script-recompiler:0.7.11')),
 ]

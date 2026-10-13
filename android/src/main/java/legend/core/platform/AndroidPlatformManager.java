@@ -819,6 +819,22 @@ public class AndroidPlatformManager extends PlatformManager {
     AndroidEnv.context().startActivity(intent);
   }
 
+  @Override
+  public String getPasteText() {
+    final android.content.ClipboardManager clipboard = (android.content.ClipboardManager)AndroidEnv.context().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+    if(clipboard == null || !clipboard.hasPrimaryClip()) {
+      return "";
+    }
+
+    final android.content.ClipData clip = clipboard.getPrimaryClip();
+    if(clip == null || clip.getItemCount() == 0) {
+      return "";
+    }
+
+    final CharSequence text = clip.getItemAt(0).coerceToText(AndroidEnv.context());
+    return text == null ? "" : text.toString();
+  }
+
   private static final class AxisInputState {
     private final Long2FloatMap values = new Long2FloatOpenHashMap();
 
