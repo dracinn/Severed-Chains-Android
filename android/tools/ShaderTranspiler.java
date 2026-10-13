@@ -57,7 +57,7 @@ public final class ShaderTranspiler {
         // GlesCompat.shaderSuffix().
         Files.writeString(outDir.resolve(hash + "-320.gles"), decompile(spirv(source, stage), 320));
         if(stage != 1) {
-          Files.writeString(outDir.resolve(hash + "-310.gles"), decompile(spirv(source, stage), 310));
+          Files.writeString(outDir.resolve(hash + "-310.gles"), patchEs31(name, stage, decompile(spirv(source, stage), 310)));
         }
         System.out.println("Transpiled " + name + " -> " + hash + "-*.gles");
       }
@@ -75,6 +75,41 @@ public final class ShaderTranspiler {
       out.append(Character.forDigit(b & 0xf, 16));
     }
     return out.toString();
+  }
+
+  /**
+   * Post-process the ES 3.10 decompile of the TMD-family shaders to recover the
+   * geometry shader's PS1 depth behaviour without a GS stage. Upstream's GS
+   * flattens each face's clip-space Z to the face average (usePs1Depth), so a
+   * polygon lands at one constant depth instead of interpenetrating its
+   * neighbours - exactly what PS1 ordering-table rendering did. On the GS-less
+   * path we emit the provoking vertex's NDC Z as a flat varying (flat gives a
+   * constant per face) and write gl_FragDepth from it when usePs1Depth is on.
+   * The -320 outputs are untouched.
+   */
+  private static String patchEs31(final String name, final int stage, final String gles) throws IOException {
+    if((name.equals("tmd.vsh") || name.equals("battle_tmd.vsh")) && stage == 0) {
+      String out = patch(gles, "out float io_depthOffset;",
+        "out float io_depthOffset;\nflat out highp float io_faceDepth;");
+      return patch(out, "io_depth = gl_Position.z;",
+        "io_depth = gl_Position.z;\n    io_faceDepth = gl_Position.z / gl_Position.w;");
+    }
+
+    if((name.equals("tmd.fsh") || name.equals("battle_tmd.fsh")) && stage == 2) {
+      String out = patch(gles, "in highp float io_depthOffset;",
+        "in highp float io_depthOffset;\nflat in highp float io_faceDepth;\nuniform int usePs1Depth;");
+      return patch(out, "gl_FragDepth = gl_FragCoord.z;",
+        "if(usePs1Depth != 0)\n        {\n            gl_FragDepth = (io_faceDepth * 0.5) + 0.5;\n        }\n        else\n        {\n            gl_FragDepth = gl_FragCoord.z;\n        }");
+    }
+
+    return gles;
+  }
+
+  private static String patch(final String text, final String needle, final String replacement) throws IOException {
+    if(!text.contains(needle)) {
+      throw new IOException("ES 3.1 shader patch missed: '" + needle + "'");
+    }
+    return text.replace(needle, replacement);
   }
 
   private static ByteBuffer spirv(final String source, final int stageOrdinal) throws IOException {

@@ -1,13 +1,20 @@
 package legend.game.android;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.Environment;
 import android.util.Log;
 import android.view.Surface;
 
 import javax.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -225,6 +232,7 @@ public final class AndroidEnv {
     gameStarted = true;
     final Thread gameThread = new Thread(() -> {
       try {
+        syncPublicMods();
         legend.game.Main.main(new String[0]);
       } catch(final Throwable t) {
         Log.e("SC-Main", "Game engine crashed", t);
@@ -235,6 +243,59 @@ public final class AndroidEnv {
     }, "GameEngine");
     gameThread.start();
     return true;
+  }
+
+  // ------------------------------------------------------------------
+  // Shared drop-in mods folder: Documents/Severed Chains/mods
+  // ------------------------------------------------------------------
+
+  /** Public folder users can drop .jar mods into without root or a PC. */
+  public static final File PUBLIC_MODS_DIR =
+    new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "Severed Chains/mods");
+
+  /** Whether the app can read arbitrary files in shared storage. */
+  public static boolean hasSharedStorageAccess() {
+    if(Build.VERSION.SDK_INT >= 30) {
+      return Environment.isExternalStorageManager();
+    }
+    return context.checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
+  }
+
+  /**
+   * Mirror .jar files dropped into the shared mods folder into the engine's
+   * internal mods dir before ModManager scans it. Additive only — internal
+   * jars are never deleted, so built-in mods are unaffected.
+   */
+  public static void syncPublicMods() {
+    if(!hasSharedStorageAccess()) {
+      return;
+    }
+
+    final File[] jars = PUBLIC_MODS_DIR.listFiles((dir, name) -> name.endsWith(".jar"));
+    if(jars == null || jars.length == 0) {
+      return;
+    }
+
+    final File modsDir = new File(context.getFilesDir(), "mods");
+    //noinspection ResultOfMethodCallIgnored
+    modsDir.mkdirs();
+
+    for(final File jar : jars) {
+      final File dest = new File(modsDir, jar.getName());
+      if(dest.isFile() && dest.length() == jar.length() && dest.lastModified() >= jar.lastModified()) {
+        continue;
+      }
+
+      try(final InputStream in = new FileInputStream(jar);
+          final OutputStream out = new FileOutputStream(dest)) {
+        in.transferTo(out);
+        //noinspection ResultOfMethodCallIgnored
+        dest.setLastModified(jar.lastModified());
+        Log.i("SC-Env", "Synced public mod " + jar.getName());
+      } catch(final IOException e) {
+        Log.e("SC-Env", "Failed to sync public mod " + jar.getName(), e);
+      }
+    }
   }
 
   @Nullable

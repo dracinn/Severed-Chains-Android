@@ -1,12 +1,16 @@
 package legend.game.android;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.os.StatFs;
+import android.provider.Settings;
 import android.provider.OpenableColumns;
 import android.util.Log;
 import android.util.TypedValue;
@@ -138,6 +142,19 @@ public final class SetupView extends ScrollView {
     this.startButton.setOnClickListener(v -> this.startWithNotice());
     buttons.addView(this.startButton, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
 
+    final TextView modsNote = new TextView(activity);
+    modsNote.setText("Mods: drop .jar files into Documents/Severed Chains/mods with any file " +
+      "manager — they load on next launch. Storage access must be granted first.");
+    modsNote.setTextColor(COLOUR_DIM);
+    modsNote.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+    modsNote.setPadding(0, this.dp(16), 0, this.dp(4));
+    content.addView(modsNote);
+
+    final Button storage = new Button(activity);
+    storage.setText("Enable shared storage access");
+    storage.setOnClickListener(v -> this.requestStorageAccess());
+    content.addView(storage);
+
     this.importPanel = new LinearLayout(activity);
     this.importPanel.setOrientation(LinearLayout.VERTICAL);
     this.importPanel.setPadding(0, this.dp(16), 0, 0);
@@ -202,6 +219,20 @@ public final class SetupView extends ScrollView {
   // ------------------------------------------------------------------
   // Picker + import
   // ------------------------------------------------------------------
+
+  /** All-files access for the public Documents mods folder (or legacy WRITE on API <=28). */
+  private void requestStorageAccess() {
+    if(Build.VERSION.SDK_INT >= 30) {
+      try {
+        this.activity.startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+          Uri.parse("package:" + this.activity.getPackageName())));
+      } catch(final ActivityNotFoundException e) {
+        this.activity.startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+      }
+    } else {
+      this.activity.requestPermissions(new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE}, 42);
+    }
+  }
 
   private void launchPicker() {
     final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT)

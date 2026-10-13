@@ -29,6 +29,16 @@ This fork keeps the game complete and faithful on Android while making it comfor
 
 Dragoon Modifier is the [LoD Modding community](https://github.com/Legend-of-Dragoon-Modding/sc-dragoon-modifier)'s own mod, kept up to date with its upstream source.
 
+**Installing your own mods**
+
+Game mods live in the app's private data, which isn't reachable without root — so the port mirrors a shared drop-in folder instead:
+
+1. Tap **Enable shared storage access** on the setup screen (or grant *All files access* for Severed Chains in system Settings → Apps → Special app access).
+2. Drop `.jar` mods into `Documents/Severed Chains/mods` with any file manager.
+3. Relaunch the game — jars are copied into the engine's mods folder at startup and appear in the in-game mod list.
+
+Removing a jar from the shared folder doesn't uninstall it (the internal copy is never deleted) — disable or remove mods from the game's own mod menu. Shared storage uses *All files access* on Android 11+ and the legacy storage permission on Android 9 and below (Android 10 sits in the scoped-storage gap — its file-manager route doesn't apply).
+
 
 **Versioning and updates**
 
