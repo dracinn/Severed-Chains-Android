@@ -977,13 +977,27 @@ tasks.register('stageAssets', Copy) {
   dependsOn 'patchGfxShaders'
   from('../gfx') {
     into 'gfx'
-    exclude 'shaders/**'
+    exclude 'shaders/**', 'textures/noslop.png'
+  }
+  // Android fork branding: upstream's "no slop" badge slot carries the
+  // Devin mark instead (same quad/position, see GameEngine).
+  from('branding/devin.png') {
+    into 'gfx/textures'
+    rename { 'noslop.png' }
   }
   from(patchedShaders) {
     into 'gfx/shaders'
   }
   from('../lang') {
     into 'lang'
+    filesMatching('unpacker.en.lang') {
+      filter { line ->
+        if(line.startsWith('unpacker.made_by_humans=')) {
+          return 'unpacker.made_by_humans=Android port\\nbuilt with Devin'
+        }
+        return line
+      }
+    }
   }
   // Unpacker patch data (replacements, scripts, libs) read via Path.of
   from('../patches') {
@@ -1003,6 +1017,10 @@ tasks.register('stageAssets', Copy) {
     final File staged = new File(destinationDir, 'log4j2.xml')
     if(!staged.text.contains('${sys:legend.baseDir}/debug.log')) {
       throw new GradleException('log4j2.xml no longer contains fileName="debug.log"; update the Android rewrite')
+    }
+    final File lang = new File(destinationDir, 'lang/unpacker.en.lang')
+    if(!lang.text.contains('built with Devin')) {
+      throw new GradleException('unpacker.en.lang no longer contains the made_by_humans key; update the staging transform')
     }
   }
 }
