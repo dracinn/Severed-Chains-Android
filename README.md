@@ -1,8 +1,17 @@
 # Severed Chains Android
 
+> [!WARNING]
+> **This is an unofficial fork.** It is not affiliated with, endorsed by, or supported by the [Legend of Dragoon Modding community](https://github.com/Legend-of-Dragoon-Modding) or the official Severed Chains project. Please report Android-specific issues on this repository — not upstream.
+
+## About Severed Chains
+
 An Android port of [Severed Chains](https://github.com/Legend-of-Dragoon-Modding/Severed-Chains) — the fan-made project that rebuilt The Legend of Dragoon from scratch in Java (not an emulator), with a full modding API.
 
-This fork keeps the game complete and faithful on Android while making it comfortable to play on a touchscreen.
+All credit for the engine goes to the [Legend of Dragoon Modding community](https://github.com/Legend-of-Dragoon-Modding/Severed-Chains). Visit their [player guide](https://legendofdragoon.org/projects/severed-chains/) and [Discord](https://discord.com/channels/307164262063669248/318595603636551701) for more about the original project. This fork keeps the game complete and faithful on Android while making it comfortable to play on a touchscreen.
+
+**Copyright Information**
+
+Even though it is not an emulator, Severed Chains cannot be played without the user providing the LoD disk images. Assets are extracted from the ROMs at runtime. This codebase does not include any official Legend of Dragoon code or assets.
 
 ## Getting the game
 
@@ -57,11 +66,3 @@ If it still won't start:
 ## Controls
 
 Gamepads are supported out of the box — connect one and pick it in the in-game options. Onscreen controls are the default for touch play and can be styled and arranged as described above.
-
-## Copyright Information
-
-Even though it is not an emulator, Severed Chains cannot be played without the user providing the LoD disk images. Assets are extracted from the ROMs at runtime. This codebase does not include any official Legend of Dragoon code or assets.
-
-## Credits
-
-All credit for the engine goes to the [Legend of Dragoon Modding community](https://github.com/Legend-of-Dragoon-Modding/Severed-Chains). Visit their [player guide](https://legendofdragoon.org/projects/severed-chains/) and [Discord](https://discord.com/channels/307164262063669248/318595603636551701) for more about the original project.
