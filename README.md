@@ -1,8 +1,17 @@
 # Severed Chains Android
 
+> [!WARNING]
+> **This is an unofficial fork.** It is not affiliated with, endorsed by, or supported by the [Legend of Dragoon Modding community](https://github.com/Legend-of-Dragoon-Modding) or the official Severed Chains project. Please report Android-specific issues on this repository — not upstream.
+
+## About Severed Chains
+
 An Android port of [Severed Chains](https://github.com/Legend-of-Dragoon-Modding/Severed-Chains) — the fan-made project that rebuilt The Legend of Dragoon from scratch in Java (not an emulator), with a full modding API.
 
-This fork keeps the game complete and faithful on Android while making it comfortable to play on a touchscreen.
+All credit for the engine goes to the [Legend of Dragoon Modding community](https://github.com/Legend-of-Dragoon-Modding/Severed-Chains). Visit their [player guide](https://legendofdragoon.org/projects/severed-chains/) and [Discord](https://discord.com/channels/307164262063669248/318595603636551701) for more about the original project. This fork keeps the game complete and faithful on Android while making it comfortable to play on a touchscreen.
+
+**Copyright Information**
+
+Even though it is not an emulator, Severed Chains cannot be played without the user providing the LoD disk images. Assets are extracted from the ROMs at runtime. This codebase does not include any official Legend of Dragoon code or assets.
 
 ## Getting the game
 
@@ -37,7 +46,7 @@ Game data normally lives in the app's private storage, which isn't reachable wit
 - `Saves` — your campaign saves live here once access is granted, so you can back them up, restore them, and keep them even if the app is uninstalled. Saves made before granting access are moved across automatically on next launch.
 - `ISOs` — disc images are detected here automatically: the setup screen and the unpacker scan it alongside the internal folder. Discs picked through the file picker are copied into `ISOs` when access is granted (and ones already inside the app move across on next launch), so you can add, remove, or replace them from a file manager or PC.
 
-To grant access: tap **Enable shared storage access** on the setup screen (or grant *All files access* for Severed Chains in system Settings → Apps → Special app access). Uses *All files access* on Android 11+ and the legacy storage permission on Android 9 and below (Android 10 sits in the scoped-storage gap — its file-manager route doesn't apply). If access is revoked while saves live in `Saves`, the game falls back to its internal folder — re-grant to see them again.
+To grant access: the setup screen asks once on first run, and its **Enable access** button is always there as a fallback (or grant *All files access* for Severed Chains in system Settings → Apps → Special app access). Uses *All files access* on Android 11+ and the legacy storage permission on Android 9 and below (Android 10 sits in the scoped-storage gap — its file-manager route doesn't apply). If access is revoked while saves live in `Saves`, the game falls back to its internal folder — re-grant to see them again.
 
 
 **Versioning and updates**
@@ -57,11 +66,3 @@ If it still won't start:
 ## Controls
 
 Gamepads are supported out of the box — connect one and pick it in the in-game options. Onscreen controls are the default for touch play and can be styled and arranged as described above.
-
-## Copyright Information
-
-Even though it is not an emulator, Severed Chains cannot be played without the user providing the LoD disk images. Assets are extracted from the ROMs at runtime. This codebase does not include any official Legend of Dragoon code or assets.
-
-## Credits
-
-All credit for the engine goes to the [Legend of Dragoon Modding community](https://github.com/Legend-of-Dragoon-Modding/Severed-Chains). Visit their [player guide](https://legendofdragoon.org/projects/severed-chains/) and [Discord](https://discord.com/channels/307164262063669248/318595603636551701) for more about the original project.
