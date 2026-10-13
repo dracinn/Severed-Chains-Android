@@ -42,6 +42,10 @@ public class TouchControlsView extends View {
   /** Face-cluster unit offsets, multiplied by the (scaled) diamond offset. */
   private static final float FACE_OFF_DP = 48f;
   private static final float FACE_R_DP = 26f;
+  /** Centre grip never shrinks below this radius regardless of cluster scale. */
+  private static final float FACE_HUB_MIN_DP = 24f;
+  /** A second finger this far beyond the cluster bound still joins the pinch. */
+  private static final float FACE_PINCH_EXTRA_DP = 56f;
 
   private static final int GOLD = Color.rgb(212, 175, 55);
   private static final int CREAM = Color.rgb(235, 225, 200);
@@ -113,6 +117,7 @@ public class TouchControlsView extends View {
   private float faceCy;
   private float faceScale = 1.0f;
   private float faceBoundR;
+  private float faceHubR;
 
   /** Move/resize gesture on the face cluster: -1 when not owned. */
   private int faceMovePointerId = -1;
@@ -125,6 +130,10 @@ public class TouchControlsView extends View {
   private float grabDY;
   private float pinchStartDist;
   private float pinchStartScale;
+  private float pinchStartCx;
+  private float pinchStartCy;
+  private float pinchStartMidX;
+  private float pinchStartMidY;
 
   /** pointerId -> x,y for fingers that landed on a control or the stick */
   private final SparseArray<float[]> active = new SparseArray<>();
@@ -283,6 +292,9 @@ public class TouchControlsView extends View {
     final float off = FACE_OFF_DP * this.dp * this.faceScale;
     final float br = FACE_R_DP * this.dp * this.faceScale;
     this.faceBoundR = off + br + 14 * this.dp;
+    // The empty middle shrinks to ~11dp at min scale — too small to grab.
+    // Guarantee a minimum-radius grip; at large scales it just fills the gap.
+    this.faceHubR = Math.max(off - br, FACE_HUB_MIN_DP * this.dp);
 
     // Keep the cluster centre where at least part of it stays reachable
     this.faceCx = Math.max(this.faceBoundR * 0.4f, Math.min(w - this.faceBoundR * 0.4f, this.faceCx));
@@ -299,6 +311,19 @@ public class TouchControlsView extends View {
     final float dx = x - this.faceCx;
     final float dy = y - this.faceCy;
     return dx * dx + dy * dy <= this.faceBoundR * this.faceBoundR;
+  }
+
+  private boolean inFaceHub(final float x, final float y) {
+    final float dx = x - this.faceCx;
+    final float dy = y - this.faceCy;
+    return dx * dx + dy * dy <= this.faceHubR * this.faceHubR;
+  }
+
+  private boolean inFacePinchZone(final float x, final float y) {
+    final float dx = x - this.faceCx;
+    final float dy = y - this.faceCy;
+    final float r = this.faceBoundR + FACE_PINCH_EXTRA_DP * this.dp;
+    return dx * dx + dy * dy <= r * r;
   }
 
   @Override
@@ -326,13 +351,27 @@ public class TouchControlsView extends View {
         final int id = ev.getPointerId(idx);
         final float x = ev.getX(idx);
         final float y = ev.getY(idx);
-        if(this.faceMovePointerId != -1 && this.faceScalePointerId == -1 && this.inFaceCluster(x, y)) {
+        if(this.faceMovePointerId != -1 && this.faceScalePointerId == -1 && this.inFacePinchZone(x, y)) {
           // Second finger while dragging the cluster: pinch to resize
           this.faceScalePointerId = id;
           this.faceScaleX = x;
           this.faceScaleY = y;
           this.pinchStartDist = Math.max(1.0f, (float)Math.hypot(x - this.faceMoveX, y - this.faceMoveY));
           this.pinchStartScale = this.faceScale;
+          this.pinchStartCx = this.faceCx;
+          this.pinchStartCy = this.faceCy;
+          this.pinchStartMidX = (x + this.faceMoveX) * 0.5f;
+          this.pinchStartMidY = (y + this.faceMoveY) * 0.5f;
+        } else if(this.faceMovePointerId == -1 && this.inFaceHub(x, y)) {
+          // Centre grip is claimed before the buttons: it may overlap the
+          // inner edge of the discs at small scales, which is the tradeoff
+          // for keeping a shrunken cluster grabbable.
+          this.faceMovePointerId = id;
+          this.faceMoveX = x;
+          this.faceMoveY = y;
+          this.grabDX = x - this.faceCx;
+          this.grabDY = y - this.faceCy;
+          this.gestureConsumed = true;
         } else if(this.hit(x, y) != null) {
           this.gestureConsumed = true;
           this.active.put(id, new float[] {x, y});
@@ -416,12 +455,20 @@ public class TouchControlsView extends View {
       return;
     }
 
-    this.faceCx = this.faceMoveX - this.grabDX;
-    this.faceCy = this.faceMoveY - this.grabDY;
-
     if(this.faceScalePointerId != -1) {
+      // Anchor the pinch to the two-finger midpoint rather than finger 1 —
+      // both fingers contribute to translation, so the cluster doesn't
+      // wobble if one finger jitters.
+      final float midX = (this.faceMoveX + this.faceScaleX) * 0.5f;
+      final float midY = (this.faceMoveY + this.faceScaleY) * 0.5f;
+      this.faceCx = this.pinchStartCx + midX - this.pinchStartMidX;
+      this.faceCy = this.pinchStartCy + midY - this.pinchStartMidY;
+
       final float dist = Math.max(1.0f, (float)Math.hypot(this.faceScaleX - this.faceMoveX, this.faceScaleY - this.faceMoveY));
       this.faceScale = Math.max(MIN_FACE_SCALE, Math.min(MAX_FACE_SCALE, this.pinchStartScale * dist / this.pinchStartDist));
+    } else {
+      this.faceCx = this.faceMoveX - this.grabDX;
+      this.faceCy = this.faceMoveY - this.grabDY;
     }
 
     this.layoutFaceCluster();
@@ -590,9 +637,18 @@ public class TouchControlsView extends View {
       }
     }
 
-    // Faint ring in the diamond's empty middle: the move/resize grip
-    this.rimPaint.setAlpha(this.a(45));
-    canvas.drawCircle(this.faceCx, this.faceCy, 7 * this.dp * this.faceScale, this.rimPaint);
+    // Centre grip: ring + four outward ticks suggest move/resize. Drawn at a
+    // minimum size so it stays visible when the cluster is shrunken.
+    final float gr = Math.max(7 * this.dp * this.faceScale, 10 * this.dp);
+    this.rimPaint.setAlpha(this.a(55));
+    canvas.drawCircle(this.faceCx, this.faceCy, gr, this.rimPaint);
+    final float t0 = gr * 0.45f;
+    final float t1 = gr * 0.8f;
+    for(int i = 0; i < 4; i++) {
+      final float dx = (float)Math.cos(Math.PI / 4 + i * Math.PI / 2);
+      final float dy = (float)Math.sin(Math.PI / 4 + i * Math.PI / 2);
+      canvas.drawLine(this.faceCx + dx * t0, this.faceCy + dy * t0, this.faceCx + dx * t1, this.faceCy + dy * t1, this.rimPaint);
+    }
     this.rimPaint.setAlpha(255);
   }
 
