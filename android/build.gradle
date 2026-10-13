@@ -427,6 +427,34 @@ import java.awt.image.BufferedImage;
     'private static final Path configPath = Path.of("config");':
     'private static final Path configPath = legend.game.android.JdkCompat.absolute(Path.of("config"));',
   ],
+  'legend/game/modding/coremod/config/LanguageConfigEntry.java': [
+    // ART before API 34 lacks Locale.of (JDK 19+ API).
+    'return Locale.of(language, country);': 'return new Locale(language, country);',
+    'return Locale.of(language);': 'return new Locale(language);',
+  ],
+  'legend/core/renderer/opengles/GlesFrameBuffer.java': [
+    // Report the depth attachment's real bit size: GLES lets the driver pick
+    // the precision for unsized DEPTH_COMPONENT allocations, so this log
+    // proves what the device actually gave us (see Graphics caps block).
+    '''    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+      throw new RuntimeException("Render buffer is not complete!");
+    }''':
+    '''    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+      throw new RuntimeException("Render buffer is not complete!");
+    }
+
+    legend.game.android.GlesCompat.logDepthAttachment(this.name);''',
+  ],
+  'legend/core/renderer/opengles/GlesTexture.java': [
+    // Unsized DEPTH_COMPONENT + FLOAT isn't a legal ES combo; Adreno accepts
+    // it but silently allocates a 16-bit depth buffer, which quantizes
+    // close surfaces to the same depth (interpenetrating polys, flickering
+    // shadows). DEPTH_COMPONENT32F is the legal sized pairing for FLOAT.
+    '''      case R_32_UINT -> GL_R32UI;
+      case DEPTH_COMPONENT -> GL_DEPTH_COMPONENT;''':
+    '''      case R_32_UINT -> GL_R32UI;
+      case DEPTH_COMPONENT -> org.lwjgl.opengles.GLES32.GL_DEPTH_COMPONENT32F;''',
+  ],
   'legend/game/modding/coremod/config/TouchControlsOpacityConfigEntry.java': [
     // 65% by default — the touch overlay fights the 240p artwork at full
     // opacity on phone-sized screens.
@@ -491,9 +519,9 @@ import java.awt.image.BufferedImage;
     'return new GlesMesh(name, legend.game.android.GlesCompat.adaptOrder(vertexOrder), vertexData, vertexCount, textured, translucent, translucencyMode, bufferUsage);',
   ],
   'legend/core/renderer/RenderEngine.java': [
-    // usePs1Depth lives in tmd.gsh on ES 3.2 and in the fragment shader on the
-    // ES 3.1 path (patched -310 shaders use it to select the flat face-depth
-    // write), so the real lookup works in both variants again.
+    // usePs1Depth lives in tmd.gsh on ES 3.2 and is patched into both
+    // variants' fragment shaders (flat face-depth write), so the real
+    // uniform lookup resolves on every pipeline.
   ],
   'legend/core/Sort.java': [
     // Upstream reflectively reuses java.util.TimSort's shared-workspace sort.

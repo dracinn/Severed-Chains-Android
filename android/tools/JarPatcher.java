@@ -24,6 +24,7 @@ import java.util.jar.JarOutputStream;
  *   CodeSource.getLocation()         -> JdkReflect.codeSourceLocation(src)
  *   LogManager.getLogger()           -> JdkReflect.getLogger()
  *   LogManager.getFormatterLogger()  -> JdkReflect.getFormatterLogger()
+ *   Locale.of(lang[, country])       -> JdkCompat.localeOf(...)
  */
 public final class JarPatcher {
   private JarPatcher() { }
@@ -100,6 +101,15 @@ public final class JarPatcher {
 
             if(opcode == Opcodes.INVOKEVIRTUAL && owner.equals("java/security/CodeSource") && name.equals("getLocation") && descriptor.equals("()Ljava/net/URL;")) {
               super.visitMethodInsn(Opcodes.INVOKESTATIC, JDK_REFLECT, "codeSourceLocation", "(Ljava/security/CodeSource;)Ljava/net/URL;", false);
+              changed[0] = true;
+              return;
+            }
+
+            // ART (Android < 14) lacks Locale.of (JDK 19+). Redirect to the
+            // equivalent constructor through a helper; identical descriptor
+            // keeps the operand stack untouched.
+            if(opcode == Opcodes.INVOKESTATIC && owner.equals("java/util/Locale") && name.equals("of") && (descriptor.equals("(Ljava/lang/String;)Ljava/util/Locale;") || descriptor.equals("(Ljava/lang/String;Ljava/lang/String;)Ljava/util/Locale;"))) {
+              super.visitMethodInsn(Opcodes.INVOKESTATIC, "legend/game/android/JdkCompat", "localeOf", descriptor, false);
               changed[0] = true;
               return;
             }

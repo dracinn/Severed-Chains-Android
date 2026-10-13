@@ -55,7 +55,7 @@ public final class ShaderTranspiler {
         // plus an ES 3.10 variant of non-geometry stages for devices like
         // Mali Midgard that top out at ES 3.1. Runtime picks by suffix via
         // GlesCompat.shaderSuffix().
-        Files.writeString(outDir.resolve(hash + "-320.gles"), decompile(spirv(source, stage), 320));
+        Files.writeString(outDir.resolve(hash + "-320.gles"), patchEs32(name, stage, decompile(spirv(source, stage), 320)));
         if(stage != 1) {
           Files.writeString(outDir.resolve(hash + "-310.gles"), patchEs31(name, stage, decompile(spirv(source, stage), 310)));
         }
@@ -103,6 +103,62 @@ public final class ShaderTranspiler {
     }
 
     return gles;
+  }
+
+  /**
+   * Post-process the ES 3.20 decompile of the TMD-family shaders so the PS1
+   * depth flatten doesn't depend on the geometry shader's gl_Position.z write
+   * being honoured by the driver. Upstream writes the face-average clip-space
+   * Z while keeping each vertex's own W, so the rasterized depth still varies
+   * (correct only where W == 1) and a couple of older Adreno GLES drivers
+   * appear to drop the write entirely. Instead we carry the face-average NDC
+   * Z through a flat varying and write gl_FragDepth from it when usePs1Depth
+   * is on, matching the ES 3.1 patch. Models rendered without the flag take
+   * the unchanged gl_FragCoord.z / mode-2 linearized paths.
+   */
+  private static String patchEs32(final String name, final int stage, final String gles) throws IOException {
+    if(name.equals("tmd.gsh") && stage == 1) {
+      // Plain varying, not a GS_OUT member: Adreno's linker rejects flat
+      // members inside location-qualified interface blocks.
+      String out = patch(gles, "uniform int usePs1Depth;",
+        "uniform int usePs1Depth;\nflat out highp float io_faceDepth;\nhighp float _faceDepthNdc;");
+      out = patch(out, "    gs_out.depthOffset = vs_out[i].depthOffset;",
+        "    gs_out.depthOffset = vs_out[i].depthOffset;\n    io_faceDepth = _faceDepthNdc;");
+      return patch(out, "    avgDepth /= float(vertexCount);",
+        "    avgDepth /= float(vertexCount);\n    _faceDepthNdc = (gl_in[0].gl_Position.z / gl_in[0].gl_Position.w + gl_in[2].gl_Position.z / gl_in[2].gl_Position.w + gl_in[4].gl_Position.z / gl_in[4].gl_Position.w + (vertexCount == 4 ? gl_in[1].gl_Position.z / gl_in[1].gl_Position.w : 0.0)) / float(vertexCount);");
+    }
+
+    // battle_tmd has no geometry stage, so the FS reads the provoking
+    // vertex's NDC depth through a plain flat varying like the 310 patch.
+    if(name.equals("battle_tmd.vsh") && stage == 0) {
+      final String blockVar = blockVar(gles);
+      String out = patch(gles, "    float depthOffset;\n} " + blockVar + ";",
+        "    float depthOffset;\n} " + blockVar + ";\nflat out highp float io_faceDepth;");
+      return patch(out, "    vs_out.depth = gl_Position.z;",
+        "    vs_out.depth = gl_Position.z;\n    io_faceDepth = gl_Position.z / gl_Position.w;");
+    }
+
+    if((name.equals("tmd.fsh") || name.equals("battle_tmd.fsh")) && stage == 2) {
+      final String blockVar = blockVar(gles);
+      String out = patch(gles, "    highp float depthOffset;\n} " + blockVar + ";",
+        "    highp float depthOffset;\n} " + blockVar + ";\nflat in highp float io_faceDepth;");
+      out = patch(out, "uniform int tmdTranslucency;",
+        "uniform int tmdTranslucency;\nuniform int usePs1Depth;");
+      return patch(out, "gl_FragDepth = gl_FragCoord.z;",
+        "if(usePs1Depth != 0)\n        {\n            gl_FragDepth = (io_faceDepth * 0.5) + 0.5;\n        }\n        else\n        {\n            gl_FragDepth = gl_FragCoord.z;\n        }");
+    }
+
+    return gles;
+  }
+
+  /** Name of the stage-I/O block variable whose last member is depthOffset. */
+  private static String blockVar(final String gles) throws IOException {
+    final java.util.regex.Matcher matcher =
+      java.util.regex.Pattern.compile("(?:highp )?float depthOffset;\\s*\\n\\}\\s*(\\w+);").matcher(gles);
+    if(!matcher.find()) {
+      throw new IOException("ES 3.2 shader patch missed: I/O block end");
+    }
+    return matcher.group(1);
   }
 
   private static String patch(final String text, final String needle, final String replacement) throws IOException {
