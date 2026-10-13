@@ -343,6 +343,12 @@ import java.awt.image.BufferedImage;
     'public static Path ROOT = legend.game.android.JdkCompat.absolute(Path.of(".", "files"));',
     'Files.createDirectories(Path.of("./isos"));':
     'Files.createDirectories(legend.game.android.JdkCompat.absolute(Path.of("./isos")));',
+    // Also scan the public Documents/Severed Chains/ISOs folder when the
+    // user has granted shared storage access.
+    '    final Path isos = Path.of("isos");\n    if(Files.isDirectory(isos)) {':
+    '    for(final Path isos : legend.game.android.AndroidEnv.isoDirs()) {\n    if(Files.isDirectory(isos)) {',
+    '            readers[diskNum] = tuple.a();\n          }\n        }\n      }\n    }\n  }':
+    '            readers[diskNum] = tuple.a();\n          }\n        }\n      }\n    }\n    }\n  }',
     // Whole spilled tmp files rename to their destination instead of
     // streaming a copy (saves ~1.4 GB for untouched STR/XA files).
     '''      try(final OutputStream writer = Files.newOutputStream(path, StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
@@ -411,16 +417,25 @@ import java.awt.image.BufferedImage;
     '''    return legend.game.android.JdkCompat.mmapReadInt(this.file, this.offset + offset);''',
   ],
   'legend/game/saves/SaveManager.java': [
+    // Saves live in the shared Documents/Severed Chains/Saves folder when
+    // the user has granted storage access (AndroidEnv falls back to
+    // filesDir/saves otherwise).
     'private final Path dir = Paths.get("saves");':
-    'private final Path dir = legend.game.android.JdkCompat.absolute(Paths.get("saves"));',
+    'private final Path dir = legend.game.android.AndroidEnv.savesPath();',
   ],
   'legend/game/saves/ConfigPresetManager.java': [
     'private static final Path configPath = Path.of("config");':
     'private static final Path configPath = legend.game.android.JdkCompat.absolute(Path.of("config"));',
   ],
+  'legend/game/modding/coremod/config/TouchControlsOpacityConfigEntry.java': [
+    // 65% by default — the touch overlay fights the 240p artwork at full
+    // opacity on phone-sized screens.
+    'super(1.0f, ConfigStorageLocation.GLOBAL, ConfigCategory.CONTROLS, TouchControlsOpacityConfigEntry::serializer, data -> deserializer(data, 1.0f));':
+    'super(0.65f, ConfigStorageLocation.GLOBAL, ConfigCategory.CONTROLS, TouchControlsOpacityConfigEntry::serializer, data -> deserializer(data, 0.65f));',
+  ],
   'legend/core/GameEngine.java': [
     'Files.createDirectories(Path.of("saves"));':
-    'Files.createDirectories(legend.game.android.JdkCompat.absolute(Path.of("saves")));',
+    'Files.createDirectories(legend.game.android.AndroidEnv.savesPath());',
     'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
     'new ScriptPatcher(legend.game.android.JdkCompat.absolute(Path.of("./patches")), legend.game.android.JdkCompat.absolute(Path.of("./files")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/cache")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/backups")))',
     // ScriptManager (script-recompiler jar) absolutizes include paths
