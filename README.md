@@ -37,7 +37,7 @@ Game data normally lives in the app's private storage, which isn't reachable wit
 - `Saves` — your campaign saves live here once access is granted, so you can back them up, restore them, and keep them even if the app is uninstalled. Saves made before granting access are moved across automatically on next launch.
 - `ISOs` — disc images are detected here automatically: the setup screen and the unpacker scan it alongside the internal folder. Discs picked through the file picker are copied into `ISOs` when access is granted (and ones already inside the app move across on next launch), so you can add, remove, or replace them from a file manager or PC.
 
-To grant access: tap **Enable shared storage access** on the setup screen (or grant *All files access* for Severed Chains in system Settings → Apps → Special app access). Uses *All files access* on Android 11+ and the legacy storage permission on Android 9 and below (Android 10 sits in the scoped-storage gap — its file-manager route doesn't apply). If access is revoked while saves live in `Saves`, the game falls back to its internal folder — re-grant to see them again.
+To grant access: the setup screen asks once on first run, and its **Enable access** button is always there as a fallback (or grant *All files access* for Severed Chains in system Settings → Apps → Special app access). Uses *All files access* on Android 11+ and the legacy storage permission on Android 9 and below (Android 10 sits in the scoped-storage gap — its file-manager route doesn't apply). If access is revoked while saves live in `Saves`, the game falls back to its internal folder — re-grant to see them again.
 
 
 **Versioning and updates**
