@@ -89,6 +89,7 @@ public class AndroidPlatformManager extends PlatformManager {
   private float lastTouchFaceX = Float.NaN;
   private float lastTouchFaceY = Float.NaN;
   private float lastTouchFaceScale = Float.NaN;
+  private TouchControlsView lastOverlay;
 
   private final IntSet gamepads = new IntOpenHashSet();
   private int lastGamepad = -1;
@@ -494,6 +495,18 @@ public class AndroidPlatformManager extends PlatformManager {
       CONFIG.setConfig(TOUCH_FACE_X_CONFIG.get(), pendingFaceLayout[0]);
       CONFIG.setConfig(TOUCH_FACE_Y_CONFIG.get(), pendingFaceLayout[1]);
       CONFIG.setConfig(TOUCH_FACE_SCALE_CONFIG.get(), pendingFaceLayout[2]);
+    }
+
+    // A recreated activity builds a fresh overlay that starts at defaults —
+    // clear the change-detection sentinels so all three pushes re-fire for it.
+    final TouchControlsView overlayNow = AndroidInput.overlay;
+    if(overlayNow != this.lastOverlay) {
+      this.lastOverlay = overlayNow;
+      this.lastFaceButtonStyle = null;
+      this.lastTouchOpacity = Float.NaN;
+      this.lastTouchFaceX = Float.NaN;
+      this.lastTouchFaceY = Float.NaN;
+      this.lastTouchFaceScale = Float.NaN;
     }
 
     // Push the face-button glyph style to the touch overlay when it changes

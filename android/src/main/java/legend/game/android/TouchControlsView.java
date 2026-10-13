@@ -606,13 +606,13 @@ public class TouchControlsView extends View {
 
   /** Rounded-rect control (shoulders, select/start). */
   private void drawPill(final Canvas canvas, final Ctrl c, final boolean held) {
-    this.discPaint.setColor(Color.argb(held ? 235 : 190, Color.red(DARK), Color.green(DARK), Color.blue(DARK)));
+    this.discPaint.setColor(Color.argb(this.a(held ? 235 : 190), Color.red(DARK), Color.green(DARK), Color.blue(DARK)));
     this.tmpRect.set(c.x - c.pw / 2, c.y - c.ph / 2, c.x + c.pw / 2, c.y + c.ph / 2);
     canvas.drawRoundRect(this.tmpRect, c.ph / 2, c.ph / 2, this.discPaint);
-    this.rimPaint.setAlpha(held ? 255 : 180);
+    this.rimPaint.setAlpha(this.a(held ? 255 : 180));
     canvas.drawRoundRect(this.tmpRect, c.ph / 2, c.ph / 2, this.rimPaint);
     this.rimPaint.setAlpha(255);
-    this.labelPaint.setAlpha(held ? 255 : 240);
+    this.labelPaint.setAlpha(this.a(held ? 255 : 240));
     canvas.drawText(c.label, c.x, c.y - (this.labelPaint.descent() + this.labelPaint.ascent()) / 2, this.labelPaint);
   }
 

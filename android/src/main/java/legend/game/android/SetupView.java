@@ -1,12 +1,16 @@
 package legend.game.android;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.os.StatFs;
+import android.provider.Settings;
 import android.provider.OpenableColumns;
 import android.util.Log;
 import android.util.TypedValue;
@@ -138,6 +142,21 @@ public final class SetupView extends ScrollView {
     this.startButton.setOnClickListener(v -> this.startWithNotice());
     buttons.addView(this.startButton, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
 
+    final TextView modsNote = new TextView(activity);
+    modsNote.setText("Shared folders (storage access required): drop .jar mods into " +
+      "Documents/Severed Chains/Mods and disc images into .../ISOs — both are detected " +
+      "automatically. Picked discs are moved into ISOs, and saves live in .../Saves so " +
+      "they stay yours if the app is uninstalled.");
+    modsNote.setTextColor(COLOUR_DIM);
+    modsNote.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+    modsNote.setPadding(0, this.dp(16), 0, this.dp(4));
+    content.addView(modsNote);
+
+    final Button storage = new Button(activity);
+    storage.setText("Enable shared storage access");
+    storage.setOnClickListener(v -> this.requestStorageAccess());
+    content.addView(storage);
+
     this.importPanel = new LinearLayout(activity);
     this.importPanel.setOrientation(LinearLayout.VERTICAL);
     this.importPanel.setPadding(0, this.dp(16), 0, 0);
@@ -202,6 +221,20 @@ public final class SetupView extends ScrollView {
   // ------------------------------------------------------------------
   // Picker + import
   // ------------------------------------------------------------------
+
+  /** All-files access for the public Documents folders (or legacy WRITE on API <=28). */
+  private void requestStorageAccess() {
+    if(Build.VERSION.SDK_INT >= 30) {
+      try {
+        this.activity.startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+          Uri.parse("package:" + this.activity.getPackageName())));
+      } catch(final ActivityNotFoundException e) {
+        this.activity.startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+      }
+    } else {
+      this.activity.requestPermissions(new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE}, 42);
+    }
+  }
 
   private void launchPicker() {
     final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT)
@@ -276,14 +309,20 @@ public final class SetupView extends ScrollView {
     }
     name = new File(name).getName(); // strip any path components
 
-    final File existing = new File(this.isosDir, name);
+    // When shared storage access is granted, stage into Documents/Severed
+    // Chains/ISOs so the files stay user-managed; the unpacker scans both.
+    final File destDir = AndroidEnv.isoDestDir();
+    //noinspection ResultOfMethodCallIgnored
+    destDir.mkdirs();
+
+    final File existing = new File(destDir, name);
     if(size > 0 && existing.isFile() && existing.length() == size) {
       this.updateProgress(index, count, name + " already imported", 1.0f);
       return;
     }
 
-    final File dest = existing.exists() ? this.uniqueName(name) : existing;
-    final File part = new File(this.isosDir, dest.getName() + ".part");
+    final File dest = existing.exists() ? this.uniqueName(destDir, name) : existing;
+    final File part = new File(destDir, dest.getName() + ".part");
 
     try(final InputStream in = this.activity.getContentResolver().openInputStream(uri);
         final FileOutputStream out = new FileOutputStream(part)) {
@@ -330,13 +369,13 @@ public final class SetupView extends ScrollView {
     }
   }
 
-  private File uniqueName(final String name) {
+  private File uniqueName(final File dir, final String name) {
     final int dot = name.lastIndexOf('.');
     final String base = dot > 0 ? name.substring(0, dot) : name;
     final String ext = dot > 0 ? name.substring(dot) : "";
 
     for(int i = 1; ; i++) {
-      final File candidate = new File(this.isosDir, base + " (" + i + ")" + ext);
+      final File candidate = new File(dir, base + " (" + i + ")" + ext);
       if(!candidate.exists()) {
         return candidate;
       }
@@ -364,13 +403,17 @@ public final class SetupView extends ScrollView {
   // ------------------------------------------------------------------
 
   private void rescan() {
-    final File[] files = this.isosDir.listFiles();
     final File[] discs = new File[4];
     final DiscImage.Info[] infos = new DiscImage.Info[4];
     final List<String> other = new ArrayList<>();
     int found = 0;
 
-    if(files != null) {
+    for(final java.nio.file.Path dir : AndroidEnv.isoDirs()) {
+      final File[] files = dir.toFile().listFiles();
+      if(files == null) {
+        continue;
+      }
+
       for(final File file : files) {
         if(!file.isFile() || file.getName().endsWith(".part")) {
           continue;
@@ -394,11 +437,11 @@ public final class SetupView extends ScrollView {
           other.add(file.getName());
         }
       }
+    }
 
-      for(final DiscImage.Info info : infos) {
-        if(info != null && info.kind() == DiscImage.Kind.US) {
-          found++;
-        }
+    for(final DiscImage.Info info : infos) {
+      if(info != null && info.kind() == DiscImage.Kind.US) {
+        found++;
       }
     }
 
@@ -418,7 +461,7 @@ public final class SetupView extends ScrollView {
     if(other.isEmpty()) {
       this.unrecognized.setVisibility(GONE);
     } else {
-      this.unrecognized.setText("Unrecognized files in isos/: " + String.join(", ", other));
+      this.unrecognized.setText("Unrecognized files: " + String.join(", ", other));
       this.unrecognized.setVisibility(VISIBLE);
     }
 
