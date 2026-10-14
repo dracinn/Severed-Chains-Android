@@ -63,3 +63,6 @@ local.properties
 /android/.cxx/
 /android/.externalNativeBuild/
 android-release.jks
+
+# IDE build output (Eclipse / VS Code Java)
+/bin/
