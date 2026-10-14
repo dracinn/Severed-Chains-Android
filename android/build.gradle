@@ -738,6 +738,27 @@ tasks.register('generateAnnotationIndex') {
   }
 }
 
+// Upstream log4j2.xml, rewritten for Android: debug.log goes to the app's
+// files dir (relative paths resolve against '/'), and the console appender
+// (System.out -> logcat) only passes warnings and errors. At INFO the engine
+// logs thousands of lines a minute, which pushes crash traces out of the
+// logcat ring buffer before a bug report can be taken; the full log stays in
+// debug.log, whose tail GameLog appends to crash logs.
+def log4jConsoleFilter = '<ThresholdFilter level="warn" onMatch="NEUTRAL" onMismatch="DENY"/>'
+def rewriteLog4jLine = { String line ->
+  line
+    .replace('fileName="debug.log"', 'fileName="${sys:legend.baseDir}/debug.log"')
+    .replace('<Console name="console" target="SYSTEM_OUT">', '<Console name="console" target="SYSTEM_OUT">' + log4jConsoleFilter)
+}
+def checkLog4jConfig = { File config ->
+  if(!config.text.contains('${sys:legend.baseDir}/debug.log')) {
+    throw new GradleException('log4j2.xml no longer contains fileName="debug.log"; update the Android rewrite')
+  }
+  if(!config.text.contains(log4jConsoleFilter)) {
+    throw new GradleException('log4j2.xml no longer contains the "console" appender; update the Android rewrite')
+  }
+}
+
 tasks.register('packageSharedClasses', Jar) {
   dependsOn 'compileShared', 'generateAnnotationIndex'
   from sharedClassesDir
@@ -768,14 +789,11 @@ tasks.register('packageSharedClasses', Jar) {
   // Main.main points log4j2.configurationFile at the relative "log4j2.xml";
   // it does not exist on device, so log4j falls back to a classpath lookup
   from('../log4j2.xml') {
-    filter { it.replace('fileName="debug.log"', 'fileName="${sys:legend.baseDir}/debug.log"') }
+    filter(rewriteLog4jLine)
   }
   doLast {
-    final File packed = zipTree(layout.buildDirectory.file('libs/shared-classes.jar').get().asFile)
-      .matching { include 'log4j2.xml' }.singleFile
-    if(!packed.text.contains('${sys:legend.baseDir}/debug.log')) {
-      throw new GradleException('log4j2.xml no longer contains fileName="debug.log"; update the Android rewrite')
-    }
+    checkLog4jConfig(zipTree(layout.buildDirectory.file('libs/shared-classes.jar').get().asFile)
+      .matching { include 'log4j2.xml' }.singleFile)
 
     final File lang = zipTree(layout.buildDirectory.file('libs/shared-classes.jar').get().asFile)
       .matching { include 'lod_core/lang/en.lang' }.singleFile
@@ -1022,14 +1040,11 @@ tasks.register('stageAssets', Copy) {
   }
   // Extracted to the working dir alongside gfx/ for the log4j config path
   from('../log4j2.xml') {
-    filter { it.replace('fileName="debug.log"', 'fileName="${sys:legend.baseDir}/debug.log"') }
+    filter(rewriteLog4jLine)
   }
   into layout.buildDirectory.dir('generated/assets')
   doLast {
-    final File staged = new File(destinationDir, 'log4j2.xml')
-    if(!staged.text.contains('${sys:legend.baseDir}/debug.log')) {
-      throw new GradleException('log4j2.xml no longer contains fileName="debug.log"; update the Android rewrite')
-    }
+    checkLog4jConfig(new File(destinationDir, 'log4j2.xml'))
     final File lang = new File(destinationDir, 'lang/unpacker.en.lang')
     if(!lang.text.contains('built with Devin')) {
       throw new GradleException('unpacker.en.lang no longer contains the made_by_humans key; update the staging transform')
