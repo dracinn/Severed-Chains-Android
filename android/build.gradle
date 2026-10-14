@@ -338,6 +338,12 @@ import java.awt.image.BufferedImage;
     // keep the updater-swap check pointing at the app dir.
     'Path.of(".").toAbsolutePath().normalize()':
     'legend.game.android.JdkCompat.absolute(Path.of(".")).normalize()',
+    // The engine's crash handler catches the exception and exits before the
+    // uncaught handler or AndroidEnv's catch see it, so write the shared
+    // crash log here too. After shutdown so debug.log is flushed for the tail.
+    'LogManager.shutdown();':
+    '''LogManager.shutdown();
+      legend.game.android.GameLog.writeCrashLog(e);''',
   ],
   // Files.createDirectories resolves each segment via toAbsolutePath(),
   // which reads the FS's baked user.dir. MainActivity now sets user.dir
