@@ -137,6 +137,31 @@ public final class SetupView extends ScrollView {
     this.storageGranted = AndroidEnv.hasSharedStorageAccess();
     this.updateStorageCard();
 
+    // Compatibility-renderer toggle: forces the GLES 3.1 path for GPUs
+    // whose drivers mishandle geometry shaders (e.g. older Adreno).
+    final LinearLayout compatCard = new LinearLayout(activity);
+    compatCard.setOrientation(LinearLayout.HORIZONTAL);
+    compatCard.setGravity(Gravity.CENTER_VERTICAL);
+    compatCard.setBackground(this.rounded(COLOUR_SURFACE, 14, COLOUR_STROKE, 1));
+    compatCard.setPadding(pad, this.dp(10), pad, this.dp(10));
+    final LinearLayout.LayoutParams compatLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+    compatLp.topMargin = this.dp(12);
+    left.addView(compatCard, compatLp);
+
+    final LinearLayout compatText = new LinearLayout(activity);
+    compatText.setOrientation(LinearLayout.VERTICAL);
+    compatCard.addView(compatText, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+    compatText.addView(this.text("Compatibility renderer", COLOUR_TEXT, 15, true));
+    final TextView compatSub = this.text("Use if graphics are corrupted or layered wrong. Applies on next launch.", COLOUR_DIM, 12, false);
+    compatSub.setPadding(0, this.dp(2), 0, 0);
+    compatText.addView(compatSub);
+
+    final android.widget.Switch compatSwitch = new android.widget.Switch(activity);
+    compatSwitch.setChecked(GlesCompat.compatMode());
+    compatSwitch.setOnCheckedChangeListener((v, on) -> GlesCompat.setCompatMode(on));
+    compatCard.addView(compatSwitch);
+
     final TextView gpuNote = this.text("If the game closes while starting up, open it again — it retries in a compatibility mode automatically. Crash and debug logs live in Documents/Severed Chains/logs.", COLOUR_DIM, 12, false);
     gpuNote.setPadding(0, this.dp(14), 0, 0);
     left.addView(gpuNote);

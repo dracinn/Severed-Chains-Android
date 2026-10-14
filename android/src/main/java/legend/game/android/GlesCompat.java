@@ -81,6 +81,22 @@ public final class GlesCompat {
     return forceEs31 || fallbackLevel > 0;
   }
 
+  /** Whether compatibility (ES 3.1) rendering is currently selected. */
+  public static boolean compatMode() {
+    return fallbackLevel > 0;
+  }
+
+  /**
+   * User-facing toggle for the ES 3.1 path, persisted in the same level
+   * file the self-healing ladder uses. Takes effect on next launch.
+   */
+  public static void setCompatMode(final boolean on) {
+    fallbackLevel = on ? 1 : 0;
+    if(levelFile != null) {
+      writeLevel(levelFile, fallbackLevel);
+    }
+  }
+
   private static int readLevel(final File f) {
     if(f == null || !f.isFile()) {
       return -1;

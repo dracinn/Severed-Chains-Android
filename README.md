@@ -60,6 +60,7 @@ Severed Chains renders with OpenGL ES 3.2, with an automatic fallback to a compa
 
 If it still won't start:
 
+- Try the **Compatibility renderer** toggle on the setup screen — it switches to the GLES 3.1 path (no geometry shader) on next launch, which works around GPU drivers that mishandle them. Already past setup? Re-open it with `adb shell am start -n com.legendofdragoon.severedchains/legend.game.android.MainActivity --ez force_setup true`, or test the mode directly with `--ez force_es31 true`.
 - Try the **ANGLE** graphics driver: enable Developer Options, then *Developer options → Preferred graphics driver → select Severed Chains → ANGLE*. This runs OpenGL on top of Vulkan and often works around broken vendor drivers.
 - Report the problem with the logs in `Documents/Severed Chains/logs/` — crash and debug logs there include your device model, GPU, and driver versions, which is what's needed to support new hardware. Debug APKs on the Releases page record the full engine log.
 
