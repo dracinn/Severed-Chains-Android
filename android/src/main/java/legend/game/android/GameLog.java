@@ -21,7 +21,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.OutputStreamAppender;
 import org.apache.logging.log4j.core.config.Configuration;
-import org.apache.logging.log4j.core.config.Configurator;
+import org.apache.logging.log4j.core.config.NullConfiguration;
 import org.apache.logging.log4j.core.layout.PatternLayout;
 
 import java.io.File;
@@ -265,13 +265,15 @@ public final class GameLog {
     }
   }
 
+  private static boolean watchingReconfigure;
+
   /**
    * Debug builds only: attaches a log4j appender mirroring all log output at
    * DEBUG level to the shared logs dir, and bumps the root logger to DEBUG.
-   * Called once the engine's log4j config is loaded (SdlPlatformManager is
-   * constructed inside GameEngine init, after Main's static block binds the
-   * XML config — the classpath config never reloads, so no re-attach hook is
-   * needed).
+   * Called from SdlPlatformManager's constructor. On device that runs before
+   * the engine's log4j2.xml is loaded (log4j is still on its
+   * DefaultConfiguration), and loading the XML swaps in a new Configuration
+   * without our appender, so re-attach whenever the configuration changes.
    */
   public static synchronized void attachVerboseAppender() {
     if(!debuggable || appContext == null || !writable()) {
@@ -289,9 +291,24 @@ public final class GameLog {
       }
     }
 
+    if(!watchingReconfigure) {
+      watchingReconfigure = true;
+      ctx.addPropertyChangeListener(event -> {
+        if(LoggerContext.PROPERTY_CONFIG.equals(event.getPropertyName())) {
+          attachTo(ctx);
+        }
+      });
+    }
+
+    attachTo(ctx);
+    Log.i(TAG, "Verbose engine logging enabled -> Documents/" + LOG_DIR);
+  }
+
+  private static synchronized void attachTo(final LoggerContext ctx) {
     final Configuration config = ctx.getConfiguration();
-    if(config.getAppender("gameLog") != null) {
-      return; // already attached to the current config
+    // NullConfiguration is what LogManager.shutdown() leaves behind
+    if(config instanceof NullConfiguration || config.getAppender("gameLog") != null) {
+      return;
     }
 
     final PatternLayout layout = PatternLayout.newBuilder()
@@ -308,8 +325,9 @@ public final class GameLog {
     appender.start();
     config.addAppender(appender);
     config.getRootLogger().addAppender(appender, Level.DEBUG, null);
-    Configurator.setRootLevel(Level.DEBUG);
+    // Set the level on this config directly; Configurator.setRootLevel would
+    // look the context up again from inside the reconfigure callback
+    config.getRootLogger().setLevel(Level.DEBUG);
     ctx.updateLoggers();
-    Log.i(TAG, "Verbose engine logging enabled -> Documents/" + LOG_DIR);
   }
 }
