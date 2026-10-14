@@ -137,6 +137,31 @@ public final class JdkCompat {
     return new java.util.Locale(language, country);
   }
 
+  /** Java 21 {@code StringBuilder.repeat(CharSequence, int)} — absent from ART. */
+  public static StringBuilder sbRepeat(final StringBuilder sb, final CharSequence cs, final int count) {
+    for(int i = 0; i < count; i++) {
+      sb.append(cs);
+    }
+    return sb;
+  }
+
+  /** Java 21 {@code StringBuilder.repeat(int, int)} — absent from ART. */
+  public static StringBuilder sbRepeat(final StringBuilder sb, final int codePoint, final int count) {
+    for(int i = 0; i < count; i++) {
+      sb.appendCodePoint(codePoint);
+    }
+    return sb;
+  }
+
+  /** Java 11 {@code String.repeat(int)} — routed explicitly rather than relying on desugaring coverage. */
+  public static String strRepeat(final CharSequence cs, final int count) {
+    final StringBuilder sb = new StringBuilder(cs.length() * Math.max(count, 0));
+    for(int i = 0; i < count; i++) {
+      sb.append(cs);
+    }
+    return sb.toString();
+  }
+
   /** Java 13 {@code ByteBuffer.get(int, byte[])}. */
   public static ByteBuffer get(final ByteBuffer buffer, final int index, final byte[] dst) {
     return get(buffer, index, dst, 0, dst.length);

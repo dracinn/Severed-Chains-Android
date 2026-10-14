@@ -25,6 +25,7 @@ import java.util.jar.JarOutputStream;
  *   LogManager.getLogger()           -> JdkReflect.getLogger()
  *   LogManager.getFormatterLogger()  -> JdkReflect.getFormatterLogger()
  *   Locale.of(lang[, country])       -> JdkCompat.localeOf(...)
+ *   StringBuilder.repeat(...)        -> JdkCompat.sbRepeat(sb, ...)
  */
 public final class JarPatcher {
   private JarPatcher() { }
@@ -112,6 +113,21 @@ public final class JarPatcher {
               super.visitMethodInsn(Opcodes.INVOKESTATIC, "legend/game/android/JdkCompat", "localeOf", descriptor, false);
               changed[0] = true;
               return;
+            }
+
+            // ART lacks StringBuilder.repeat (JDK 21). Receiver becomes the
+            // first arg; result type already matches the call site.
+            if(opcode == Opcodes.INVOKEVIRTUAL && owner.equals("java/lang/StringBuilder") && name.equals("repeat")) {
+              if(descriptor.equals("(Ljava/lang/CharSequence;I)Ljava/lang/StringBuilder;")) {
+                super.visitMethodInsn(Opcodes.INVOKESTATIC, "legend/game/android/JdkCompat", "sbRepeat", "(Ljava/lang/StringBuilder;Ljava/lang/CharSequence;I)Ljava/lang/StringBuilder;", false);
+                changed[0] = true;
+                return;
+              }
+              if(descriptor.equals("(II)Ljava/lang/StringBuilder;")) {
+                super.visitMethodInsn(Opcodes.INVOKESTATIC, "legend/game/android/JdkCompat", "sbRepeat", "(Ljava/lang/StringBuilder;II)Ljava/lang/StringBuilder;", false);
+                changed[0] = true;
+                return;
+              }
             }
 
             // No-arg logger factories infer the caller via StackWalker, which

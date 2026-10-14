@@ -183,7 +183,8 @@ tasks.register('stageSharedSources', Sync) {
 // At runtime, coreLibraryDesugaring rewrites covered calls (formatted,
 // getFirst/Last/addFirst, readString/writeString, resultNow, ...). APIs it
 // does not cover (Math.clamp, virtual threads, bounded Random.nextFloat,
-// absolute bulk Buffer get/put, Math.TAU, Locale.of, JSONObject.keySet) are
+// absolute bulk Buffer get/put, Math.TAU, Locale.of, JSONObject.keySet,
+// StringBuilder.repeat) are
 // rewritten to legend.game.android.JdkCompat by patchStagedSources below, so
 // the upstream files stay byte-identical and merges keep flowing through.
 // ---------------------------------------------------------------------------
@@ -210,6 +211,11 @@ def sharedRegexTransforms = [
 // get/put overloads, keyed by staged path. A literal that stops matching
 // (upstream edit) fails the build so it can't silently regress.
 def sharedLiteralTransforms = [
+  'legend/game/scripting/ScriptState.java': [
+    // String.repeat is Java 11 — absent from ART before API 33.
+    '''LOGGER.error("  %s", "~".repeat(split[i].length()));''':
+    '''LOGGER.error("  %s", legend.game.android.JdkCompat.strRepeat("~", split[i].length()));''',
+  ],
   'legend/core/Config.java': [
     // Default to the disk-backed unpacker on Android: the in-memory path
     // needs more heap than ART typically grants, and the native OOM abort
