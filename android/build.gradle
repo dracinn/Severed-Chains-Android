@@ -216,6 +216,31 @@ def sharedLiteralTransforms = [
     '''LOGGER.error("  %s", "~".repeat(split[i].length()));''':
     '''LOGGER.error("  %s", legend.game.android.JdkCompat.strRepeat("~", split[i].length()));''',
   ],
+  'legend/core/renderer/opengles/GlesMesh.java': [
+    // Adreno drivers emit a HIGH-severity debug message ("unable to generate a
+    // triangle primitive because there are less than 3 vertices") and can
+    // misbehave when a triangle mode is drawn with fewer than 3 vertices. Skip
+    // those draws — a triangle primitive with <3 vertices produces nothing per
+    // spec anyway. count == 0 must NOT be skipped: in draw(int,int) it is the
+    // "draw everything" sentinel that delegates to draw(). Mirrors the
+    // sclauncher GameJarPatcher GlesMesh.draw guard.
+    '''  public void draw() {
+    if(this.deleted) {''':
+    '''  public void draw() {
+    if(this.count > 0 && this.count < 3 && (this.mode == GL_TRIANGLES || this.mode == GL_TRIANGLE_STRIP || this.mode == GL_TRIANGLES_ADJACENCY)) {
+      return;
+    }
+
+    if(this.deleted) {''',
+    '''  public void draw(final int start, final int count) {
+    if(this.deleted) {''':
+    '''  public void draw(final int start, final int count) {
+    if(count > 0 && count < 3 && (this.mode == GL_TRIANGLES || this.mode == GL_TRIANGLE_STRIP || this.mode == GL_TRIANGLES_ADJACENCY)) {
+      return;
+    }
+
+    if(this.deleted) {''',
+  ],
   'legend/core/Config.java': [
     // Default to the disk-backed unpacker on Android: the in-memory path
     // needs more heap than ART typically grants, and the native OOM abort
