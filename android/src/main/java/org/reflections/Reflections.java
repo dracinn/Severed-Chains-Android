@@ -36,7 +36,13 @@ public class Reflections {
         return types;
       }
 
-      for(final String line : new String(in.readAllBytes(), StandardCharsets.UTF_8).split("\n")) {
+      // InputStream.readAllBytes is Java 9 (API 33+); read manually for minSdk 26
+      final java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
+      final byte[] chunk = new byte[8192];
+      for(int n = in.read(chunk); n != -1; n = in.read(chunk)) {
+        buf.write(chunk, 0, n);
+      }
+      for(final String line : buf.toString("UTF-8").split("\n")) {
         final int sep = line.indexOf(':');
         if(sep > 0 && line.regionMatches(0, annotation.getName(), 0, sep)) {
           try {

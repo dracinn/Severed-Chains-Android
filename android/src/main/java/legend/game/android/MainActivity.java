@@ -46,8 +46,13 @@ public final class MainActivity extends Activity {
     super.onCreate(savedInstanceState);
 
     // Keep the screen on and visible above the keyguard while running
-    this.setShowWhenLocked(true);
-    this.setTurnScreenOn(true);
+    if(android.os.Build.VERSION.SDK_INT >= 27) {
+      this.setShowWhenLocked(true);
+      this.setTurnScreenOn(true);
+    } else {
+      this.getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+        | android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+    }
     this.getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
     AndroidEnv.init(this);
@@ -313,7 +318,8 @@ public final class MainActivity extends Activity {
       // Same-versionCode updates (dispatch/dev builds) still change
       // lastUpdateTime, so bundled assets can never go stale.
       final android.content.pm.PackageInfo info = this.getPackageManager().getPackageInfo(this.getPackageName(), 0);
-      version = info.getLongVersionCode() + "-" + info.lastUpdateTime;
+      final long code = android.os.Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode;
+      version = code + "-" + info.lastUpdateTime;
     } catch(final android.content.pm.PackageManager.NameNotFoundException e) {
       throw new IOException(e);
     }

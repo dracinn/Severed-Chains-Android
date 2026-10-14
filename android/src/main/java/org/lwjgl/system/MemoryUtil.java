@@ -68,8 +68,28 @@ public final class MemoryUtil {
   }
 
   public static <T extends Buffer> T memSlice(final T buffer) {
+    // Buffer.slice() is the Java 9 covariant overload (API 34+); the concrete
+    // per-type slice() methods exist on every Android release.
+    final Buffer slice;
+    if(buffer instanceof ByteBuffer) {
+      slice = ((ByteBuffer)buffer).slice();
+    } else if(buffer instanceof IntBuffer) {
+      slice = ((IntBuffer)buffer).slice();
+    } else if(buffer instanceof FloatBuffer) {
+      slice = ((FloatBuffer)buffer).slice();
+    } else if(buffer instanceof java.nio.ShortBuffer) {
+      slice = ((java.nio.ShortBuffer)buffer).slice();
+    } else if(buffer instanceof java.nio.LongBuffer) {
+      slice = ((java.nio.LongBuffer)buffer).slice();
+    } else if(buffer instanceof java.nio.DoubleBuffer) {
+      slice = ((java.nio.DoubleBuffer)buffer).slice();
+    } else if(buffer instanceof java.nio.CharBuffer) {
+      slice = ((java.nio.CharBuffer)buffer).slice();
+    } else {
+      throw new IllegalArgumentException("Unsupported buffer type: " + buffer.getClass());
+    }
     @SuppressWarnings("unchecked")
-    final T slice = (T)buffer.slice();
-    return slice;
+    final T typed = (T)slice;
+    return typed;
   }
 }

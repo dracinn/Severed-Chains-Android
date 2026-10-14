@@ -437,7 +437,7 @@ public final class AndroidEnv {
     try(final InputStream in = context.getAssets().open(name)) {
       final ByteArrayOutputStream out = new ByteArrayOutputStream();
       in.transferTo(out);
-      return out.toString(StandardCharsets.UTF_8);
+      return out.toString("UTF-8");
     } catch(final IOException e) {
       return null;
     }
