@@ -94,9 +94,9 @@ public final class JdkReflect {
 
   /**
    * {@code LogManager.getLogger()} infers the caller class via StackWalker,
-   * which ART lacks. The rewritten call site jumps straight here, so frame 2
-   * of this thread's stack trace is the caller (0 = getStackTrace, 1 = this
-   * method).
+   * which ART lacks. The rewritten call site jumps straight here, so the
+   * caller is the first frame after Thread.getStackTrace's own frames (ART
+   * also puts dalvik.system.VMStack at the top) and this class.
    */
   public static Logger getLogger() {
     return LogManager.getLogger(callerClass());
@@ -109,7 +109,7 @@ public final class JdkReflect {
 
   private static Class<?> callerClass() {
     for(final StackTraceElement frame : Thread.currentThread().getStackTrace()) {
-      if(frame.getClassName().startsWith("java.lang.Thread") || frame.getClassName().equals(JdkReflect.class.getName())) {
+      if(frame.getClassName().startsWith("java.lang.Thread") || frame.getClassName().startsWith("dalvik.system.VMStack") || frame.getClassName().equals(JdkReflect.class.getName())) {
         continue;
       }
 
