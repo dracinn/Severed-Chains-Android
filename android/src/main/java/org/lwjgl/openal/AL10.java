@@ -48,6 +48,8 @@ public final class AL10 {
 
   /** All live AudioTracks, for process-wide pause/resume. */
   private static final Map<AudioTrack, AlSource> tracks = new WeakHashMap<>();
+  /** Set while the activity is paused; nothing may start a track until resumeAll. */
+  private static volatile boolean appPaused;
 
   private static final class AlBuffer {
     final int id;
@@ -187,7 +189,7 @@ public final class AL10 {
       }
 
       // If the source was told to play while it had no track, start now.
-      if(this.playing) {
+      if(this.playing && !appPaused) {
         this.track.play();
       }
 
@@ -246,7 +248,7 @@ public final class AL10 {
 
     synchronized void play() {
       this.playing = true;
-      if(this.track != null) {
+      if(this.track != null && !appPaused) {
         try {
           this.track.play();
         } catch(final IllegalStateException e) {
@@ -329,7 +331,7 @@ public final class AL10 {
         // Watchdog: recover a track left paused by a pause/resume cycle that
         // silently failed. play() is a no-op on a track that is already
         // playing, so only call it when the play state says otherwise.
-        if(this.track.getPlayState() != AudioTrack.PLAYSTATE_PLAYING) {
+        if(!appPaused && this.track.getPlayState() != AudioTrack.PLAYSTATE_PLAYING) {
           try {
             this.track.play();
           } catch(final IllegalStateException ignored) { }
@@ -361,22 +363,31 @@ public final class AL10 {
   // ------------------------------------------------------------------
 
   public static void pauseAll() {
-    final List<AudioTrack> snapshot;
+    // The game keeps ticking in the background, and the watchdog in
+    // getProcessedCount would restart every track within 5 seconds
+    appPaused = true;
+
+    final List<Map.Entry<AudioTrack, AlSource>> snapshot;
     synchronized(AL10.class) {
-      snapshot = new ArrayList<>(tracks.keySet());
+      snapshot = new ArrayList<>(tracks.entrySet());
     }
 
-    for(final AudioTrack track : snapshot) {
-      try {
-        track.pause();
-      } catch(final IllegalStateException e) {
-        Log.w(TAG, "pauseAll failed", e);
+    for(final Map.Entry<AudioTrack, AlSource> entry : snapshot) {
+      // Under the source lock, so a play() already past the appPaused check finishes first
+      synchronized(entry.getValue()) {
+        try {
+          entry.getKey().pause();
+        } catch(final IllegalStateException e) {
+          Log.w(TAG, "pauseAll failed", e);
+        }
       }
     }
     Log.d(TAG, "pauseAll: paused " + snapshot.size() + " tracks");
   }
 
   public static void resumeAll() {
+    appPaused = false;
+
     final List<Map.Entry<AudioTrack, AlSource>> snapshot;
     synchronized(AL10.class) {
       snapshot = new ArrayList<>(tracks.entrySet());
