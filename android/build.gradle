@@ -472,11 +472,6 @@ import java.awt.image.BufferedImage;
     'private static final Path configPath = Path.of("config");':
     'private static final Path configPath = legend.game.android.JdkCompat.absolute(Path.of("config"));',
   ],
-  'legend/game/modding/coremod/config/LanguageConfigEntry.java': [
-    // ART before API 34 lacks Locale.of (JDK 19+ API).
-    'return Locale.of(language, country);': 'return new Locale(language, country);',
-    'return Locale.of(language);': 'return new Locale(language);',
-  ],
   'legend/core/renderer/opengles/GlesFrameBuffer.java': [
     // Report the depth attachment's real bit size: GLES lets the driver pick
     // the precision for unsized DEPTH_COMPONENT allocations, so this log
@@ -553,11 +548,6 @@ import java.awt.image.BufferedImage;
     'return new GlesMesh(name, legend.game.android.GlesCompat.adaptOrder(vertexOrder), vertexData, vertexCount, false, false, null, BufferUsage.STATIC);',
     'return new GlesMesh(name, vertexOrder, vertexData, vertexCount, textured, translucent, translucencyMode, bufferUsage);':
     'return new GlesMesh(name, legend.game.android.GlesCompat.adaptOrder(vertexOrder), vertexData, vertexCount, textured, translucent, translucencyMode, bufferUsage);',
-  ],
-  'legend/core/renderer/RenderEngine.java': [
-    // usePs1Depth lives in tmd.gsh on ES 3.2 and is patched into both
-    // variants' fragment shaders (flat face-depth write), so the real
-    // uniform lookup resolves on every pipeline.
   ],
   'legend/core/Sort.java': [
     // Upstream reflectively reuses java.util.TimSort's shared-workspace sort.
@@ -696,10 +686,6 @@ tasks.register('fetchThirdParty') {
   }
 }
 
-tasks.named('preBuild').configure {
-  dependsOn 'patchStagedSources', 'fetchThirdParty'
-}
-
 tasks.matching { it.name.startsWith('externalNativeBuild') }.configureEach {
   dependsOn 'fetchThirdParty'
 }
@@ -725,7 +711,7 @@ def sdkDir = {
 def androidJar = "${sdkDir()}/platforms/${android.compileSdkVersion}/android.jar"
 
 tasks.register('compileShared', JavaCompile) {
-  dependsOn 'patchStagedSources'
+  dependsOn 'patchStagedSources', 'patchDependencyJars'
   source = fileTree('src/main/java') + fileTree(layout.buildDirectory.dir('shared-sources'))
   classpath = files(androidJar) + configurations.sharedDeps
   destinationDirectory = sharedClassesDir
@@ -848,10 +834,6 @@ tasks.register('packageSharedClasses', Jar) {
   archiveFileName = 'shared-classes.jar'
 }
 
-tasks.named('preBuild').configure {
-  dependsOn 'packageSharedClasses', 'patchDependencyJars'
-}
-
 configurations {
   // Shared between compileShared (javac classpath) and AGP (implementation),
   // so both see exactly the same third-party jars.
@@ -904,10 +886,6 @@ def patchTasks = unpatchedDeps.collect { name, conf ->
 
 tasks.register('patchDependencyJars') {
   dependsOn patchTasks
-}
-
-tasks.named('compileShared').configure {
-  dependsOn 'patchDependencyJars'
 }
 
 dependencies {
@@ -1120,5 +1098,5 @@ tasks.register('transpileShaders', JavaExec) {
 }
 
 tasks.named('preBuild').configure {
-  dependsOn 'stageSharedSources', 'stageAssets', 'transpileShaders'
+  dependsOn 'packageSharedClasses', 'fetchThirdParty', 'stageAssets', 'transpileShaders'
 }
