@@ -181,10 +181,10 @@ tasks.register('stageSharedSources', Sync) {
 // shared-classes.jar, which AGP dexes as an implementation dependency.
 //
 // At runtime, coreLibraryDesugaring rewrites covered calls (formatted,
-// getFirst/Last/addFirst, readString/writeString, resultNow, ...). APIs it
+// getFirst/Last/addFirst, readString/writeString, ...). APIs it
 // does not cover (Math.clamp, virtual threads, bounded Random.nextFloat,
 // absolute bulk Buffer get/put, Math.TAU, Locale.of, JSONObject.keySet,
-// StringBuilder.repeat) are
+// StringBuilder.repeat, Future.resultNow) are
 // rewritten to legend.game.android.JdkCompat by patchStagedSources below, so
 // the upstream files stay byte-identical and merges keep flowing through.
 // ---------------------------------------------------------------------------
@@ -205,6 +205,9 @@ def sharedRegexTransforms = [
   // Android's ExecutorService is not AutoCloseable (try-with-resources)
   [~/ExecutorService (\w+) = Executors\.newVirtualThreadPerTaskExecutor\(\)/,
    'legend.game.android.JdkCompat.CloseableExecutor $1 = legend.game.android.JdkCompat.newVirtualThreadPerTaskExecutor()'],
+  // future.resultNow() (Java 19) - the receiver is a name chain, optionally
+  // ending in a no-arg call (this.saveList.getSelected().resultNow())
+  [~/([\w.]+(?:\(\))?)\.resultNow\(\)/, 'legend.game.android.JdkCompat.resultNow($1)'],
 ]
 
 // Exact call-site rewrites for the post-Java-8 absolute bulk Buffer

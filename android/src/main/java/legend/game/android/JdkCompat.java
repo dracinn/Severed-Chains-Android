@@ -20,9 +20,12 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Iterator;
 import java.util.Random;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -160,6 +163,37 @@ public final class JdkCompat {
       sb.append(cs);
     }
     return sb.toString();
+  }
+
+  /**
+   * Java 19 {@code Future.resultNow()}, with the same contract: the result of a
+   * task that completed normally, otherwise IllegalStateException. Missing from
+   * ART (crashed the save/load screens and title-screen Continue on Android 15),
+   * and coreLibraryDesugaring doesn't cover it.
+   */
+  public static <T> T resultNow(final Future<T> future) {
+    if(!future.isDone()) {
+      throw new IllegalStateException("Task has not completed");
+    }
+
+    boolean interrupted = false;
+    try {
+      while(true) {
+        try {
+          return future.get();
+        } catch(final InterruptedException e) {
+          interrupted = true;
+        } catch(final ExecutionException e) {
+          throw new IllegalStateException("Task completed with exception");
+        } catch(final CancellationException e) {
+          throw new IllegalStateException("Task was cancelled");
+        }
+      }
+    } finally {
+      if(interrupted) {
+        Thread.currentThread().interrupt();
+      }
+    }
   }
 
   /** Java 13 {@code ByteBuffer.get(int, byte[])}. */
