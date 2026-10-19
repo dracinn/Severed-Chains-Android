@@ -44,6 +44,7 @@ public final class GlesCompat {
   private static final int MAX_LEVEL = 1;
   private static File levelFile;
   private static File markerFile;
+  private static boolean glInitPending;
 
   /** Call once from MainActivity.onCreate before the game starts. */
   public static void init(final Context context) {
@@ -65,12 +66,16 @@ public final class GlesCompat {
   public static void markGlInit() {
     if(markerFile != null) {
       writeLevel(markerFile, fallbackLevel);
+      glInitPending = true;
     }
   }
 
   /** Called after the first successful frame - GL init survived, marker cleared. */
   public static void glInitOk() {
-    if(markerFile != null) {
+    // Called after every swap; only the first one after markGlInit needs to
+    // touch the disk
+    if(glInitPending) {
+      glInitPending = false;
       //noinspection ResultOfMethodCallIgnored
       markerFile.delete();
     }

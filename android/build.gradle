@@ -80,6 +80,15 @@ android {
         signingConfig = signingConfigs.release
       }
     }
+    // Release-speed build for performance testing: not debuggable (full ART
+    // optimization, no GL debug context, no verbose engine log) but signed
+    // with the debug key so CI can produce it without the release keystore.
+    // src/perf/AndroidManifest.xml marks it profileable for Android Studio.
+    perf {
+      initWith release
+      signingConfig = signingConfigs.debug
+      matchingFallbacks = ['release']
+    }
   }
 
   externalNativeBuild {
@@ -251,43 +260,10 @@ def sharedLiteralTransforms = [
     'return readBool("low_memory_unpacker", false);':
     'return readBool("low_memory_unpacker", true);',
   ],
-  'legend/game/unpacker/FileBackedFileData.java': [
-    // getBytes() materializes the whole backing file in heap — several
-    // hundred MB for STR video files, times executor threads -> OOM.
-    // Stream in chunks instead; identical bytes written.
-    '''  @Override
-  public void write(final OutputStream out) throws IOException {
-    out.write(this.getBytes());
-  }''':
-    '''  @Override
-  public void write(final OutputStream out) throws IOException {
-    synchronized(this.file) {
-      this.file.seek(this.offset);
-      final byte[] chunk = new byte[Math.min(this.size, 1 << 20)];
-      int remaining = this.size;
-
-      while(remaining > 0) {
-        final int read = this.file.read(chunk, 0, Math.min(chunk.length, remaining));
-        if(read < 0) {
-          break;
-        }
-
-        out.write(chunk, 0, read);
-        remaining -= read;
-      }
-    }
-  }''',
-  ],
   'legend/game/saves/ConfigStorage.java': [
     // toAbsolutePath() resolves against user.dir ("/"), not the real cwd.
     'Files.createDirectories(file.toAbsolutePath().getParent());':
     'Files.createDirectories(legend.game.android.JdkCompat.absolute(file).getParent());',
-  ],
-  'legend/game/saves/ConfigPresetManager.java': [
-    'Files.createDirectories(path.toAbsolutePath().getParent());':
-    'Files.createDirectories(legend.game.android.JdkCompat.absolute(path).getParent());',
-    'Files.createTempFile(path.toAbsolutePath().getParent(), "preset-", ".tmp")':
-    'Files.createTempFile(legend.game.android.JdkCompat.absolute(path).getParent(), "preset-", ".tmp")',
   ],
   'legend/game/unpacker/IsoReader.java': [
     // Android's RandomAccessFile.skipBytes is lseek-backed and can return a
@@ -406,6 +382,31 @@ import java.awt.image.BufferedImage;
   // reads from a shared read-only mmap per spilled file instead (writes stay
   // on the RAF). See JdkCompat.mappedUnpackFile.
   'legend/game/unpacker/FileBackedFileData.java': [
+    // getBytes() materializes the whole backing file in heap — several
+    // hundred MB for STR video files, times executor threads -> OOM.
+    // Stream in chunks instead; identical bytes written.
+    '''  @Override
+  public void write(final OutputStream out) throws IOException {
+    out.write(this.getBytes());
+  }''':
+    '''  @Override
+  public void write(final OutputStream out) throws IOException {
+    synchronized(this.file) {
+      this.file.seek(this.offset);
+      final byte[] chunk = new byte[Math.min(this.size, 1 << 20)];
+      int remaining = this.size;
+
+      while(remaining > 0) {
+        final int read = this.file.read(chunk, 0, Math.min(chunk.length, remaining));
+        if(read < 0) {
+          break;
+        }
+
+        out.write(chunk, 0, read);
+        remaining -= read;
+      }
+    }
+  }''',
     '''    synchronized(this.file) {
       try {
         this.file.seek(this.offset);
@@ -464,6 +465,10 @@ import java.awt.image.BufferedImage;
     'private final Path dir = legend.game.android.AndroidEnv.savesPath();',
   ],
   'legend/game/saves/ConfigPresetManager.java': [
+    'Files.createDirectories(path.toAbsolutePath().getParent());':
+    'Files.createDirectories(legend.game.android.JdkCompat.absolute(path).getParent());',
+    'Files.createTempFile(path.toAbsolutePath().getParent(), "preset-", ".tmp")':
+    'Files.createTempFile(legend.game.android.JdkCompat.absolute(path).getParent(), "preset-", ".tmp")',
     'private static final Path configPath = Path.of("config");':
     'private static final Path configPath = legend.game.android.JdkCompat.absolute(Path.of("config"));',
   ],
@@ -522,15 +527,6 @@ import java.awt.image.BufferedImage;
     'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
     'new ScriptPatcher(legend.game.android.JdkCompat.absolute(Path.of("./patches")), legend.game.android.JdkCompat.absolute(Path.of("./files")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/cache")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/backups")))',
   ],
-  // Check this repo's releases instead of upstream's. Our tags are v*;
-  // Release.getPlatformDownloadUrl() finds no desktop-OS asset and upstream
-  // falls back to opening the release page in a browser (PLATFORM.openUrl).
-  // NOTE: Updater.java is excluded from staging — the Android implementation
-  // is android/src/main/java/legend/core/Updater.java.
-  'legend/game/debugger/DebuggerController.java': [
-    'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
-    'new ScriptPatcher(legend.game.android.JdkCompat.absolute(Path.of("./patches")), legend.game.android.JdkCompat.absolute(Path.of("./files")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/backups")))',
-  ],
   'legend/core/renderer/Resolution.java': [
     // Fill in the missing rungs of the 240p integer-scaling ladder. Internal
     // render height snaps to a multiple of 240 regardless, so only exact
@@ -576,10 +572,26 @@ import java.awt.image.BufferedImage;
   ],
 ]
 
+// A Groovy map keeps only the last entry for a repeated key, so a file listed
+// twice in sharedLiteralTransforms silently loses its first set of transforms.
+// The map can't tell, so look for repeated keys in this file's text.
+def literalTransformKeys = (buildFile.text =~ /(?m)^  '([^']+\.java)': \[/).collect { it[1] }
+def duplicateLiteralTransformKeys = literalTransformKeys.findAll { key -> literalTransformKeys.count(key) > 1 }.unique()
+
 tasks.register('patchStagedSources') {
   dependsOn 'stageSharedSources'
   doLast {
     final File root = layout.buildDirectory.dir('shared-sources').get().asFile
+
+    if(!duplicateLiteralTransformKeys.isEmpty()) {
+      throw new GradleException("sharedLiteralTransforms lists ${duplicateLiteralTransformKeys} more than once; merge the entries")
+    }
+    // Entries for files that are no longer staged would silently do nothing
+    final List<String> unstaged = sharedLiteralTransforms.keySet().findAll { !new File(root, it).isFile() }
+    if(!unstaged.isEmpty()) {
+      throw new GradleException("sharedLiteralTransforms names files that aren't staged: ${unstaged}")
+    }
+
     root.eachFileRecurse { f ->
       if(!f.isFile() || !f.name.endsWith('.java')) {
         return
@@ -593,7 +605,9 @@ tasks.register('patchStagedSources') {
         // Idempotency first: additive transforms keep the needle inside the
         // replacement (e.g. Resolution rungs), so check the replacement is
         // absent before matching the needle, or re-runs double-apply.
-        if(text.contains(replacement) || text.contains(replacement.replace('\n', '\r\n'))) {
+        // An empty replacement (a deletion) is contained in every text, so it
+        // can only be detected as done by its needle being gone.
+        if(replacement.isEmpty() ? !text.contains(literal) && !text.contains(literal.replace('\n', '\r\n')) : text.contains(replacement) || text.contains(replacement.replace('\n', '\r\n'))) {
           return // already transformed by a previous run
         }
         // Upstream files mix LF and CRLF; match either newline style and

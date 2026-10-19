@@ -13,6 +13,7 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
       android:largeHeap="true"
+      android:appCategory="game"
       android:allowBackup="false">
     <!-- Request ANGLE (GLES-over-Vulkan) where the platform honors it:
          Android 17+ reads prefer_angle; AOSP/LineageOS builds read
