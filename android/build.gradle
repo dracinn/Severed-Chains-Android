@@ -587,7 +587,7 @@ tasks.register('patchStagedSources') {
       throw new GradleException("sharedLiteralTransforms lists ${duplicateLiteralTransformKeys} more than once; merge the entries")
     }
     // Entries for files that are no longer staged would silently do nothing
-    final List<String> unstaged = sharedLiteralTransforms.keySet().findAll { !new File(root, it).isFile() }
+    final Collection<String> unstaged = sharedLiteralTransforms.keySet().findAll { !new File(root, it).isFile() }
     if(!unstaged.isEmpty()) {
       throw new GradleException("sharedLiteralTransforms names files that aren't staged: ${unstaged}")
     }
