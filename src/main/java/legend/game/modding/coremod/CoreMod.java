@@ -43,6 +43,7 @@ import legend.game.modding.coremod.config.EquipEffectsInDragoonConfig;
 import legend.game.modding.coremod.config.FmvVolumeConfigEntry;
 import legend.game.modding.coremod.config.FrameSkipConfigEntry;
 import legend.game.modding.coremod.config.FullscreenConfigEntry;
+import legend.game.modding.coremod.config.GamepadButtonLabelsConfigEntry;
 import legend.game.modding.coremod.config.HiddenFloatConfigEntry;
 import legend.game.modding.coremod.config.IgnoreSteamInputModeConfigEntry;
 import legend.game.modding.coremod.config.IndicatorModeConfigEntry;
@@ -114,6 +115,7 @@ public class CoreMod {
   public static final RegistryDelegate<BoolConfigEntry> DISABLE_MOUSE_INPUT_CONFIG = CONFIG_REGISTRAR.register("disable_mouse_input", DisableMouseInputConfigEntry::new);
   public static final RegistryDelegate<BoolConfigEntry> RUMBLE_CONFIG = CONFIG_REGISTRAR.register("rumble", () -> new BoolConfigEntry(true, ConfigStorageLocation.GLOBAL, ConfigCategory.CONTROLS));
   public static final RegistryDelegate<RumbleIntensityConfigEntry> RUMBLE_INTENSITY_CONFIG = CONFIG_REGISTRAR.register("rumble_intensity", RumbleIntensityConfigEntry::new);
+  public static final RegistryDelegate<GamepadButtonLabelsConfigEntry> GAMEPAD_BUTTON_LABELS_CONFIG = CONFIG_REGISTRAR.register("gamepad_button_labels", GamepadButtonLabelsConfigEntry::new);
   public static final RegistryDelegate<TouchFaceButtonsConfigEntry> TOUCH_FACE_BUTTONS_CONFIG = CONFIG_REGISTRAR.register("touch_face_buttons", TouchFaceButtonsConfigEntry::new);
   public static final RegistryDelegate<TouchControlsOpacityConfigEntry> TOUCH_CONTROLS_OPACITY_CONFIG = CONFIG_REGISTRAR.register("touch_controls_opacity", TouchControlsOpacityConfigEntry::new);
   /** Face-button cluster position/scale, written back by the touch overlay; no menu control. */

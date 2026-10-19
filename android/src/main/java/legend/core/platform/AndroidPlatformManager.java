@@ -51,6 +51,7 @@ import java.util.Set;
 
 import static legend.core.GameEngine.CONFIG;
 import static legend.core.GameEngine.EVENTS;
+import static legend.game.modding.coremod.CoreMod.GAMEPAD_BUTTON_LABELS_CONFIG;
 import static legend.game.modding.coremod.CoreMod.MENU_INNER_DEADZONE_CONFIG;
 import static legend.game.modding.coremod.CoreMod.MENU_OUTER_DEADZONE_CONFIG;
 import static legend.game.modding.coremod.CoreMod.MOVEMENT_INNER_DEADZONE_CONFIG;
@@ -94,6 +95,8 @@ public class AndroidPlatformManager extends PlatformManager {
   private final IntSet gamepads = new IntOpenHashSet();
   private int lastGamepad = -1;
   private int lastRumbleGamepad = -1;
+  private int detectedGamepad = -1;
+  private InputGamepadType detectedGamepadType = InputGamepadType.STANDARD;
 
   private float rumbleBigCurrentIntensity;
   private float rumbleSmallCurrentIntensity;
@@ -122,7 +125,32 @@ public class AndroidPlatformManager extends PlatformManager {
 
   @Override
   public InputGamepadType getGamepadType() {
-    return InputGamepadType.STANDARD;
+    return switch(CONFIG.getConfig(GAMEPAD_BUTTON_LABELS_CONFIG.get())) {
+      case XBOX -> InputGamepadType.STANDARD;
+      case PLAYSTATION -> InputGamepadType.PLAYSTATION;
+      case SWITCH -> InputGamepadType.SWITCH;
+      case AUTO -> this.detectGamepadType();
+    };
+  }
+
+  /**
+   * Guesses the label style from the last-used controller's USB vendor. Built-in
+   * handheld controllers usually report a generic vendor, so they fall back to
+   * Xbox letters and the player picks their style in the settings.
+   */
+  private InputGamepadType detectGamepadType() {
+    if(this.lastGamepad != this.detectedGamepad) {
+      this.detectedGamepad = this.lastGamepad;
+      final InputDevice device = this.lastGamepad != -1 ? InputDevice.getDevice(this.lastGamepad) : null;
+
+      this.detectedGamepadType = switch(device != null ? device.getVendorId() : 0) {
+        case 0x054c -> InputGamepadType.PLAYSTATION; // Sony
+        case 0x057e -> InputGamepadType.SWITCH; // Nintendo
+        default -> InputGamepadType.STANDARD;
+      };
+    }
+
+    return this.detectedGamepadType;
   }
 
   @Override

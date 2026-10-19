@@ -117,6 +117,28 @@ public final class InputCodepoints {
           }
         }
       }
+
+      // Nintendo prints the face buttons the other way round: the bottom
+      // button (A on Xbox) is labelled B, the left one (X on Xbox) is Y
+      case SWITCH -> {
+        switch(codepoint) {
+          case A -> {
+            return B;
+          }
+
+          case B -> {
+            return A;
+          }
+
+          case X -> {
+            return Y;
+          }
+
+          case Y -> {
+            return X;
+          }
+        }
+      }
     }
 
     return codepoint;
