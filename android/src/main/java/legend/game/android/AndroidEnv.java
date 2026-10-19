@@ -256,10 +256,8 @@ public final class AndroidEnv {
     new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "Severed Chains");
 
   /** Public folders users can manage without root or a PC. */
-  public static final File PUBLIC_MODS_DIR = new File(PUBLIC_ROOT, "Mods");
   public static final File PUBLIC_SAVES_DIR = new File(PUBLIC_ROOT, "Saves");
   public static final File PUBLIC_ISOS_DIR = new File(PUBLIC_ROOT, "ISOs");
-  private static final File LEGACY_PUBLIC_MODS_DIR = new File(PUBLIC_ROOT, "mods");
 
   /** Whether the app can read arbitrary files in shared storage. */
   public static boolean hasSharedStorageAccess() {
@@ -305,8 +303,6 @@ public final class AndroidEnv {
 
   /**
    * Bring the public folders in line before the engine starts:
-   * - .jars dropped in Mods/ are mirrored into the internal mods dir
-   *   (additive only — built-in mods are never deleted)
    * - saves and disc images previously stored internally are moved into
    *   Saves/ and ISOs/ so everything lives in one user-visible place
    */
@@ -316,44 +312,12 @@ public final class AndroidEnv {
     }
 
     //noinspection ResultOfMethodCallIgnored
-    PUBLIC_MODS_DIR.mkdirs();
-    //noinspection ResultOfMethodCallIgnored
     PUBLIC_SAVES_DIR.mkdirs();
     //noinspection ResultOfMethodCallIgnored
     PUBLIC_ISOS_DIR.mkdirs();
 
-    syncPublicMods(PUBLIC_MODS_DIR);
-    syncPublicMods(LEGACY_PUBLIC_MODS_DIR);
     moveContents(new File(context.getFilesDir(), "saves"), PUBLIC_SAVES_DIR);
     moveContents(new File(context.getFilesDir(), "isos"), PUBLIC_ISOS_DIR);
-  }
-
-  private static void syncPublicMods(final File publicModsDir) {
-    final File[] jars = publicModsDir.listFiles((dir, name) -> name.endsWith(".jar"));
-    if(jars == null || jars.length == 0) {
-      return;
-    }
-
-    final File modsDir = new File(context.getFilesDir(), "mods");
-    //noinspection ResultOfMethodCallIgnored
-    modsDir.mkdirs();
-
-    for(final File jar : jars) {
-      final File dest = new File(modsDir, jar.getName());
-      if(dest.isFile() && dest.length() == jar.length() && dest.lastModified() >= jar.lastModified()) {
-        continue;
-      }
-
-      try(final InputStream in = new FileInputStream(jar);
-          final OutputStream out = new FileOutputStream(dest)) {
-        in.transferTo(out);
-        //noinspection ResultOfMethodCallIgnored
-        dest.setLastModified(jar.lastModified());
-        Log.i("SC-Env", "Synced public mod " + jar.getName());
-      } catch(final IOException e) {
-        Log.e("SC-Env", "Failed to sync public mod " + jar.getName(), e);
-      }
-    }
   }
 
   /**

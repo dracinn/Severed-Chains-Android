@@ -370,12 +370,12 @@ public final class SetupView extends ScrollView {
     if(this.storageGranted) {
       this.storageTitle.setText("Shared storage enabled");
       this.storageTitle.setTextColor(COLOUR_OK);
-      this.storageBody.setText("ISOs, Mods, and Saves live in Documents/Severed Chains — add files with any file manager and they're picked up automatically.");
+      this.storageBody.setText("ISOs and Saves live in Documents/Severed Chains — add files with any file manager and they're picked up automatically.");
       this.storageButton.setVisibility(GONE);
     } else {
       this.storageTitle.setText("Enable shared storage");
       this.storageTitle.setTextColor(COLOUR_TEXT);
-      this.storageBody.setText("Optional: creates Documents/Severed Chains folders so you can drop in disc images and .jar mods with a file manager, and keeps saves safe if the app is uninstalled.");
+      this.storageBody.setText("Optional: creates Documents/Severed Chains folders so you can drop in disc images with a file manager, and keeps saves safe if the app is uninstalled.");
       this.storageButton.setVisibility(VISIBLE);
     }
   }
@@ -392,7 +392,7 @@ public final class SetupView extends ScrollView {
 
     new AlertDialog.Builder(this.activity, android.R.style.Theme_Material_Dialog_Alert)
       .setTitle("Enable shared storage?")
-      .setMessage("Severed Chains can use Documents/Severed Chains for disc images, mods, and saves, so you can manage files with any file manager and keep saves if the app is uninstalled.\n\nYou can also do this later from the setup screen.")
+      .setMessage("Severed Chains can use Documents/Severed Chains for disc images and saves, so you can manage files with any file manager and keep saves if the app is uninstalled.\n\nYou can also do this later from the setup screen.")
       .setPositiveButton("Enable access", (d, w) -> {
         this.markShown(shown);
         this.requestStorageAccess();
