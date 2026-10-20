@@ -117,13 +117,25 @@ public final class ShaderTranspiler {
    * the unchanged gl_FragCoord.z / mode-2 linearized paths.
    */
   private static String patchEs32(final String name, final int stage, final String gles) throws IOException {
+    // Rewrite the VS_OUT/GS_OUT interface blocks to scalar varyings first:
+    // the block-varying transport into and out of the geometry stage is
+    // miscompiled on a range of mobile drivers (Adreno V@05x, Mali-G57 -
+    // block members arrive garbled while plain varyings and builtins are
+    // fine). Scalar varyings take a different, reliable driver path. GS_OUT
+    // members get a g-prefix on both sides of the GS->FS boundary so they
+    // don't collide with the same-named VS_OUT scalars inside the GS.
+    String out = flattenIoBlocks(gles);
+
     if(name.equals("tmd.gsh") && stage == 1) {
+      // emit()'s depth param would shadow the flattened depth[] input.
+      out = patch(out, "void emit(int i, float depth)", "void emit(int i, float ps1depth)");
+      out = patch(out, "        gl_Position.z = depth;", "        gl_Position.z = ps1depth;");
       // Plain varying, not a GS_OUT member: Adreno's linker rejects flat
       // members inside location-qualified interface blocks.
-      String out = patch(gles, "uniform int usePs1Depth;",
+      out = patch(out, "uniform int usePs1Depth;",
         "uniform int usePs1Depth;\nflat out highp float io_faceDepth;\nhighp float _faceDepthNdc;");
-      out = patch(out, "    gs_out.depthOffset = vs_out[i].depthOffset;",
-        "    gs_out.depthOffset = vs_out[i].depthOffset;\n    io_faceDepth = _faceDepthNdc;");
+      out = patch(out, "    gDepthOffset = depthOffset[i];",
+        "    gDepthOffset = depthOffset[i];\n    io_faceDepth = _faceDepthNdc;");
       return patch(out, "    avgDepth /= float(vertexCount);",
         "    avgDepth /= float(vertexCount);\n    _faceDepthNdc = (gl_in[0].gl_Position.z / gl_in[0].gl_Position.w + gl_in[2].gl_Position.z / gl_in[2].gl_Position.w + gl_in[4].gl_Position.z / gl_in[4].gl_Position.w + (vertexCount == 4 ? gl_in[1].gl_Position.z / gl_in[1].gl_Position.w : 0.0)) / float(vertexCount);");
     }
@@ -131,34 +143,81 @@ public final class ShaderTranspiler {
     // battle_tmd has no geometry stage, so the FS reads the provoking
     // vertex's NDC depth through a plain flat varying like the 310 patch.
     if(name.equals("battle_tmd.vsh") && stage == 0) {
-      final String blockVar = blockVar(gles);
-      String out = patch(gles, "    float depthOffset;\n} " + blockVar + ";",
-        "    float depthOffset;\n} " + blockVar + ";\nflat out highp float io_faceDepth;");
-      return patch(out, "    vs_out.depth = gl_Position.z;",
-        "    vs_out.depth = gl_Position.z;\n    io_faceDepth = gl_Position.z / gl_Position.w;");
+      out = patch(out, "void main()", "flat out highp float io_faceDepth;\n\nvoid main()");
+      return patch(out, "    depth = gl_Position.z;",
+        "    depth = gl_Position.z;\n    io_faceDepth = gl_Position.z / gl_Position.w;");
     }
 
     if((name.equals("tmd.fsh") || name.equals("battle_tmd.fsh")) && stage == 2) {
-      final String blockVar = blockVar(gles);
-      String out = patch(gles, "    highp float depthOffset;\n} " + blockVar + ";",
-        "    highp float depthOffset;\n} " + blockVar + ";\nflat in highp float io_faceDepth;");
       out = patch(out, "uniform int tmdTranslucency;",
-        "uniform int tmdTranslucency;\nuniform int usePs1Depth;");
+        "flat in highp float io_faceDepth;\nuniform int tmdTranslucency;\nuniform int usePs1Depth;");
       return patch(out, "gl_FragDepth = gl_FragCoord.z;",
         "if(usePs1Depth != 0)\n        {\n            gl_FragDepth = (io_faceDepth * 0.5) + 0.5;\n        }\n        else\n        {\n            gl_FragDepth = gl_FragCoord.z;\n        }");
     }
 
-    return gles;
+    return out;
   }
 
-  /** Name of the stage-I/O block variable whose last member is depthOffset. */
-  private static String blockVar(final String gles) throws IOException {
-    final java.util.regex.Matcher matcher =
-      java.util.regex.Pattern.compile("(?:highp )?float depthOffset;\\s*\\n\\}\\s*(\\w+);").matcher(gles);
-    if(!matcher.find()) {
-      throw new IOException("ES 3.2 shader patch missed: I/O block end");
+  private static final java.util.regex.Pattern IO_BLOCK =
+    java.util.regex.Pattern.compile("layout\\(location = \\d+\\) (in|out) (\\w+)\\s*\\{\\n(.*?)\\}\\s*(\\w*)(\\[\\d*\\])?\\s*;", java.util.regex.Pattern.DOTALL);
+  private static final java.util.regex.Pattern BLOCK_MEMBER =
+    java.util.regex.Pattern.compile("\\s*(flat\\s+)?(\\w+(?:\\s+\\w+)*)\\s+(\\w+);");
+
+  /**
+   * Converts stage-I/O interface blocks into scalar varyings matched by
+   * name (the blocks' location-qualified member transport is what breaks
+   * on buggy drivers). Members keep their own names, except GS_OUT members
+   * which gain a g-prefix on both sides of the boundary so the GS's inputs
+   * and outputs don't share identifiers.
+   */
+  private static String flattenIoBlocks(final String gles) throws IOException {
+    final java.util.regex.Matcher blockMatcher = IO_BLOCK.matcher(gles);
+    final StringBuilder replaced = new StringBuilder(gles.length());
+    final java.util.List<String[]> accesses = new java.util.ArrayList<>(); // instance, member -> rewritten name, array flag
+
+    while(blockMatcher.find()) {
+      final String dir = blockMatcher.group(1);
+      final String prefix = blockMatcher.group(2).equals("GS_OUT") ? "g" : "";
+      final String array = blockMatcher.group(5) == null ? "" : blockMatcher.group(5);
+      final String instance = blockMatcher.group(4);
+      if(instance.isEmpty()) {
+        throw new IOException("ES 3.2 shader patch missed: anonymous I/O block");
+      }
+
+      final StringBuilder decls = new StringBuilder();
+      for(final String line : blockMatcher.group(3).split("\\n")) {
+        if(line.isBlank()) {
+          continue;
+        }
+        final java.util.regex.Matcher member = BLOCK_MEMBER.matcher(line);
+        if(!member.matches()) {
+          throw new IOException("ES 3.2 shader patch missed: I/O block member '" + line + "'");
+        }
+        final String memberName = member.group(3);
+        final String scalarName = prefix.isEmpty() ? memberName : prefix + Character.toUpperCase(memberName.charAt(0)) + memberName.substring(1);
+        decls.append(member.group(1) == null ? "" : member.group(1))
+          .append(dir).append(' ').append(member.group(2)).append(' ')
+          .append(scalarName).append(array).append(";\n");
+        accesses.add(new String[] {instance, memberName, scalarName, array.isEmpty() ? "" : "array"});
+      }
+      blockMatcher.appendReplacement(replaced, java.util.regex.Matcher.quoteReplacement(decls.toString()));
     }
-    return matcher.group(1);
+    blockMatcher.appendTail(replaced);
+    if(accesses.isEmpty()) {
+      return gles;
+    }
+
+    String out = replaced.toString();
+    for(final String[] access : accesses) {
+      final String inst = java.util.regex.Pattern.quote(access[0]);
+      if(access[3].isEmpty()) {
+        out = out.replaceAll("\\b" + inst + "\\." + access[1] + "\\b", access[2]);
+      } else {
+        out = out.replaceAll("\\b" + inst + "\\[([^\\]]+)\\]\\." + access[1] + "\\b",
+          java.util.regex.Matcher.quoteReplacement(access[2]) + "[$1]");
+      }
+    }
+    return out;
   }
 
   private static String patch(final String text, final String needle, final String replacement) throws IOException {
@@ -226,6 +285,9 @@ public final class ShaderTranspiler {
 
       // Named shader I/O blocks are ES 3.2 core / GL_EXT_shader_io_blocks on
       // ES 3.1 - flatten them so the 310 variant links without the extension.
+      // The 320 target stays unflattened here because this SPIRV-Cross build
+      // crashes compiling flattened geometry-stage IO; patchEs32 rewrites
+      // those blocks to scalar varyings textually instead.
       final boolean flattenIo = version < 320;
       spvc_compiler_options_set_bool(options, SPVC_COMPILER_OPTION_GLSL_FORCE_FLATTENED_IO_BLOCKS, flattenIo);
       spvc_compiler_install_compiler_options(compiler, options);
