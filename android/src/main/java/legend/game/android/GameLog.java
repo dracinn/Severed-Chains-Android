@@ -29,9 +29,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.io.RandomAccessFile;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
@@ -43,7 +45,8 @@ import java.util.concurrent.TimeUnit;
  * file IO under WRITE_EXTERNAL_STORAGE (declared in the manifest with
  * maxSdkVersion=28 and requested at startup).
  *
- * Both builds write crash-<ts>.log on uncaught exceptions and prune files
+ * Both builds write crash-<ts>.log on engine crashes and uncaught exceptions
+ * (with the tail of the engine's private debug.log appended) and prune files
  * older than 14 days at startup. Debug builds additionally attach a verbose
  * log4j appender writing debug-<date>.log.
  */
@@ -52,6 +55,10 @@ public final class GameLog {
   private static final String LOG_DIR = "Severed Chains/logs";
   private static final String REL_PATH = Environment.DIRECTORY_DOCUMENTS + "/" + LOG_DIR + "/";
   private static final long MAX_AGE_MS = TimeUnit.DAYS.toMillis(14);
+  /** Lines of the engine's debug.log appended to each crash log. */
+  private static final int LOG_TAIL_LINES = 300;
+  /** How far back from the end of debug.log to read when looking for them. */
+  private static final int LOG_TAIL_BYTES = 256 * 1024;
 
   private static Context appContext;
   private static boolean debuggable;
@@ -233,9 +240,41 @@ public final class GameLog {
       w.println("Time: " + new Date());
       w.println();
       throwable.printStackTrace(w);
+      final String tail = debugLogTail();
+      if(!tail.isEmpty()) {
+        w.println();
+        w.println("=== End of debug.log ===");
+        w.print(tail);
+      }
       w.flush();
     } catch(final Throwable e) {
       Log.e(TAG, "Failed to write crash log", e);
+    }
+  }
+
+  /**
+   * The last {@link #LOG_TAIL_LINES} lines of the engine's debug.log, or "" if
+   * it can't be read. debug.log lives in private app storage and is
+   * overwritten on every launch, so the crash log is the only place players
+   * can get at it.
+   */
+  private static String debugLogTail() {
+    final String baseDir = System.getProperty("legend.baseDir");
+    if(baseDir == null) {
+      return "";
+    }
+    try(final RandomAccessFile file = new RandomAccessFile(new File(baseDir, "debug.log"), "r")) {
+      final long start = Math.max(0, file.length() - LOG_TAIL_BYTES);
+      final byte[] bytes = new byte[(int)(file.length() - start)];
+      file.seek(start);
+      file.readFully(bytes);
+      final String[] lines = new String(bytes, StandardCharsets.UTF_8).split("\n", -1);
+      // Reading from mid-file, the first line is probably partial
+      final int first = Math.max(start > 0 ? 1 : 0, lines.length - LOG_TAIL_LINES);
+      return String.join("\n", Arrays.asList(lines).subList(first, lines.length));
+    } catch(final IOException | RuntimeException e) {
+      Log.w(TAG, "Failed to read debug.log", e);
+      return "";
     }
   }
 

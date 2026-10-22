@@ -318,14 +318,13 @@ public final class AL10 {
       final long now = System.currentTimeMillis();
       if(this.track != null && this.playing && now - this.lastUnderrunLog >= 5000) {
         this.lastUnderrunLog = now;
+        // Only log when the underrun count grows; a status line per source
+        // every 5 seconds crowds crash traces out of the logcat buffer
         final int underruns = this.track.getUnderrunCount();
-        final String msg = "src " + this.id + " rate " + this.trackRate + " underruns " + underruns
-          + " state " + this.track.getPlayState() + " head " + this.headPosition() + '/' + this.writtenFrames;
         if(underruns > this.lastLoggedUnderruns) {
           this.lastLoggedUnderruns = underruns;
-          Log.d(TAG, msg);
-        } else {
-          Log.v(TAG, msg);
+          Log.d(TAG, "src " + this.id + " rate " + this.trackRate + " underruns " + underruns
+            + " state " + this.track.getPlayState() + " head " + this.headPosition() + '/' + this.writtenFrames);
         }
         // Watchdog: recover a track left paused by a pause/resume cycle that
         // silently failed. play() is a no-op on a track that is already
