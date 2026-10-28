@@ -19,6 +19,20 @@ git subtree pull --prefix=third_party/sc-dragoon-modifier \
   https://github.com/Legend-of-Dragoon-Modding/sc-dragoon-modifier main --squash
 ```
 
+## icon-turn-order and lloyd_mod (Zychronix)
+
+Vendored from https://github.com/Zychronix/icon-turn-order and
+https://github.com/Zychronix/lloyd_mod (partial vendors — both repos are
+dev-workspace mirrors of Severed Chains). Official community mods:
+
+- **Icon Turn Order** — turn-order UI with player/monster portrait icons
+  (`mods/iconturnorder/{player,monster}/*.png` staged as APK assets).
+- **Lloyd Mod** — adds Lloyd as a playable character: spells, menus, portrait,
+  and FateScript battle/submap scripts (`mods/lloyd_mod/` staged as assets).
+
+Each vendored dir carries `src/main/java`, `src/main/resources`, and `mods/`;
+to update, re-copy those directories. Neither repo ships a LICENSE file.
+
 ## Additional-Additions (additional_additions mod)
 
 Vendored from https://github.com/Legend-of-Dragoon-Modding/Additional-Additions

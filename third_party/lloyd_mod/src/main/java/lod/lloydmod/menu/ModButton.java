@@ -1,0 +1,136 @@
+package lod.lloydmod.menu;
+
+import legend.core.GameEngine;
+import legend.core.font.Font;
+import legend.core.lang.TextComponent;
+import legend.core.platform.input.InputAction;
+import legend.core.platform.input.InputMod;
+import legend.game.inventory.screens.Control;
+import legend.game.inventory.screens.FontOptions;
+import legend.game.inventory.screens.HorizontalAlign;
+import legend.game.inventory.screens.InputPropagation;
+import legend.game.inventory.screens.TextColour;
+import legend.game.inventory.screens.controls.Highlight;
+
+import java.util.Set;
+
+import static legend.core.GameEngine.PLATFORM;
+import static legend.game.SItem.UI_TEXT_CENTERED;
+import static legend.game.SItem.UI_TEXT_DISABLED_CENTERED;
+import static legend.game.Text.renderText;
+import static legend.game.Text.textZ_800bdf00;
+import static legend.game.modding.coremod.CoreMod.INPUT_ACTION_MENU_CONFIRM;
+import static legend.game.sound.Audio.playMenuSound;
+
+public class ModButton extends Control {
+  private final Highlight hover;
+  private TextComponent text;
+  private float textHeight;
+  private Font font = GameEngine.DEFAULT_FONT;
+  private final FontOptions fontOptions = new FontOptions().horizontalAlign(HorizontalAlign.CENTRE).colour(TextColour.WHITE).shadowColour(TextColour.BLACK);
+  private final FontOptions fontOptionsDisabled = new FontOptions().set(UI_TEXT_DISABLED_CENTERED);
+
+  private boolean enableSounds = true;
+
+  public ModButton(final TextComponent text) {
+    this.hover = this.addControl(new Highlight());
+    this.hover.setZ(this.getZ());
+    this.hover.hide();
+
+    this.setSize(59, 14);
+
+    this.setText(text);
+  }
+
+  public void setFont(final Font font) {
+    this.font = font;
+  }
+
+  public Font getFont() {
+    return this.font;
+  }
+
+  public FontOptions getFontOptions() {
+    return this.fontOptions;
+  }
+
+  @Override
+  public void setZ(final int z) {
+    super.setZ(z);
+    this.hover.setZ(z);
+  }
+
+  public TextComponent getText() {
+    return this.text;
+  }
+
+  public void setText(final TextComponent text) {
+    this.text = text;
+    this.updateTextSize();
+  }
+
+  public void setTextColour(final TextColour colour) {
+    this.fontOptions.colour(colour);
+  }
+
+  @Override
+  public void setScale(final float scale) {
+    super.setScale(scale);
+    this.fontOptions.size(scale);
+    this.updateTextSize();
+  }
+
+  private void updateTextSize() {
+    this.textHeight = this.font.textHeight(this.text.get()) * this.getScale();
+  }
+
+  public void enableSounds() {
+    this.enableSounds = true;
+  }
+
+  public void disableSounds() {
+    this.enableSounds = false;
+  }
+
+  public void press() {
+  }
+
+  @Override
+  public void hoverIn() {
+  }
+
+  @Override
+  public void hoverOut() {
+  }
+
+  @Override
+  protected void onResize() {
+    super.onResize();
+  }
+
+  @Override
+  protected InputPropagation mouseClick(final double x, final double y, final int button, final Set<InputMod> mods) {
+    return InputPropagation.HANDLED;
+  }
+
+  @Override
+  protected InputPropagation inputActionPressed(final InputAction action, final boolean repeat) {
+    return InputPropagation.PROPAGATE;
+  }
+
+  @Override
+  protected void render(final int x, final int y) {
+    final int oldZ = textZ_800bdf00;
+    textZ_800bdf00 = this.getZ() - 1;
+    renderText(this.text.get(), x, y, this.isDisabled() ? this.fontOptionsDisabled : this.fontOptions);
+    textZ_800bdf00 = oldZ;
+  }
+
+  public void onPressed(final Pressed handler) {
+    this.pressedHandler = handler;
+  }
+
+  private Pressed pressedHandler;
+
+  @FunctionalInterface public interface Pressed { void pressed(); }
+}

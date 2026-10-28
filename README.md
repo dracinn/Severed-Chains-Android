@@ -36,8 +36,10 @@ Even though it is not an emulator, Severed Chains cannot be played without the u
 - **Dragoon Modifier** — the official difficulty and customization mod. Pick from several difficulty modes (including Hard and Hell), show monster HP bars, enable enrage bonuses, and more.
 - **Dragoon XP Share** — party members on the bench who have a dragoon spirit gain a share of dragoon XP too, adjustable in the config.
 - **Additional Additions** — registers custom additions made with the [Additional Additions Editor](https://github.com/Legend-of-Dragoon-Modding/Additional-Additions-Editor); drop the exported `.json` files in `mods/additional_additions` under the app folder.
+- **Icon Turn Order** — the turn-order display from Dragoon Modifier as a standalone mod, with player and monster portrait icons in battle.
+- **Lloyd Mod** — adds Lloyd as a playable character, with his own spells, menus and battle scripts.
 
-Dragoon Modifier and Additional Additions are the [LoD Modding community](https://github.com/Legend-of-Dragoon-Modding)'s own mods, vendored and kept up to date with their upstream sources.
+Dragoon Modifier and Additional Additions are the [LoD Modding community](https://github.com/Legend-of-Dragoon-Modding)'s own mods; Icon Turn Order and Lloyd Mod are by [Zychronix](https://github.com/Zychronix). All are vendored and kept up to date with their upstream sources.
 
 **Shared folders — saves and ISOs**
 

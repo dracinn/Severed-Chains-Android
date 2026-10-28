@@ -176,6 +176,8 @@ tasks.register('stageSharedSources', Sync) {
   // `git subtree pull --prefix=third_party/<dir> <repo> main --squash`)
   from '../third_party/sc-dragoon-modifier/src/main/java'
   from '../third_party/Additional-Additions/src/main/java'
+  from '../third_party/icon-turn-order/src/main/java'
+  from '../third_party/lloyd_mod/src/main/java'
   into layout.buildDirectory.dir('shared-sources')
   sharedSourceExcludes.each { exclude it }
 }
@@ -305,6 +307,15 @@ def sharedLiteralTransforms = [
   'legend/lodmod/LodMod.java': [
     'buffer.get(frameIndex * frame.length, frame, 0, frame.length)': 'legend.game.android.JdkCompat.get(buffer, frameIndex * frame.length, frame, 0, frame.length)',
     'buffer.get(0, frame)': 'legend.game.android.JdkCompat.get(buffer, 0, frame)',
+  ],
+  'lod/iconturnorder/IconTurnOrder.java': [
+    // Desktop LWJGL constants/methods our Android shims don't expose. The GL
+    // imports are unused (the mod uploads via the engine's Texture API) and
+    // stbi_set_flip_vertically_on_load(false) is stb's default — the engine
+    // never flips images either.
+    'import static org.lwjgl.opengl.GL11C.GL_RGBA;\nimport static org.lwjgl.opengl.GL12.GL_UNSIGNED_INT_8_8_8_8_REV;\n': '',
+    'import static org.lwjgl.stb.STBImage.stbi_set_flip_vertically_on_load;\n': '',
+    '      stbi_set_flip_vertically_on_load(false);\n': '',
   ],
   'legend/game/unpacker/SaveCardTextureExtractor.java': [
     'ints.put(y * region.w, uncompressed, dataIndex, region.w)': 'legend.game.android.JdkCompat.put(ints, y * region.w, uncompressed, dataIndex, region.w)',
@@ -816,6 +827,8 @@ tasks.register('packageSharedClasses', Jar) {
   }
   from '../third_party/sc-dragoon-modifier/src/main/resources'
   from '../third_party/Additional-Additions/src/main/resources'
+  from '../third_party/icon-turn-order/src/main/resources'
+  from '../third_party/lloyd_mod/src/main/resources'
   // Main.main points log4j2.configurationFile at the relative "log4j2.xml";
   // it does not exist on device, so log4j falls back to a classpath lookup
   from('../log4j2.xml') {
@@ -1060,6 +1073,12 @@ tasks.register('stageAssets', Copy) {
   // Built-in mod assets read via Path.of("mods/...") (Dragoon Modifier
   // stat tables/portraits); extracted to the working dir alongside gfx/.
   from('../third_party/sc-dragoon-modifier/mods') {
+    into 'mods'
+  }
+  from('../third_party/icon-turn-order/mods') {
+    into 'mods'
+  }
+  from('../third_party/lloyd_mod/mods') {
     into 'mods'
   }
   // Extracted to the working dir alongside gfx/ for the log4j config path
