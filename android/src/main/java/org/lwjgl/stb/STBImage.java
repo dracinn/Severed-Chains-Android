@@ -17,8 +17,13 @@ public final class STBImage {
   public static final int STBI_rgb_alpha = 4;
 
   private static String failureReason = "";
+  private static boolean flipVertically;
 
   private STBImage() { }
+
+  public static void stbi_set_flip_vertically_on_load(final boolean flag) {
+    flipVertically = flag;
+  }
 
   public static ByteBuffer stbi_load_from_memory(final ByteBuffer imageBuffer, final IntBuffer x, final IntBuffer y, final IntBuffer channels_in_file, final int desired_channels) {
     final byte[] encoded = new byte[imageBuffer.remaining()];
@@ -41,11 +46,15 @@ public final class STBImage {
     bitmap.recycle();
 
     final ByteBuffer out = BufferUtils.createByteBuffer(w * h * 4);
-    for(final int px : argb) {
-      out.put((byte)(px >>> 16 & 0xff)); // R
-      out.put((byte)(px >>> 8 & 0xff));  // G
-      out.put((byte)(px & 0xff));        // B
-      out.put((byte)(px >>> 24));        // A
+    for(int row = 0; row < h; row++) {
+      final int rowY = flipVertically ? h - 1 - row : row;
+      for(int col = 0; col < w; col++) {
+        final int px = argb[rowY * w + col];
+        out.put((byte)(px >>> 16 & 0xff)); // R
+        out.put((byte)(px >>> 8 & 0xff));  // G
+        out.put((byte)(px & 0xff));        // B
+        out.put((byte)(px >>> 24));        // A
+      }
     }
     out.flip();
 

@@ -308,15 +308,6 @@ def sharedLiteralTransforms = [
     'buffer.get(frameIndex * frame.length, frame, 0, frame.length)': 'legend.game.android.JdkCompat.get(buffer, frameIndex * frame.length, frame, 0, frame.length)',
     'buffer.get(0, frame)': 'legend.game.android.JdkCompat.get(buffer, 0, frame)',
   ],
-  'lod/iconturnorder/IconTurnOrder.java': [
-    // Desktop LWJGL constants/methods our Android shims don't expose. The GL
-    // imports are unused (the mod uploads via the engine's Texture API) and
-    // stbi_set_flip_vertically_on_load(false) is stb's default — the engine
-    // never flips images either.
-    'import static org.lwjgl.opengl.GL11C.GL_RGBA;\nimport static org.lwjgl.opengl.GL12.GL_UNSIGNED_INT_8_8_8_8_REV;\n': '',
-    'import static org.lwjgl.stb.STBImage.stbi_set_flip_vertically_on_load;\n': '',
-    '      stbi_set_flip_vertically_on_load(false);\n': '',
-  ],
   'legend/game/unpacker/SaveCardTextureExtractor.java': [
     'ints.put(y * region.w, uncompressed, dataIndex, region.w)': 'legend.game.android.JdkCompat.put(ints, y * region.w, uncompressed, dataIndex, region.w)',
   ],

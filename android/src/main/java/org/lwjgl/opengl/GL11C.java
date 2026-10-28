@@ -4,6 +4,7 @@ package org.lwjgl.opengl;
 public final class GL11C {
   public static final int GL_VERTEX_ARRAY = 0x8074;
   public static final int GL_TEXTURE = 0x1702;
+  public static final int GL_RGBA = 0x1908;
 
   private GL11C() { }
 }
