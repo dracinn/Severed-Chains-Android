@@ -18,7 +18,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Deque;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -388,6 +390,63 @@ public final class JdkCompat {
     } finally {
       bitmap.recycle();
     }
+  }
+
+  // Java 21 SequencedCollection default methods invoked on List-typed
+  // receivers (list.getFirst(), list.addLast(e), ...). Desugaring does not
+  // backport SequencedCollection, so these invoke the platform method and only
+  // resolve where ART's libcore is new enough (Mainline-updated devices).
+  // The Deque dispatch preserves concrete-class semantics: LinkedList.getFirst
+  // throws NoSuchElementException on empty while the List default surfaces
+  // IndexOutOfBoundsException from get(0).
+  @SuppressWarnings("unchecked")
+  public static <T> T first(final List<T> list) {
+    if(list instanceof Deque) {
+      return ((Deque<T>)list).getFirst();
+    }
+    return list.get(0);
+  }
+
+  @SuppressWarnings("unchecked")
+  public static <T> T last(final List<T> list) {
+    if(list instanceof Deque) {
+      return ((Deque<T>)list).getLast();
+    }
+    return list.get(list.size() - 1);
+  }
+
+  @SuppressWarnings("unchecked")
+  public static <T> T removeFirst(final List<T> list) {
+    if(list instanceof Deque) {
+      return ((Deque<T>)list).removeFirst();
+    }
+    return list.remove(0);
+  }
+
+  @SuppressWarnings("unchecked")
+  public static <T> T removeLast(final List<T> list) {
+    if(list instanceof Deque) {
+      return ((Deque<T>)list).removeLast();
+    }
+    return list.remove(list.size() - 1);
+  }
+
+  @SuppressWarnings("unchecked")
+  public static <T> void addFirst(final List<T> list, final T element) {
+    if(list instanceof Deque) {
+      ((Deque<T>)list).addFirst(element);
+      return;
+    }
+    list.add(0, element);
+  }
+
+  @SuppressWarnings("unchecked")
+  public static <T> void addLast(final List<T> list, final T element) {
+    if(list instanceof Deque) {
+      ((Deque<T>)list).addLast(element);
+      return;
+    }
+    list.add(element);
   }
 
   /** org.json {@code JSONObject.keySet()} is missing on Android; wrap keys(). */

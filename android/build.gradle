@@ -220,7 +220,26 @@ def sharedRegexTransforms = [
   // future.resultNow() (Java 19) - the receiver is a name chain, optionally
   // ending in a no-arg call (this.saveList.getSelected().resultNow())
   [~/([\w.]+(?:\(\))?)\.resultNow\(\)/, 'legend.game.android.JdkCompat.resultNow($1)'],
+  // Java 21 SequencedCollection methods on List-typed receivers. Desugaring
+  // does not backport them, so the dex invokes java.util.List.getFirst etc.
+  // which only exists where ART's libcore is new enough (Play-Mainline-updated
+  // devices); stale ART -> NoSuchMethodError mid-battle/decode/save. The
+  // receiver token accepts name chains ending in a call or index
+  // (x.y(z).getFirst(), a.b[i].getLast()); the lookbehind keeps re-runs from
+  // re-matching our own generated JdkCompat.xxx(...) calls.
+  [~/((?:[\w$.]+|\([^()]*\)|\[[^\[\]]*\])+)(?<!JdkCompat)\.getFirst\(\)/, 'legend.game.android.JdkCompat.first($1)'],
+  [~/((?:[\w$.]+|\([^()]*\)|\[[^\[\]]*\])+)(?<!JdkCompat)\.getLast\(\)/, 'legend.game.android.JdkCompat.last($1)'],
+  [~/((?:[\w$.]+|\([^()]*\)|\[[^\[\]]*\])+)(?<!JdkCompat)\.removeFirst\(\)/, 'legend.game.android.JdkCompat.removeFirst($1)'],
+  [~/((?:[\w$.]+|\([^()]*\)|\[[^\[\]]*\])+)(?<!JdkCompat)\.removeLast\(\)/, 'legend.game.android.JdkCompat.removeLast($1)'],
+  [~/((?:[\w$.]+|\([^()]*\)|\[[^\[\]]*\])+)(?<!JdkCompat)\.addFirst\(/, 'legend.game.android.JdkCompat.addFirst($1, '],
+  [~/((?:[\w$.]+|\([^()]*\)|\[[^\[\]]*\])+)(?<!JdkCompat)\.addLast\(/, 'legend.game.android.JdkCompat.addLast($1, '],
 ]
+
+// SequencedCollection method names that must not survive regex rewriting.
+// Any leftover means the receiver token missed a shape (casts, nested parens,
+// parenthesized expressions) — fail loudly instead of shipping a platform
+// call that only resolves on Mainline-updated ART.
+def sequencedLeftovers = ~/(?<!JdkCompat)\.\s*(getFirst|getLast|removeFirst|removeLast|addFirst|addLast)\s*\(/
 
 // Exact call-site rewrites for the post-Java-8 absolute bulk Buffer
 // get/put overloads, keyed by staged path. A literal that stops matching
@@ -617,6 +636,10 @@ tasks.register('patchStagedSources') {
 
       sharedRegexTransforms.each { pattern, replacement ->
         text = text.replaceAll(pattern, replacement)
+      }
+
+      if(sequencedLeftovers.matcher(text).find()) {
+        throw new GradleException("Staged-source transform left a Java 21 SequencedCollection call in ${rel}; extend the receiver token in sharedRegexTransforms")
       }
 
       if(text != original) {
