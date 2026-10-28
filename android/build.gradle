@@ -175,6 +175,7 @@ tasks.register('stageSharedSources', Sync) {
   // Vendored upstream mods (third_party/; update with
   // `git subtree pull --prefix=third_party/<dir> <repo> main --squash`)
   from '../third_party/sc-dragoon-modifier/src/main/java'
+  from '../third_party/Additional-Additions/src/main/java'
   into layout.buildDirectory.dir('shared-sources')
   sharedSourceExcludes.each { exclude it }
 }
@@ -814,6 +815,7 @@ tasks.register('packageSharedClasses', Jar) {
     }
   }
   from '../third_party/sc-dragoon-modifier/src/main/resources'
+  from '../third_party/Additional-Additions/src/main/resources'
   // Main.main points log4j2.configurationFile at the relative "log4j2.xml";
   // it does not exist on device, so log4j falls back to a classpath lookup
   from('../log4j2.xml') {
@@ -901,6 +903,8 @@ dependencies {
   // script-recompiler transitives (declared explicitly since the jar comes via files())
   sharedDeps 'org.antlr:antlr4:4.13.2'
   sharedDeps 'org.legendofdragoon:mogul-dabas:0.0.1'
+  // Additional-Additions mod parses addition .json files with Gson
+  sharedDeps 'com.google.code.gson:gson:2.13.2'
 
   sharedDeps 'org.apache.logging.log4j:log4j-api:2.26.1'
   sharedDeps 'org.apache.logging.log4j:log4j-core:2.26.1'

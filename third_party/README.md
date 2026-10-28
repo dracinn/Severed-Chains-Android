@@ -18,3 +18,12 @@ To pull upstream changes:
 git subtree pull --prefix=third_party/sc-dragoon-modifier \
   https://github.com/Legend-of-Dragoon-Modding/sc-dragoon-modifier main --squash
 ```
+
+## Additional-Additions (additional_additions mod)
+
+Vendored from https://github.com/Legend-of-Dragoon-Modding/Additional-Additions
+(AGPL-3.0, LICENSE included). Registers user-made additions loaded from
+`.json` files in `mods/additional_additions/` (created under the working dir —
+on Android that's the app files dir). Only the mod payload is vendored
+(`src/main/java`, `src/main/resources`, `LICENSE`); the rest of that repo is a
+dev-workspace mirror of Severed Chains. To update, re-copy those directories.
