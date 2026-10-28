@@ -38,11 +38,9 @@ Even though it is not an emulator, Severed Chains cannot be played without the u
 
 Dragoon Modifier is the [LoD Modding community](https://github.com/Legend-of-Dragoon-Modding/sc-dragoon-modifier)'s own mod, kept up to date with its upstream source.
 
-**Shared folders — mods, saves, and ISOs**
+**Shared folders — saves and ISOs**
 
-Game data normally lives in the app's private storage, which isn't reachable without root — so once you grant storage access, `Documents/Severed Chains/` gets three public folders:
-
-- `Mods` — drop `.jar` mods in with any file manager; they're copied into the engine's mods dir at startup and appear in the in-game mod list. Removing a jar here doesn't uninstall it (the internal copy stays) — disable or remove mods from the game's own mod menu.
+Game data normally lives in the app's private storage, which isn't reachable without root — so once you grant storage access, `Documents/Severed Chains/` gets two public folders:
 - `Saves` — your campaign saves live here once access is granted, so you can back them up, restore them, and keep them even if the app is uninstalled. Saves made before granting access are moved across automatically on next launch.
 - `ISOs` — disc images are detected here automatically: the setup screen and the unpacker scan it alongside the internal folder. Discs picked through the file picker are copied into `ISOs` when access is granted (and ones already inside the app move across on next launch), so you can add, remove, or replace them from a file manager or PC.
 
