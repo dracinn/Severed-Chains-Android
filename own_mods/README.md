@@ -38,13 +38,15 @@ Sparkle frames in `mods/stardustindicator/sparkle/` are procedurally generated
 
 ## portrait_pack
 
-Substitutes 384px re-rendered portraits for the stock 48px glyph-sheet faces
-everywhere a retail character portrait renders. `mods/portraitpack/*.png` are
-vendored from `third_party/sc-dragoon-modifier` (Kongol only exists at 48px
-there) and packed into a dedicated `TextureAtlas` (the shared 512x512 atlas
-can't hold nine 384px images); `getPortraitIcon` falls back to the stock atlas
-icon for characters without HD art, so desktop builds and modded characters
-degrade cleanly.
+Substitutes 384px 90s-anime-style portraits for the stock 48px glyph-sheet
+faces everywhere a retail character portrait renders. `mods/portraitpack/*.png`
+are generated locally with an SD 1.5 anime checkpoint (Counterfeit V2.5) —
+`tools/gen_portraits.py` reproduces them; eight are img2img style transfers
+from the vendored dragoon_modifier renders and Kongol is txt2img (his only
+vendored source is the native 48px glyph). The mod packs them into a dedicated
+`TextureAtlas` (the shared 512x512 atlas can't hold nine 384px images);
+`getPortraitIcon` falls back to the stock atlas icon for characters without HD
+art, so desktop builds and modded characters degrade cleanly.
 
 Two staged-source transform families in `android/build.gradle` do the
 substitution:
