@@ -38,8 +38,9 @@ Even though it is not an emulator, Severed Chains cannot be played without the u
 - **Additional Additions** — registers custom additions made with the [Additional Additions Editor](https://github.com/Legend-of-Dragoon-Modding/Additional-Additions-Editor); drop the exported `.json` files in `mods/additional_additions` under the app folder.
 - **Icon Turn Order** — the turn-order display from Dragoon Modifier as a standalone mod, with player and monster portrait icons in battle.
 - **Lloyd Mod** — adds Lloyd as a playable character, with his own spells, menus and battle scripts.
+- **Stardust Indicator** — this fork's own mod: a pulsing gold sparkle marks every uncollected stardust on the submap, so you never miss one.
 
-Dragoon Modifier and Additional Additions are the [LoD Modding community](https://github.com/Legend-of-Dragoon-Modding)'s own mods; Icon Turn Order and Lloyd Mod are by [Zychronix](https://github.com/Zychronix). All are vendored and kept up to date with their upstream sources.
+Dragoon Modifier and Additional Additions are the [LoD Modding community](https://github.com/Legend-of-Dragoon-Modding)'s own mods; Icon Turn Order and Lloyd Mod are by [Zychronix](https://github.com/Zychronix). All are vendored and kept up to date with their upstream sources. Stardust Indicator is maintained in this repo under `own_mods/`.
 
 **Shared folders — saves and ISOs**
 

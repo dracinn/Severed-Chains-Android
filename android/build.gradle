@@ -178,6 +178,8 @@ tasks.register('stageSharedSources', Sync) {
   from '../third_party/Additional-Additions/src/main/java'
   from '../third_party/icon-turn-order/src/main/java'
   from '../third_party/lloyd_mod/src/main/java'
+  // This fork's own in-tree mods (mods/; not vendored, fully redistributable)
+  from '../own_mods/stardust_indicator/src/main/java'
   into layout.buildDirectory.dir('shared-sources')
   sharedSourceExcludes.each { exclude it }
 }
@@ -843,6 +845,8 @@ tasks.register('packageSharedClasses', Jar) {
   from '../third_party/Additional-Additions/src/main/resources'
   from '../third_party/icon-turn-order/src/main/resources'
   from '../third_party/lloyd_mod/src/main/resources'
+  // This fork's own in-tree mods (mods/; not vendored, fully redistributable)
+  from '../own_mods/stardust_indicator/src/main/resources'
   // Main.main points log4j2.configurationFile at the relative "log4j2.xml";
   // it does not exist on device, so log4j falls back to a classpath lookup
   from('../log4j2.xml') {
@@ -1093,6 +1097,9 @@ tasks.register('stageAssets', Copy) {
     into 'mods'
   }
   from('../third_party/lloyd_mod/mods') {
+    into 'mods'
+  }
+  from('../own_mods/stardust_indicator/mods') {
     into 'mods'
   }
   // Extracted to the working dir alongside gfx/ for the log4j config path
