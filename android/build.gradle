@@ -573,6 +573,16 @@ import java.awt.image.BufferedImage;
     'return new GlesMesh(name, vertexOrder, vertexData, vertexCount, textured, translucent, translucencyMode, bufferUsage);':
     'return new GlesMesh(name, legend.game.android.GlesCompat.adaptOrder(vertexOrder), vertexData, vertexCount, textured, translucent, translucencyMode, bufferUsage);',
   ],
+  'legend/game/inventory/screens/GoodsScreen.java': [
+    // Stardust tracker (fork's own mod): upstream never wires goods selection,
+    // so inject a pseudo-good row + selection handlers that push the tracker
+    // screen. Android-only entry point; on desktop the tracker opens via the
+    // mod's config button instead.
+    'import legend.lodmod.GoodsIcon;':
+    'import legend.lodmod.GoodsIcon;\nimport lod.stardustindicator.StardustIndicatorMod;',
+    '    description.highlight(this.leftList.getSelectedItem());\n  }\n\n  private void renderIcon':
+    '    final MenuEntryStruct04<Good> stardustTracker = new MenuEntryStruct04<>(StardustIndicatorMod.TRACKER_GOOD.get());\n    this.rightList.add(stardustTracker);\n    this.leftList.onSelection(item -> StardustIndicatorMod.onGoodSelected(item, this));\n    this.rightList.onSelection(item -> StardustIndicatorMod.onGoodSelected(item, this));\n\n    description.highlight(this.leftList.getSelectedItem());\n  }\n\n  private void renderIcon',
+  ],
   'legend/core/Sort.java': [
     // Upstream reflectively reuses java.util.TimSort's shared-workspace sort.
     // ART's hidden-API enforcement blocks that method on older API levels

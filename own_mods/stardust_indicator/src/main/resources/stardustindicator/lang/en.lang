@@ -1,1 +1,4 @@
 stardustindicator.name=Stardust Indicator
+stardustindicator.goods.stardust_tracker.name=Stardust Tracker
+stardustindicator.goods.stardust_tracker.description=Check which \nStardust you \nhave found.
+stardustindicator.config.stardust_tracker.label=Stardust Tracker

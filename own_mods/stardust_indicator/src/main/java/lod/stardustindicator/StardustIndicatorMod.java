@@ -1,42 +1,87 @@
 package lod.stardustindicator;
 
 import legend.core.gte.MV;
+import legend.game.inventory.Good;
+import legend.game.inventory.GoodsRegistryEvent;
+import legend.game.inventory.ItemIcon;
+import legend.game.inventory.screens.MenuScreen;
+import legend.game.inventory.screens.MenuStack;
 import legend.game.modding.events.RenderEvent;
 import legend.game.modding.events.gamestate.GameLoadedEvent;
 import legend.game.modding.events.inventory.ScriptFlags2ChangedEvent;
 import legend.game.modding.events.submap.SubmapObjectTextureEvent;
+import legend.game.saves.ConfigEntry;
+import legend.game.saves.ConfigRegistryEvent;
 import legend.game.submap.SMap;
-import org.joml.Vector2f;
+import legend.game.types.MenuEntryStruct04;
 import org.joml.Vector3f;
 import org.legendofdragoon.modloader.Mod;
 import org.legendofdragoon.modloader.events.EventListener;
+import org.legendofdragoon.modloader.registries.Registrar;
+import org.legendofdragoon.modloader.registries.RegistryDelegate;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import static legend.core.GameEngine.EVENTS;
+import static legend.core.GameEngine.REGISTRIES;
 import static legend.core.GameEngine.SCRIPTS;
 import static legend.game.EngineStates.currentEngineState_8004dd04;
+import static legend.game.FullScreenEffects.startFadeEffect;
+import static legend.game.Graphics.worldToScreenMatrix_800c3548;
 import static legend.game.Scus94491BpeSegment_800b.gameState_800babc8;
-import static legend.game.combat.SEffe.transformWorldspaceToScreenspace;
+import static legend.game.sound.Audio.playMenuSound;
 
 /** Renders a pulsing sparkle over every uncollected stardust on the submap. */
 @Mod(id = StardustIndicatorMod.MOD_ID, version = "^3.0.0")
 public class StardustIndicatorMod {
   public static final String MOD_ID = "stardustindicator";
 
+  /** Pseudo-good injected into the goods list; selecting it opens the tracker. */
+  public static final Registrar<Good, GoodsRegistryEvent> GOODS_REGISTRAR = new Registrar<>(REGISTRIES.goods, MOD_ID);
+  public static final RegistryDelegate<Good> TRACKER_GOOD = GOODS_REGISTRAR.register("stardust_tracker", () -> new Good(900, ItemIcon.STONE));
+
+  public static final Registrar<ConfigEntry<?>, ConfigRegistryEvent> CONFIG_REGISTRAR = new Registrar<>(REGISTRIES.config, MOD_ID);
+  public static final RegistryDelegate<StardustTrackerConfig> TRACKER_CONFIG = CONFIG_REGISTRAR.register("stardust_tracker", StardustTrackerConfig::new);
+
+  /** Called from the transformed GoodsScreen when any goods entry is confirmed. */
+  public static void onGoodSelected(final MenuEntryStruct04<Good> entry, final MenuScreen screen) {
+    if(entry.item_00 != TRACKER_GOOD.get()) {
+      return;
+    }
+
+    playMenuSound(1);
+    final MenuStack stack = screen.getStack();
+    stack.pushScreen(new StardustTrackerScreen(() -> {
+      startFadeEffect(2, 10);
+      stack.popScreen();
+    }));
+  }
+
   private static final int FRAME_COUNT = 8;
-  private static final float SPARKLE_SCALE = 12.0f;
+  private static final float SPARKLE_SCALE = 40.0f;
+  private static final Vector3f SCALE = new Vector3f(SPARKLE_SCALE, SPARKLE_SCALE, SPARKLE_SCALE);
 
   private final List<Vector3f> positions = new ArrayList<>();
   private final List<Integer> flags = new ArrayList<>();
+  private final MV billboard = new MV();
   private final MV mv = new MV();
   private SparkleSprite sparkle;
   private int frame;
 
   public StardustIndicatorMod() {
     EVENTS.register(this);
+  }
+
+  @EventListener
+  public void onRegisterGoods(final GoodsRegistryEvent event) {
+    GOODS_REGISTRAR.registryEvent(event);
+  }
+
+  @EventListener
+  public void onRegisterConfig(final ConfigRegistryEvent event) {
+    CONFIG_REGISTRAR.registryEvent(event);
   }
 
   @EventListener
@@ -55,6 +100,7 @@ public class StardustIndicatorMod {
         this.flags.add(location.flag());
       }
     }
+
   }
 
   @EventListener
@@ -86,11 +132,13 @@ public class StardustIndicatorMod {
     }
 
     for(final Vector3f position : this.positions) {
-      final Vector2f screen = new Vector2f();
-      transformWorldspaceToScreenspace(position, screen);
-
-      this.mv.scaling(SPARKLE_SCALE);
-      this.mv.transfer.set(screen.x, screen.y, 0.0f);
+      // Billboard: transposed view rotation makes the quad face the camera,
+      // then compose with the view transform to get model->view space. Queued
+      // into the world batch so depth sorting puts it under character models.
+      worldToScreenMatrix_800c3548.transpose(this.billboard);
+      this.billboard.transfer.set(position);
+      this.billboard.scale(SCALE);
+      this.billboard.compose(worldToScreenMatrix_800c3548, this.mv);
 
       this.sparkle.render(this.mv, this.frame);
     }
