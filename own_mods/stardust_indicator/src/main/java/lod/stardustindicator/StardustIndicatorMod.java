@@ -13,13 +13,17 @@ import legend.game.modding.events.submap.SubmapObjectTextureEvent;
 import legend.game.saves.ConfigEntry;
 import legend.game.saves.ConfigRegistryEvent;
 import legend.game.submap.SMap;
+import legend.game.textures.Image;
+import legend.game.textures.RegisterAtlasTexturesEvent;
 import legend.game.types.MenuEntryStruct04;
 import org.joml.Vector3f;
 import org.legendofdragoon.modloader.Mod;
 import org.legendofdragoon.modloader.events.EventListener;
 import org.legendofdragoon.modloader.registries.Registrar;
 import org.legendofdragoon.modloader.registries.RegistryDelegate;
+import org.legendofdragoon.modloader.registries.RegistryId;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +48,9 @@ public class StardustIndicatorMod {
 
   public static final Registrar<ConfigEntry<?>, ConfigRegistryEvent> CONFIG_REGISTRAR = new Registrar<>(REGISTRIES.config, MOD_ID);
   public static final RegistryDelegate<StardustTrackerConfig> TRACKER_CONFIG = CONFIG_REGISTRAR.register("stardust_tracker", StardustTrackerConfig::new);
+
+  /** Atlas icon id for the sparkle glyph shown next to found stardust. */
+  public static final RegistryId SPARKLE_ICON_ID = new RegistryId(MOD_ID, "sparkle");
 
   /** Called from the transformed GoodsScreen when any goods entry is confirmed. */
   public static void onGoodSelected(final MenuEntryStruct04<Good> entry, final MenuScreen screen) {
@@ -77,6 +84,11 @@ public class StardustIndicatorMod {
   @EventListener
   public void onRegisterGoods(final GoodsRegistryEvent event) {
     GOODS_REGISTRAR.registryEvent(event);
+  }
+
+  @EventListener
+  public void onRegisterAtlas(final RegisterAtlasTexturesEvent event) {
+    event.add(SPARKLE_ICON_ID, Image.load(Path.of("mods", MOD_ID, "sparkle", "4.png")));
   }
 
   @EventListener

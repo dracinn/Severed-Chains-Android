@@ -24,12 +24,14 @@ queued into the world render batch as a camera-facing billboard, so character
 models and terrain occlude it naturally.
 
 **Stardust tracker**: the mod also adds a "Stardust Tracker" entry to the Goods
-menu — a scrollable checklist of all 50 stardust with Found/Missing, read live
-from `scriptFlags2`. On Android the goods row and its selection handler are
-injected into `GoodsScreen` by a staged-source transform in
-`android/build.gradle` (`sharedLiteralTransforms`); on other builds the same
-screen opens from Options → Stardust Indicator → "Stardust Tracker" via the
-`stardust_tracker` config entry's edit control.
+menu — a two-column `ItemList` checklist of all 50 stardust matching the goods
+screen's chrome. Found stardust show the mod's sparkle atlas icon in the row's
+icon slot; missing stardust show an empty slot, and the description pane gives
+each location's hint. Entries are read live from `scriptFlags2`. On Android the
+goods row and its selection handler are injected into `GoodsScreen` by a
+staged-source transform in `android/build.gradle` (`sharedLiteralTransforms`);
+on other builds the same screen opens from Options → Stardust Indicator →
+"Stardust Tracker" via the `stardust_tracker` config entry's edit control.
 
 Sparkle frames in `mods/stardustindicator/sparkle/` are procedurally generated
 (`tools/gen_sparkle.py`) — the art is original to this fork.

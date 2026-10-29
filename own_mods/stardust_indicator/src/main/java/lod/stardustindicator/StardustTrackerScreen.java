@@ -1,110 +1,276 @@
 package lod.stardustindicator;
 
+import legend.core.gte.MV;
 import legend.core.lang.RawText;
 import legend.core.platform.input.InputAction;
+import legend.game.inventory.ItemIcon;
+import legend.game.inventory.InventoryEntry;
 import legend.game.inventory.screens.InputPropagation;
-import legend.game.inventory.screens.VerticalLayoutScreen;
+import legend.game.inventory.screens.MenuScreen;
 import legend.game.inventory.screens.controls.Background;
+import legend.game.inventory.screens.controls.Glyph;
+import legend.game.inventory.screens.controls.ItemList;
 import legend.game.inventory.screens.controls.Label;
-import legend.game.modding.coremod.CoreMod;
+import legend.game.inventory.screens.controls.ListBox;
+import legend.game.textures.TextureAtlasIcon;
+import legend.game.types.MenuEntryStruct04;
+import org.legendofdragoon.modloader.registries.RegistryId;
 
+import javax.annotation.Nullable;
+
+import static legend.core.GameEngine.getTextureAtlas;
 import static legend.game.FullScreenEffects.startFadeEffect;
 import static legend.game.Menus.deallocateRenderables;
-import static legend.game.Scus94491BpeSegment_800b.battleLoaded_800bc94c;
 import static legend.game.Scus94491BpeSegment_800b.gameState_800babc8;
+import static legend.game.modding.coremod.CoreMod.INPUT_ACTION_MENU_BACK;
+import static legend.game.modding.coremod.CoreMod.INPUT_ACTION_MENU_LEFT;
+import static legend.game.modding.coremod.CoreMod.INPUT_ACTION_MENU_RIGHT;
 import static legend.game.sound.Audio.playMenuSound;
 
-/** Scrollable checklist of all 50 stardust, read live from scriptFlags2. */
-public class StardustTrackerScreen extends VerticalLayoutScreen {
-  static final int FLAG_BASE = 0x1c3;
-
-  /** Canonical stardust list in flag order; index = flag - FLAG_BASE. */
-  private static final String[] NAMES = {
-    "Seles - headstone in the cemetery",
-    "Bale - well in Slambert Plaza",
-    "Bale - spears in the weapon shop",
-    "Bale - castle basement furnace",
-    "Bale - castle 3F, upper-left room",
-    "Bale - underground wine stash",
-    "Bale - Lavitz's house, kitchen",
-    "Hoax - house fireplace, upper-left",
-    "Hoax - Kaiser's HQ, lower-left",
-    "Marshland - stronghold fireplace",
-    "Lohan - bookcase secret room",
-    "Lohan - armor in Dabas' shop",
-    "Lohan - basket by the big tent",
-    "Lohan - jars near the town exit",
-    "Kazas - barrels, first house left",
-    "Kazas - up the ladder, first right",
-    "Kazas - counter, third house right",
-    "Kazas - slums house bookcase",
-    "Kazas - slums shop, front barrels",
-    "Kazas - slums shop, back barrels",
-    "Fletz - wine barrels in the bar",
-    "Fletz - roof table by the church",
-    "Fletz - weapons in weapon shop",
-    "Fletz - blue stone, jewelry shop",
-    "Fletz - bottles in item shop",
-    "Donau - well in upper town",
-    "Donau - Mayor's house, top-left",
-    "Twin Castle - front hall armor",
-    "Twin Castle - altar room",
-    "Gigantos - torch by treasure room",
-    "Queen Fury - lamp by Kongol",
-    "Queen Fury - pipe in the cabin",
-    "Lidiera - top of largest house",
-    "Fueno - painting in hospital",
-    "Fueno - barrels under inn stairs",
-    "Furni - barrel in right house",
-    "Furni - Teo's crystal ball",
-    "Neet - lamp at the entrance",
-    "Wingly Forest - Guaraha's house",
-    "Wingly Forest - resting room pillar",
-    "Deningrad - weapon shop cloth",
-    "Deningrad - item shop cloth",
-    "Deningrad - wheels, inn 2F",
-    "Deningrad - Shana's room",
-    "Deningrad - seal room entrance",
-    "Vellweb - dragoon tower altar",
-    "Ulara - flowers by save point",
-    "Ulara - vase in weapon shop",
-    "Ulara - dead plant, red flowers",
-    "Rouge - jar in Martel's room",
+/** Scrollable checklist of the 50 stardust, in the Goods screen's two-column list style. */
+public class StardustTrackerScreen extends MenuScreen {
+  // Canonical stardust order: "Location|Location detail" pairs.
+  private static final String[] ENTRIES = {
+    "Seles|Headstone in the\ncemetery",
+    "Bale|Well in Slambert\nPlaza",
+    "Bale|Spears in the\nweapon shop",
+    "Bale|Castle basement\nfurnace",
+    "Bale|Castle 3F, upper-\nleft room",
+    "Bale|Underground wine\nstash",
+    "Bale|Lavitz's house\nkitchen",
+    "Hoax|Fireplace, upper-\nleft house",
+    "Hoax|Kaiser's HQ,\nlower-left",
+    "Marshland|Stronghold\nfireplace",
+    "Lohan|Bookcase secret\nroom",
+    "Lohan|Armor in Dabas'\nshop",
+    "Lohan|Basket by the\nbig tent",
+    "Lohan|Jars near the\ntown exit",
+    "Kazas|Barrels, first\nhouse left",
+    "Kazas|Up the ladder,\nfirst right",
+    "Kazas|Counter, third\nhouse right",
+    "Kazas|Slums house\nbookcase",
+    "Kazas|Slums shop, front\nbarrels",
+    "Kazas|Slums shop, back\nbarrels",
+    "Fletz|Wine barrels in\nthe bar",
+    "Fletz|Roof table by\nthe church",
+    "Fletz|Weapons in the\nweapon shop",
+    "Fletz|Blue stone in\njewelry shop",
+    "Fletz|Bottles in the\nitem shop",
+    "Donau|Well in the\nupper town",
+    "Donau|Mayor's house,\ntop-left",
+    "Twin Castle|Front hall\narmor",
+    "Twin Castle|Altar room",
+    "Gigantos|Torch by the\ntreasure room",
+    "Queen Fury|Lamp by\nKongol",
+    "Queen Fury|Pipe in the\ncabin",
+    "Lidiera|Top of the\nlargest house",
+    "Fueno|Painting in the\nhospital",
+    "Fueno|Barrels under\ninn stairs",
+    "Furni|Barrel in the\nright house",
+    "Furni|Teo's crystal\nball",
+    "Neet|Lamp at the\nentrance",
+    "Wingly Forest|Guaraha's\nhouse",
+    "Wingly Forest|Resting\nroom pillar",
+    "Deningrad|Weapon shop\ncloth",
+    "Deningrad|Item shop\ncloth",
+    "Deningrad|Wheels in\ninn 2F",
+    "Deningrad|Shana's room",
+    "Deningrad|Seal room\nentrance",
+    "Vellweb|Dragoon tower\naltar",
+    "Ulara|Flowers by the\nsave point",
+    "Ulara|Vase in the\nweapon shop",
+    "Ulara|Dead plant, red\nflowers",
+    "Rouge|Jar in Martel's\nroom",
   };
 
+  private static final int FLAG_BASE = 0x1c3;
+
   private final Runnable unload;
+  private final ItemList<StardustEntry> leftList;
+  private final ItemList<StardustEntry> rightList;
+  private final Label description = new Label(RawText.BLANK);
 
-  public StardustTrackerScreen(final Runnable unload) {
-    this.unload = unload;
-    this.addControl(new Background());
+  private final MV mv = new MV();
+  private TextureAtlasIcon sparkle;
 
-    deallocateRenderables(0xff);
-    startFadeEffect(2, 10);
+  private static final class StardustEntry implements InventoryEntry<StardustEntry> {
+    private final int flag;
+    private final String name;
+    private final String hint;
+    private final boolean found;
 
-    int collected = 0;
-    for(int i = 0; i < NAMES.length; i++) {
-      if(gameState_800babc8.scriptFlags2_bc.get(FLAG_BASE + i)) {
-        collected++;
-      }
+    private StardustEntry(final int flag, final String name, final String hint, final boolean found) {
+      this.flag = flag;
+      this.name = name;
+      this.hint = hint;
+      this.found = found;
     }
 
-    this.addRow(new RawText("Stardust " + collected + " / " + NAMES.length), null);
+    private String name() {
+      return this.name;
+    }
 
-    for(int i = 0; i < NAMES.length; i++) {
-      final boolean found = gameState_800babc8.scriptFlags2_bc.get(FLAG_BASE + i);
-      this.addRow(new RawText((i + 1) + ". " + NAMES[i]), new Label(new RawText(found ? "Found" : "Missing")));
+    private String hint() {
+      return this.hint;
+    }
+
+    private boolean found() {
+      return this.found;
+    }
+
+    @Override
+    public RegistryId getRegistryId() {
+      return StardustIndicatorMod.SPARKLE_ICON_ID;
+    }
+
+    @Override
+    public ItemIcon getIcon() {
+      return null;
+    }
+
+    @Override
+    public String getNameTranslationKey() {
+      return "stardustindicator.stardust_tracker.name";
+    }
+
+    @Override
+    public String getDescriptionTranslationKey() {
+      return "stardustindicator.stardust_tracker.description";
+    }
+
+    @Override
+    public int getSize() {
+      return 1;
+    }
+
+    @Override
+    public int getMaxSize() {
+      return 1;
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return false;
     }
   }
 
+  public StardustTrackerScreen(final Runnable unload) {
+    deallocateRenderables(0xff);
+    startFadeEffect(2, 10);
+
+    this.unload = unload;
+
+    final ListBox.Highlight<MenuEntryStruct04<StardustEntry>> description = item -> this.description.setText(item == null ? RawText.BLANK : new RawText(item.item_00.hint()));
+
+    this.leftList = new ItemList<>(entry -> entry.item_00.name(), null, this::renderIcon, null, null, null);
+    this.leftList.setPos(8, 15);
+    this.leftList.setTitle(new RawText("Stardust Tracker"));
+
+    this.rightList = new ItemList<>(entry -> entry.item_00.name(), null, this::renderIcon, null, null, null);
+    this.rightList.setPos(188, 15);
+
+    this.leftList.onHoverIn(() -> this.setFocus(this.leftList));
+    this.leftList.onGotFocus(() -> {
+      this.leftList.showHighlight();
+      this.rightList.hideHighlight();
+      this.description.show();
+      description.highlight(this.leftList.getSelectedItem());
+    });
+    this.leftList.onInputActionPressed((action, repeat) -> {
+      if(action == INPUT_ACTION_MENU_RIGHT.get()) {
+        playMenuSound(1);
+        this.setFocus(this.rightList);
+        this.rightList.select(this.leftList.getSelectedIndex());
+        return InputPropagation.HANDLED;
+      }
+
+      return InputPropagation.PROPAGATE;
+    });
+    this.leftList.onHighlight(description);
+
+    this.rightList.onHoverIn(() -> this.setFocus(this.rightList));
+    this.rightList.onGotFocus(() -> {
+      this.leftList.hideHighlight();
+      this.rightList.showHighlight();
+      description.highlight(this.rightList.getSelectedItem());
+    });
+    this.rightList.onInputActionPressed((action, repeat) -> {
+      if(action == INPUT_ACTION_MENU_LEFT.get()) {
+        playMenuSound(1);
+        this.setFocus(this.leftList);
+        this.leftList.select(this.rightList.getSelectedIndex());
+        return InputPropagation.HANDLED;
+      }
+
+      return InputPropagation.PROPAGATE;
+    });
+    this.rightList.onHighlight(description);
+
+    this.addControl(new Background());
+    this.addControl(Glyph.glyph(91)).setPos(194, 173); // Description pane
+
+    this.description.setPos(194, 178);
+
+    addControl(this.leftList);
+    addControl(this.rightList);
+    addControl(this.description);
+
+    this.setFocus(this.leftList);
+
+    int count = 0;
+    for(int i = 0; i < ENTRIES.length; i++) {
+      final String[] parts = ENTRIES[i].split("\\|", 2);
+      final boolean found = gameState_800babc8.scriptFlags2_bc.get(FLAG_BASE + i);
+      if(found) {
+        count++;
+      }
+
+      final MenuEntryStruct04<StardustEntry> item = new MenuEntryStruct04<>(new StardustEntry(FLAG_BASE + i, (i + 1) + ". " + parts[0], parts[1], found));
+
+      if(i % 2 == 0) {
+        this.leftList.add(item);
+      } else {
+        this.rightList.add(item);
+      }
+    }
+
+    this.rightList.setTitle(new RawText(count + " / " + ENTRIES.length));
+
+    description.highlight(this.leftList.getSelectedItem());
+  }
+
+  /** Sparkle icon in the row's icon slot for found stardust; empty for missing. */
+  private void renderIcon(final MenuEntryStruct04<StardustEntry> entry, final int x, final int y, final int flags) {
+    if(!entry.item_00.found()) {
+      return;
+    }
+
+    if(this.sparkle == null) {
+      this.sparkle = getTextureAtlas().getIcon(StardustIndicatorMod.SPARKLE_ICON_ID);
+    }
+
+    if(this.sparkle == null) {
+      return;
+    }
+
+    this.mv.transfer.set(x, y, 35.0f);
+    this.mv.scaling(16.0f, 16.0f, 1.0f);
+    this.sparkle.render(this.mv);
+  }
+
+  private void menuEscape() {
+    playMenuSound(3);
+    this.unload.run();
+  }
+
   @Override
-  protected InputPropagation inputActionPressed(final InputAction action, final boolean repeat) {
+  public InputPropagation inputActionPressed(final InputAction action, final boolean repeat) {
     if(super.inputActionPressed(action, repeat) == InputPropagation.HANDLED) {
       return InputPropagation.HANDLED;
     }
 
-    if(action == CoreMod.INPUT_ACTION_MENU_BACK.get()) {
-      playMenuSound(3);
-      this.unload.run();
+    if(action == INPUT_ACTION_MENU_BACK.get() && !repeat) {
+      this.menuEscape();
       return InputPropagation.HANDLED;
     }
 
@@ -112,20 +278,7 @@ public class StardustTrackerScreen extends VerticalLayoutScreen {
   }
 
   @Override
-  protected float getSizeScale() {
-    if(battleLoaded_800bc94c) {
-      return this.getWidth() / 320.0f;
-    } else {
-      return super.getWidth() / 368.0f;
-    }
-  }
+  protected void render() {
 
-  @Override
-  public int getWidth() {
-    if(battleLoaded_800bc94c) {
-      return 320;
-    } else {
-      return super.getWidth();
-    }
   }
 }
