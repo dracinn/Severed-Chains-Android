@@ -253,8 +253,8 @@ public class StardustTrackerScreen extends MenuScreen {
       return;
     }
 
-    this.mv.transfer.set(x - 8.0f, y - 3.0f, 35.0f);
-    this.mv.scaling(16.0f, 16.0f, 1.0f);
+    this.mv.transfer.set(x - 6.0f, y - 1.0f, 35.0f);
+    this.mv.scaling(12.0f, 12.0f, 1.0f);
     this.sparkle.render(this.mv);
   }
 
