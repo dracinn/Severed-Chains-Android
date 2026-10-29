@@ -180,6 +180,7 @@ tasks.register('stageSharedSources', Sync) {
   from '../third_party/lloyd_mod/src/main/java'
   // This fork's own in-tree mods (mods/; not vendored, fully redistributable)
   from '../own_mods/stardust_indicator/src/main/java'
+  from '../own_mods/portrait_pack/src/main/java'
   into layout.buildDirectory.dir('shared-sources')
   sharedSourceExcludes.each { exclude it }
 }
@@ -583,6 +584,45 @@ import java.awt.image.BufferedImage;
     '    description.highlight(this.leftList.getSelectedItem());\n  }\n\n  private void renderIcon':
     '    final MenuEntryStruct04<Good> stardustTracker = new MenuEntryStruct04<>(StardustIndicatorMod.TRACKER_GOOD.get());\n    this.rightList.add(stardustTracker);\n    this.leftList.onSelection(item -> StardustIndicatorMod.onGoodSelected(item, this));\n    this.rightList.onSelection(item -> StardustIndicatorMod.onGoodSelected(item, this));\n\n    description.highlight(this.leftList.getSelectedItem());\n  }\n\n  private void renderIcon',
   ],
+  // HD portrait pack (fork's own mod): portrait lookups are swapped to the
+  // mod's hi-res atlas via PortraitPackMod.getPortraitIcon, which falls back
+  // to the stock icon when a character has no HD art. One-line swaps at each
+  // atlas-path portrait site.
+  'legend/game/combat/ui/BattleHud.java': [
+    'GameEngine.getTextureAtlas().getIcon(battleState_8006e398.playerBents_e40.get(charSlot).innerStruct_00.character.template.getRegistryId())':
+    'lod.portraitpack.PortraitPackMod.getPortraitIcon(battleState_8006e398.playerBents_e40.get(charSlot).innerStruct_00.character.template.getRegistryId())',
+  ],
+  'legend/game/SItem.java': [
+    'return getTextureAtlas().getIcon(gameState_800babc8.charData_32c.get(charId).template.getRegistryId()).render(portraitTransforms);':
+    'return lod.portraitpack.PortraitPackMod.getPortraitIcon(gameState_800babc8.charData_32c.get(charId).template.getRegistryId()).render(portraitTransforms);',
+  ],
+  'legend/game/modding/coremod/shops/EquipmentShopExtension.java': [
+    'this.portraits[i].setIcon(GameEngine.getTextureAtlas().getIcon(gameState_800babc8.charData_32c.get(characterIndices_800bdbb8.getInt(i)).template.getRegistryId()));':
+    'this.portraits[i].setIcon(lod.portraitpack.PortraitPackMod.getPortraitIcon(gameState_800babc8.charData_32c.get(characterIndices_800bdbb8.getInt(i)).template.getRegistryId()));',
+  ],
+  'legend/game/inventory/screens/UseItemScreen.java': [
+    'final TextureAtlasIcon icon = GameEngine.getTextureAtlas().getIcon(character.template.getRegistryId());':
+    'final TextureAtlasIcon icon = lod.portraitpack.PortraitPackMod.getPortraitIcon(character.template.getRegistryId());',
+  ],
+  'legend/game/inventory/screens/controls/CharacterCard.java': [
+    'this.portrait.setIcon(visible ? GameEngine.getTextureAtlas().getIcon(character.template.getRegistryId()) : null);':
+    'this.portrait.setIcon(visible ? lod.portraitpack.PortraitPackMod.getPortraitIcon(character.template.getRegistryId()) : null);',
+  ],
+  'legend/game/inventory/screens/PostBattleScreen.java': [
+    'this.portraits.put(character, GameEngine.getTextureAtlas().getIcon(character.template.getRegistryId()));':
+    'this.portraits.put(character, lod.portraitpack.PortraitPackMod.getPortraitIcon(character.template.getRegistryId()));',
+  ],
+  'legend/game/inventory/screens/CharSwapScreen.java': [
+    'final TextureAtlasIcon icon = GameEngine.getTextureAtlas().getIcon(character.template.getRegistryId());':
+    'final TextureAtlasIcon icon = lod.portraitpack.PortraitPackMod.getPortraitIcon(character.template.getRegistryId());',
+  ],
+  'legend/game/Menus.java': [
+    // HD portrait pack: glyph-sheet portraits (save/load card faces) are drawn
+    // from the mod's hi-res atlas instead; renderPortrait returns true only for
+    // the portraits_cfac UiType so every other glyph keeps the stock path.
+    '            transforms.transfer.set(x1 + renderable.baseX + centreX - 8 + (width < 0 ? 1.0f : 0.0f), y1 + renderable.baseY + 120.0f + (height < 0 ? 1.0f : 0.0f), renderable.z_3c * 4.0f);':
+    '            transforms.transfer.set(x1 + renderable.baseX + centreX - 8 + (width < 0 ? 1.0f : 0.0f), y1 + renderable.baseY + 120.0f + (height < 0 ? 1.0f : 0.0f), renderable.z_3c * 4.0f);\n\n            if(lod.portraitpack.PortraitPackMod.renderPortrait(renderable, transforms, metrics)) {\n              continue;\n            }',
+  ],
   'legend/core/Sort.java': [
     // Upstream reflectively reuses java.util.TimSort's shared-workspace sort.
     // ART's hidden-API enforcement blocks that method on older API levels
@@ -857,6 +897,7 @@ tasks.register('packageSharedClasses', Jar) {
   from '../third_party/lloyd_mod/src/main/resources'
   // This fork's own in-tree mods (mods/; not vendored, fully redistributable)
   from '../own_mods/stardust_indicator/src/main/resources'
+  from '../own_mods/portrait_pack/src/main/resources'
   // Main.main points log4j2.configurationFile at the relative "log4j2.xml";
   // it does not exist on device, so log4j falls back to a classpath lookup
   from('../log4j2.xml') {
@@ -1110,6 +1151,9 @@ tasks.register('stageAssets', Copy) {
     into 'mods'
   }
   from('../own_mods/stardust_indicator/mods') {
+    into 'mods'
+  }
+  from('../own_mods/portrait_pack/mods') {
     into 'mods'
   }
   // Extracted to the working dir alongside gfx/ for the log4j config path

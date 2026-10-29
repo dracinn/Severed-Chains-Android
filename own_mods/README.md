@@ -35,3 +35,26 @@ on other builds the same screen opens from Options → Stardust Indicator →
 
 Sparkle frames in `mods/stardustindicator/sparkle/` are procedurally generated
 (`tools/gen_sparkle.py`) — the art is original to this fork.
+
+## portrait_pack
+
+Substitutes 384px re-rendered portraits for the stock 48px glyph-sheet faces
+everywhere a retail character portrait renders. `mods/portraitpack/*.png` are
+vendored from `third_party/sc-dragoon-modifier` (Kongol only exists at 48px
+there) and packed into a dedicated `TextureAtlas` (the shared 512x512 atlas
+can't hold nine 384px images); `getPortraitIcon` falls back to the stock atlas
+icon for characters without HD art, so desktop builds and modded characters
+degrade cleanly.
+
+Two staged-source transform families in `android/build.gradle` do the
+substitution:
+
+- atlas-path sites (`BattleHud`, `SItem`, `EquipmentShopExtension`,
+  `UseItemScreen`, `CharacterCard`, `PostBattleScreen`, `CharSwapScreen`) swap
+  `getTextureAtlas().getIcon(...)` for `PortraitPackMod.getPortraitIcon(...)`;
+- the glyph path in `Menus.renderUi` calls `PortraitPackMod.renderPortrait`
+  per metrics quad. Portrait glyph entries bundle several quads — face copies
+  sampled from different texture pages plus partial tiles — so the hook draws
+  the HD icon on every full-face (48x48 at 0,0) quad and suppresses the rest.
+  `glyph_04` is the retail character index, resolved via `Legacy.CHAR_IDS`
+  (save cards render with no live `GameState52c`).
