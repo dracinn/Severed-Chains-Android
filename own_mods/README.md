@@ -38,12 +38,20 @@ Sparkle frames in `mods/stardustindicator/sparkle/` are procedurally generated
 
 ## portrait_pack
 
-Substitutes 384px 90s-anime-style portraits for the stock 48px glyph-sheet
+Substitutes generated 384px portraits for the stock 48px glyph-sheet
 faces everywhere a retail character portrait renders. `mods/portraitpack/*.png`
-are generated locally with an SD 1.5 anime checkpoint (Counterfeit V2.5) —
-`tools/gen_portraits.py` reproduces them; eight are img2img style transfers
-from the vendored dragoon_modifier renders and Kongol is txt2img (his only
-vendored source is the native 48px glyph). The mod packs them into a dedicated
+are generated from official Sony promotional media references in the
+late-90s pre-rendered CG style — not direct crops or upscales. Eight use the
+legendofdragoon.org official Sony fan-kit profile renders as low-denoise
+img2img structural references. Miranda is absent from that kit and uses her
+correct official blonde/red-armored 84x96 portrait, neurally restored 4x
+with Real-ESRGAN before img2img so the low-denoise pass sees real edges
+instead of pixel blocks; the RPGFan
+"Artwork-022" image is Lenus, not Miranda, and is not used.
+`tools/gen_portraits.py` reproduces the set with DreamShaper 8 used only as
+low-denoise restoration/detail synthesis over the official references; the
+exact selected strengths and seeds are recorded in the script. The mod packs
+them into a dedicated
 `TextureAtlas` (the shared 512x512 atlas can't hold nine 384px images);
 `getPortraitIcon` falls back to the stock atlas icon for characters without HD
 art, so desktop builds and modded characters degrade cleanly.
