@@ -16,6 +16,7 @@ import legend.game.submap.SMap;
 import legend.game.textures.Image;
 import legend.game.textures.RegisterAtlasTexturesEvent;
 import legend.game.types.MenuEntryStruct04;
+import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.legendofdragoon.modloader.Mod;
 import org.legendofdragoon.modloader.events.EventListener;
@@ -33,8 +34,8 @@ import static legend.core.GameEngine.REGISTRIES;
 import static legend.core.GameEngine.SCRIPTS;
 import static legend.game.EngineStates.currentEngineState_8004dd04;
 import static legend.game.FullScreenEffects.startFadeEffect;
-import static legend.game.Graphics.worldToScreenMatrix_800c3548;
 import static legend.game.Scus94491BpeSegment_800b.gameState_800babc8;
+import static legend.game.combat.SEffe.transformWorldspaceToScreenspace;
 import static legend.game.sound.Audio.playMenuSound;
 
 /** Renders a pulsing sparkle over every uncollected stardust on the submap. */
@@ -67,12 +68,10 @@ public class StardustIndicatorMod {
   }
 
   private static final int FRAME_COUNT = 8;
-  private static final float SPARKLE_SCALE = 40.0f;
-  private static final Vector3f SCALE = new Vector3f(SPARKLE_SCALE, SPARKLE_SCALE, SPARKLE_SCALE);
+  private static final float SPARKLE_SCALE = 12.0f;
 
   private final List<Vector3f> positions = new ArrayList<>();
   private final List<Integer> flags = new ArrayList<>();
-  private final MV billboard = new MV();
   private final MV mv = new MV();
   private SparkleSprite sparkle;
   private int frame;
@@ -144,13 +143,11 @@ public class StardustIndicatorMod {
     }
 
     for(final Vector3f position : this.positions) {
-      // Billboard: transposed view rotation makes the quad face the camera,
-      // then compose with the view transform to get model->view space. Queued
-      // into the world batch so depth sorting puts it under character models.
-      worldToScreenMatrix_800c3548.transpose(this.billboard);
-      this.billboard.transfer.set(position);
-      this.billboard.scale(SCALE);
-      this.billboard.compose(worldToScreenMatrix_800c3548, this.mv);
+      final Vector2f screen = new Vector2f();
+      transformWorldspaceToScreenspace(position, screen);
+
+      this.mv.scaling(SPARKLE_SCALE);
+      this.mv.transfer.set(screen.x, screen.y, 0.0f);
 
       this.sparkle.render(this.mv, this.frame);
     }

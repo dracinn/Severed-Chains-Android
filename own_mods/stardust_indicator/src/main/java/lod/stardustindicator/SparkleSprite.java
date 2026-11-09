@@ -12,6 +12,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import static legend.core.GameEngine.GPU;
+import static legend.core.GameEngine.GTE;
 import static legend.core.GameEngine.RENDERER;
 import static lod.stardustindicator.StardustIndicatorMod.MOD_ID;
 
@@ -48,7 +50,8 @@ public class SparkleSprite {
       return;
     }
 
-    RENDERER.queueModel(this.quad, mv, QueuedModelStandard.class)
+    RENDERER.queueOrthoModel(this.quad, mv, QueuedModelStandard.class)
+      .screenspaceOffset(GPU.getOffsetX() + GTE.getScreenOffsetX(), GPU.getOffsetY() + GTE.getScreenOffsetY())
       .useTextureAlpha()
       .texture(this.frames.get(frame % this.frames.size()));
   }
