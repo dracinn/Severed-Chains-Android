@@ -124,6 +124,10 @@ public class CoreMod {
   public static final RegistryDelegate<HiddenFloatConfigEntry> TOUCH_FACE_X_CONFIG = CONFIG_REGISTRAR.register("touch_face_x", () -> new HiddenFloatConfigEntry(0.91f));
   public static final RegistryDelegate<HiddenFloatConfigEntry> TOUCH_FACE_Y_CONFIG = CONFIG_REGISTRAR.register("touch_face_y", () -> new HiddenFloatConfigEntry(0.70f));
   public static final RegistryDelegate<HiddenFloatConfigEntry> TOUCH_FACE_SCALE_CONFIG = CONFIG_REGISTRAR.register("touch_face_scale", () -> new HiddenFloatConfigEntry(1.0f));
+  /** D-pad position/scale, written back by the touch overlay; no menu control. Positions >= 2 mean "auto" (per-mode default). */
+  public static final RegistryDelegate<HiddenFloatConfigEntry> TOUCH_DPAD_X_CONFIG = CONFIG_REGISTRAR.register("touch_dpad_x", () -> new HiddenFloatConfigEntry(2.0f));
+  public static final RegistryDelegate<HiddenFloatConfigEntry> TOUCH_DPAD_Y_CONFIG = CONFIG_REGISTRAR.register("touch_dpad_y", () -> new HiddenFloatConfigEntry(2.0f));
+  public static final RegistryDelegate<HiddenFloatConfigEntry> TOUCH_DPAD_SCALE_CONFIG = CONFIG_REGISTRAR.register("touch_dpad_scale", () -> new HiddenFloatConfigEntry(1.0f));
   public static final RegistryDelegate<IgnoreSteamInputModeConfigEntry> IGNORE_STEAM_INPUT_MODE_CONFIG = CONFIG_REGISTRAR.register("ignore_steam_input_mode", IgnoreSteamInputModeConfigEntry::new);
   public static final RegistryDelegate<BoolConfigEntry> ALLOW_WIDESCREEN_CONFIG = CONFIG_REGISTRAR.register("allow_widescreen", AllowWidescreenConfigEntry::new);
   public static final RegistryDelegate<LegacyWidescreenModeConfig> LEGACY_WIDESCREEN_MODE_CONFIG = CONFIG_REGISTRAR.register("submap_widescreen_mode", LegacyWidescreenModeConfig::new);

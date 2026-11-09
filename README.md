@@ -24,10 +24,10 @@ Even though it is not an emulator, Severed Chains cannot be played without the u
 **Touch controls built for mobile**
 
 - On-screen controls styled after a modern glass-and-gold controller: shoulder buttons along the top, a face-button diamond, and Select/Start centered at the bottom.
-- The left joystick floats to wherever your thumb lands instead of staying in a fixed spot.
+- Pick your movement control in the in-game Controls menu: a floating analog stick, a classic d-pad, or both side by side. The stick anchors wherever your thumb lands; the d-pad supports sliding and diagonals.
 - Face buttons can show PlayStation, Xbox, or Switch-style labels — your choice in the in-game Controls menu.
 - An opacity slider lets you see through the controls when they'd cover text.
-- The face-button group can be moved and resized to fit your hands — drag the middle of the diamond to move it, pinch to resize.
+- Rearrange the controls to fit your hands: drag the centre of the face-button diamond to move it and pinch to resize. A solo d-pad moves and resizes the same way — hold any direction and add a second finger to resize.
 
 **Physical controllers** are still fully supported, just like upstream.
 
@@ -38,7 +38,7 @@ Even though it is not an emulator, Severed Chains cannot be played without the u
 - **Additional Additions** — registers custom additions made with the [Additional Additions Editor](https://github.com/Legend-of-Dragoon-Modding/Additional-Additions-Editor); drop the exported `.json` files in `mods/additional_additions` under the app folder.
 - **Icon Turn Order** — the turn-order display from Dragoon Modifier as a standalone mod, with player and monster portrait icons in battle.
 - **Lloyd Mod** — adds Lloyd as a playable character, with his own spells, menus and battle scripts.
-- **Stardust Indicator** — this fork's own mod: a pulsing gold sparkle marks every uncollected stardust on the submap, so you never miss one.
+- **Stardust Indicator** — this fork's own mod: a pulsing gold sparkle marks every uncollected stardust on the submap, and a Stardust Tracker entry in the Goods menu shows which ones you've found and which are still out there, so you never miss one.
 
 Dragoon Modifier and Additional Additions are the [LoD Modding community](https://github.com/Legend-of-Dragoon-Modding)'s own mods; Icon Turn Order and Lloyd Mod are by [Zychronix](https://github.com/Zychronix). All are vendored and kept up to date with their upstream sources. Stardust Indicator is maintained in this repo under `own_mods/`.
 

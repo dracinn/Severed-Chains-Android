@@ -62,6 +62,9 @@ import static legend.game.modding.coremod.CoreMod.TOUCH_CONTROLS_OPACITY_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_BUTTONS_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_SCALE_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_X_CONFIG;
+import static legend.game.modding.coremod.CoreMod.TOUCH_DPAD_SCALE_CONFIG;
+import static legend.game.modding.coremod.CoreMod.TOUCH_DPAD_X_CONFIG;
+import static legend.game.modding.coremod.CoreMod.TOUCH_DPAD_Y_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_Y_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_MOVE_CONTROL_CONFIG;
 
@@ -93,6 +96,9 @@ public class AndroidPlatformManager extends PlatformManager {
   private float lastTouchFaceX = Float.NaN;
   private float lastTouchFaceY = Float.NaN;
   private float lastTouchFaceScale = Float.NaN;
+  private float lastTouchDpadX = Float.NaN;
+  private float lastTouchDpadY = Float.NaN;
+  private float lastTouchDpadScale = Float.NaN;
   private TouchControlsView lastOverlay;
 
   private final IntSet gamepads = new IntOpenHashSet();
@@ -528,6 +534,13 @@ public class AndroidPlatformManager extends PlatformManager {
       CONFIG.setConfig(TOUCH_FACE_SCALE_CONFIG.get(), pendingFaceLayout[2]);
     }
 
+    final float[] pendingDpadLayout = AndroidInput.consumePendingDpadLayout();
+    if(pendingDpadLayout != null) {
+      CONFIG.setConfig(TOUCH_DPAD_X_CONFIG.get(), pendingDpadLayout[0]);
+      CONFIG.setConfig(TOUCH_DPAD_Y_CONFIG.get(), pendingDpadLayout[1]);
+      CONFIG.setConfig(TOUCH_DPAD_SCALE_CONFIG.get(), pendingDpadLayout[2]);
+    }
+
     // A recreated activity builds a fresh overlay that starts at defaults —
     // clear the change-detection sentinels so all three pushes re-fire for it.
     final TouchControlsView overlayNow = AndroidInput.overlay;
@@ -539,6 +552,9 @@ public class AndroidPlatformManager extends PlatformManager {
       this.lastTouchFaceX = Float.NaN;
       this.lastTouchFaceY = Float.NaN;
       this.lastTouchFaceScale = Float.NaN;
+      this.lastTouchDpadX = Float.NaN;
+      this.lastTouchDpadY = Float.NaN;
+      this.lastTouchDpadScale = Float.NaN;
     }
 
     // Push the face-button glyph style to the touch overlay when it changes
@@ -582,6 +598,20 @@ public class AndroidPlatformManager extends PlatformManager {
       final TouchControlsView overlay = AndroidInput.overlay;
       if(overlay != null) {
         overlay.post(() -> overlay.setFaceLayout(faceX, faceY, faceScale));
+      }
+    }
+
+    // Push the d-pad position/scale to the overlay when it changes
+    final float dpadX = CONFIG.getConfig(TOUCH_DPAD_X_CONFIG.get());
+    final float dpadY = CONFIG.getConfig(TOUCH_DPAD_Y_CONFIG.get());
+    final float dpadScale = CONFIG.getConfig(TOUCH_DPAD_SCALE_CONFIG.get());
+    if(dpadX != this.lastTouchDpadX || dpadY != this.lastTouchDpadY || dpadScale != this.lastTouchDpadScale) {
+      this.lastTouchDpadX = dpadX;
+      this.lastTouchDpadY = dpadY;
+      this.lastTouchDpadScale = dpadScale;
+      final TouchControlsView overlay = AndroidInput.overlay;
+      if(overlay != null) {
+        overlay.post(() -> overlay.setDpadLayout(dpadX, dpadY, dpadScale));
       }
     }
   }

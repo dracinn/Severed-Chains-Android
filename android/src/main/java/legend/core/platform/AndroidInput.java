@@ -82,6 +82,22 @@ public final class AndroidInput {
     return layout;
   }
 
+  /**
+   * [normalizedX, normalizedY, scale]
+   */
+  private static volatile float[] pendingDpadLayout;
+
+  public static void reportDpadLayout(final float normalizedX, final float normalizedY, final float scale) {
+    pendingDpadLayout = new float[] {normalizedX, normalizedY, scale};
+  }
+
+  @Nullable
+  public static float[] consumePendingDpadLayout() {
+    final float[] layout = pendingDpadLayout;
+    pendingDpadLayout = null;
+    return layout;
+  }
+
   // ------------------------------------------------------------------
   // Producers (UI thread)
   // ------------------------------------------------------------------
