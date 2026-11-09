@@ -30,6 +30,7 @@ import legend.core.platform.input.InputKey;
 import legend.core.platform.input.KeyInputActivation;
 import legend.core.platform.input.ScancodeInputActivation;
 import legend.core.platform.input.TouchFaceButtonStyle;
+import legend.core.platform.input.TouchMoveControl;
 import legend.game.android.AndroidEnv;
 import legend.game.android.TouchControlsView;
 import legend.game.modding.events.input.InputPressedEvent;
@@ -62,6 +63,7 @@ import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_BUTTONS_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_SCALE_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_X_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_Y_CONFIG;
+import static legend.game.modding.coremod.CoreMod.TOUCH_MOVE_CONTROL_CONFIG;
 
 /**
  * Android PlatformManager. Mirrors upstream SdlPlatformManager's tickInput()
@@ -86,6 +88,7 @@ public class AndroidPlatformManager extends PlatformManager {
   private final Map<InputAction, AxisInputState> axisActionStates = new HashMap<>();
   private boolean clearActionStates;
   private TouchFaceButtonStyle lastFaceButtonStyle;
+  private TouchMoveControl lastMoveControl;
   private float lastTouchOpacity = Float.NaN;
   private float lastTouchFaceX = Float.NaN;
   private float lastTouchFaceY = Float.NaN;
@@ -531,6 +534,7 @@ public class AndroidPlatformManager extends PlatformManager {
     if(overlayNow != this.lastOverlay) {
       this.lastOverlay = overlayNow;
       this.lastFaceButtonStyle = null;
+      this.lastMoveControl = null;
       this.lastTouchOpacity = Float.NaN;
       this.lastTouchFaceX = Float.NaN;
       this.lastTouchFaceY = Float.NaN;
@@ -544,6 +548,16 @@ public class AndroidPlatformManager extends PlatformManager {
       final TouchControlsView overlay = AndroidInput.overlay;
       if(overlay != null) {
         overlay.post(() -> overlay.setFaceButtonStyle(faceButtonStyle));
+      }
+    }
+
+    // Push the movement-control mode (stick/d-pad/both) when it changes
+    final TouchMoveControl moveControl = CONFIG.getConfig(TOUCH_MOVE_CONTROL_CONFIG.get());
+    if(moveControl != this.lastMoveControl) {
+      this.lastMoveControl = moveControl;
+      final TouchControlsView overlay = AndroidInput.overlay;
+      if(overlay != null) {
+        overlay.post(() -> overlay.setMoveControl(moveControl));
       }
     }
 

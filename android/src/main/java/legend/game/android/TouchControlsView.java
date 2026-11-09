@@ -15,6 +15,7 @@ import legend.core.platform.AndroidInput;
 import legend.core.platform.input.InputAxis;
 import legend.core.platform.input.InputButton;
 import legend.core.platform.input.TouchFaceButtonStyle;
+import legend.core.platform.input.TouchMoveControl;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -22,12 +23,14 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * On-screen gamepad overlay. Draws a floating analog stick (left) and a
- * PlayStation face-button diamond (right) plus shoulder/select/start, kept
- * inside the pillarboxed margins of the 4:3 game image. The stick is not
- * fixed: a touch anywhere in the left zone anchors it under the thumb and
- * drags emit LEFT_X/LEFT_Y axis values. The face-button cluster can be
- * moved by dragging the empty middle of the diamond and resized by
+ * On-screen gamepad overlay. Draws a d-pad and/or a floating analog stick
+ * (left, per the Touch Movement Control config) and a PlayStation face-button
+ * diamond (right) plus shoulder/select/start, kept inside the pillarboxed
+ * margins of the 4:3 game image. The d-pad supports sliding and diagonals,
+ * emitting DPAD_* buttons; the stick anchors under the thumb anywhere in the
+ * left zone outside the d-pad and drags emit LEFT_X/LEFT_Y axis values. The
+ * face-button cluster can be moved by dragging the empty middle of the diamond
+ * and resized by
  * pinching there; the result is persisted via AndroidInput.reportFaceLayout.
  * Emits gamepad button/axis events
  * (deviceId -1) into the AndroidInput queue; touches that hit nothing are
@@ -37,6 +40,10 @@ import java.util.Set;
 public class TouchControlsView extends View {
   /** Fraction of stick radius below which a deflection reads as centred. */
   private static final float STICK_DEADZONE = 0.06f;
+  /** D-pad unit offsets/disc radius; diagonal fires when an axis component exceeds this fraction. */
+  private static final float DPAD_OFF_DP = 46f;
+  private static final float DPAD_R_DP = 24f;
+  private static final float DPAD_DIAG_MIN = 0.5f;
   private static final float MIN_FACE_SCALE = 0.5f;
   private static final float MAX_FACE_SCALE = 2.0f;
   /** Face-cluster unit offsets, multiplied by the (scaled) diamond offset. */
@@ -104,7 +111,7 @@ public class TouchControlsView extends View {
 
   /** Face-button glyph style pushed from the Controls config (game thread -> UI). */
   private volatile TouchFaceButtonStyle faceButtonStyle = TouchFaceButtonStyle.PLAYSTATION;
-  /** Opacity multiplier for the face buttons and joystick, from Controls config. */
+  /** Opacity multiplier for the face buttons and d-pad, from Controls config. */
   private volatile float opacity = 1.0f;
   /** Face-cluster position (fraction of view) and scale, pushed from config. */
   private volatile float faceCxN = 0.91f;
@@ -135,11 +142,21 @@ public class TouchControlsView extends View {
   private float pinchStartMidX;
   private float pinchStartMidY;
 
-  /** pointerId -> x,y for fingers that landed on a control or the stick */
+  /** pointerId -> x,y for fingers that landed on a control or the d-pad */
   private final SparseArray<float[]> active = new SparseArray<>();
   /** Tokens (InputButton / InputAxis) currently held by active pointers */
   private final Set<Object> heldTokens = new HashSet<>();
   private boolean gestureConsumed;
+
+  /** D-pad cluster state in view pixels, refreshed by layoutDpad(). */
+  private final List<Ctrl> dpadCtrls = new ArrayList<>();
+  private float dpadCx;
+  private float dpadCy;
+  private float dpadBoundR;
+  /** Centre dead zone: a touch inside this radius presses no direction. */
+  private float dpadDeadR;
+  /** pointerIds owned by the d-pad (each contributes its own direction). */
+  private final Set<Integer> dpadPointers = new HashSet<>();
 
   /** Floating stick: -1 when no finger owns it. */
   private int stickPointerId = -1;
@@ -159,6 +176,9 @@ public class TouchControlsView extends View {
   private float stickZoneTop;
   private float stickZoneRight;
   private float stickZoneBottom;
+
+  /** Which movement controls are shown, from the Controls config. */
+  private volatile TouchMoveControl moveControl = TouchMoveControl.BOTH;
 
   private float dp;
 
@@ -192,6 +212,12 @@ public class TouchControlsView extends View {
     this.invalidate();
   }
 
+  /** Called on the UI thread by AndroidPlatformManager when the Controls config changes. */
+  public void setMoveControl(final TouchMoveControl mode) {
+    this.moveControl = mode;
+    this.invalidate();
+  }
+
   /** Called on the UI thread by AndroidPlatformManager when the persisted face-cluster layout changes. */
   public void setFaceLayout(final float normalizedX, final float normalizedY, final float scale) {
     this.faceCxN = normalizedX;
@@ -217,11 +243,21 @@ public class TouchControlsView extends View {
 
     this.controls.clear();
     this.faceCtrls.clear();
+    this.dpadCtrls.clear();
 
-    // Stick rests in the left pillarbox margin and can be anchored anywhere
-    // in the left zone; buttons keep priority so the zone may overlap them.
-    this.stickHomeX = w * 0.09f;
-    this.stickHomeY = h * 0.70f;
+    // D-pad sits low-right of the floating stick's rest position
+    this.dpadCx = w * 0.27f;
+    this.dpadCy = h * 0.78f;
+    this.dpadCtrls.add(this.faceCtrl("", InputButton.DPAD_UP, 0, -1));
+    this.dpadCtrls.add(this.faceCtrl("", InputButton.DPAD_RIGHT, 1, 0));
+    this.dpadCtrls.add(this.faceCtrl("", InputButton.DPAD_DOWN, 0, 1));
+    this.dpadCtrls.add(this.faceCtrl("", InputButton.DPAD_LEFT, -1, 0));
+    this.layoutDpad();
+
+    // Floating stick rests in the left pillarbox margin and anchors anywhere
+    // in the left zone; controls keep priority so the zone may overlap them.
+    this.stickHomeX = w * 0.08f;
+    this.stickHomeY = h * 0.62f;
     this.stickR = 60 * this.dp;
     this.stickZoneRight = w * 0.30f;
     this.stickZoneTop = h * 0.25f;
@@ -307,6 +343,44 @@ public class TouchControlsView extends View {
     }
   }
 
+  /** Positions the d-pad discs around the fixed centre. */
+  private void layoutDpad() {
+    final float off = DPAD_OFF_DP * this.dp;
+    final float br = DPAD_R_DP * this.dp;
+    this.dpadBoundR = off + br + 12 * this.dp;
+    this.dpadDeadR = Math.max(10 * this.dp, off - br);
+    for(final Ctrl c : this.dpadCtrls) {
+      c.x = this.dpadCx + c.ox * off;
+      c.y = this.dpadCy + c.oy * off;
+      c.r = br;
+    }
+  }
+
+  private boolean inDpad(final float x, final float y) {
+    final float dx = x - this.dpadCx;
+    final float dy = y - this.dpadCy;
+    return dx * dx + dy * dy <= this.dpadBoundR * this.dpadBoundR;
+  }
+
+  /** Add the direction button(s) for a d-pad pointer position. */
+  private void collectDpad(final float x, final float y, final Set<Object> tokens) {
+    final float dx = x - this.dpadCx;
+    final float dy = y - this.dpadCy;
+    final float len2 = dx * dx + dy * dy;
+    if(len2 <= this.dpadDeadR * this.dpadDeadR) {
+      return;
+    }
+
+    // Both axes past the threshold on a 45° touch yields a diagonal
+    final float diag = len2 * DPAD_DIAG_MIN * DPAD_DIAG_MIN;
+    if(dx * dx > diag) {
+      tokens.add(dx > 0 ? InputButton.DPAD_RIGHT : InputButton.DPAD_LEFT);
+    }
+    if(dy * dy > diag) {
+      tokens.add(dy > 0 ? InputButton.DPAD_DOWN : InputButton.DPAD_UP);
+    }
+  }
+
   private boolean inFaceCluster(final float x, final float y) {
     final float dx = x - this.faceCx;
     final float dy = y - this.faceCy;
@@ -375,7 +449,12 @@ public class TouchControlsView extends View {
         } else if(this.hit(x, y) != null) {
           this.gestureConsumed = true;
           this.active.put(id, new float[] {x, y});
-        } else if(this.stickPointerId == -1 && this.inStickZone(x, y)) {
+        } else if(this.moveControl != TouchMoveControl.STICK && this.inDpad(x, y)) {
+          this.dpadPointers.add(id);
+          this.gestureConsumed = true;
+          this.active.put(id, new float[] {x, y});
+          this.invalidate();
+        } else if(this.moveControl != TouchMoveControl.DPAD && this.stickPointerId == -1 && this.inStickZone(x, y)) {
           this.stickPointerId = id;
           this.stickAnchorX = x;
           this.stickAnchorY = y;
@@ -415,6 +494,7 @@ public class TouchControlsView extends View {
         final int idx = ev.getActionIndex();
         final int id = ev.getPointerId(idx);
         this.active.remove(id);
+        this.dpadPointers.remove(id);
         if(id == this.stickPointerId) {
           this.releaseStick();
         }
@@ -540,6 +620,12 @@ public class TouchControlsView extends View {
         continue;
       }
 
+      if(this.dpadPointers.contains(this.active.keyAt(i))) {
+        final float[] pos = this.active.valueAt(i);
+        this.collectDpad(pos[0], pos[1], tokens);
+        continue;
+      }
+
       final float[] pos = this.active.valueAt(i);
       final Ctrl c = this.hit(pos[0], pos[1]);
       if(c == null) {
@@ -604,29 +690,46 @@ public class TouchControlsView extends View {
       return;
     }
 
-    // Stick base sits at the anchor while owned, home position otherwise
-    final float baseX = this.stickPointerId != -1 ? this.stickAnchorX : this.stickHomeX;
-    final float baseY = this.stickPointerId != -1 ? this.stickAnchorY : this.stickHomeY;
-    this.halo(canvas, baseX, baseY, this.stickR * 1.35f, GOLD, this.a(24));
-    this.discPaint.setColor(Color.argb(this.a(120), Color.red(DARK), Color.green(DARK), Color.blue(DARK)));
-    canvas.drawCircle(baseX, baseY, this.stickR, this.discPaint);
-    this.rimPaint.setColor(Color.argb(this.a(45), 255, 255, 255));
-    canvas.drawCircle(baseX, baseY, this.stickR, this.rimPaint);
-    this.rimPaint.setColor(GOLD);
+    // D-pad: bridging centre disc makes the four discs read as one pad
+    if(this.moveControl != TouchMoveControl.STICK) {
+      this.halo(canvas, this.dpadCx, this.dpadCy, this.dpadBoundR, GOLD, this.a(24));
+      final float padR = this.dpadDeadR + 4 * this.dp;
+      this.discPaint.setColor(Color.argb(this.a(120), Color.red(DARK), Color.green(DARK), Color.blue(DARK)));
+      canvas.drawCircle(this.dpadCx, this.dpadCy, padR, this.discPaint);
+      this.rimPaint.setColor(Color.argb(this.a(45), 255, 255, 255));
+      canvas.drawCircle(this.dpadCx, this.dpadCy, padR, this.rimPaint);
+      this.rimPaint.setColor(GOLD);
+      for(final Ctrl c : this.dpadCtrls) {
+        this.drawDiscButton(canvas, c, this.heldTokens.contains(c.button));
+      }
+    }
 
-    // Thumb orb: dark disc, gold rim, top sheen
-    final float nx = baseX + this.stickDeflX * this.stickR;
-    final float ny = baseY + this.stickDeflY * this.stickR;
-    final float nr = this.stickR * 0.45f;
-    this.discPaint.setColor(Color.argb(this.a(235), Color.red(DARK), Color.green(DARK), Color.blue(DARK)));
-    canvas.drawCircle(nx, ny, nr, this.discPaint);
-    this.rimPaint.setAlpha(this.a(255));
-    canvas.drawCircle(nx, ny, nr, this.rimPaint);
-    this.rimPaint.setAlpha(255);
-    this.tmpRect.set(nx - nr + 4 * this.dp, ny - nr + 4 * this.dp, nx + nr - 4 * this.dp, ny + nr - 4 * this.dp);
-    this.sheenPaint.setAlpha(this.a(140));
-    canvas.drawArc(this.tmpRect, 200f, 140f, false, this.sheenPaint);
-    this.sheenPaint.setAlpha(140);
+    // Floating stick: base sits at the rest position while idle, at the
+    // anchor while owned.
+    if(this.moveControl != TouchMoveControl.DPAD) {
+      final float baseX = this.stickPointerId != -1 ? this.stickAnchorX : this.stickHomeX;
+      final float baseY = this.stickPointerId != -1 ? this.stickAnchorY : this.stickHomeY;
+      this.halo(canvas, baseX, baseY, this.stickR * 1.35f, GOLD, this.a(24));
+      this.discPaint.setColor(Color.argb(this.a(120), Color.red(DARK), Color.green(DARK), Color.blue(DARK)));
+      canvas.drawCircle(baseX, baseY, this.stickR, this.discPaint);
+      this.rimPaint.setColor(Color.argb(this.a(45), 255, 255, 255));
+      canvas.drawCircle(baseX, baseY, this.stickR, this.rimPaint);
+      this.rimPaint.setColor(GOLD);
+
+      // Thumb orb: dark disc, gold rim, top sheen
+      final float nx = baseX + this.stickDeflX * this.stickR;
+      final float ny = baseY + this.stickDeflY * this.stickR;
+      final float nr = this.stickR * 0.45f;
+      this.discPaint.setColor(Color.argb(this.a(235), Color.red(DARK), Color.green(DARK), Color.blue(DARK)));
+      canvas.drawCircle(nx, ny, nr, this.discPaint);
+      this.rimPaint.setAlpha(this.a(255));
+      canvas.drawCircle(nx, ny, nr, this.rimPaint);
+      this.rimPaint.setAlpha(255);
+      this.tmpRect.set(nx - nr + 4 * this.dp, ny - nr + 4 * this.dp, nx + nr - 4 * this.dp, ny + nr - 4 * this.dp);
+      this.sheenPaint.setAlpha(this.a(140));
+      canvas.drawArc(this.tmpRect, 200f, 140f, false, this.sheenPaint);
+      this.sheenPaint.setAlpha(140);
+    }
 
     for(final Ctrl c : this.controls) {
       final boolean held = this.heldTokens.contains(c.button != null ? c.button : c.axis);
@@ -694,6 +797,29 @@ public class TouchControlsView extends View {
 
   /** Face-button symbol in the configured style, drawn procedurally. */
   private void drawFaceSymbol(final Canvas canvas, final Ctrl c) {
+    // D-pad arrows: stroked triangle rotated to the direction
+    if(c.button == InputButton.DPAD_UP || c.button == InputButton.DPAD_DOWN || c.button == InputButton.DPAD_LEFT || c.button == InputButton.DPAD_RIGHT) {
+      final float s = c.r * 0.34f;
+      final float rot = switch(c.button) {
+        case InputButton.DPAD_RIGHT -> 90;
+        case InputButton.DPAD_DOWN -> 180;
+        case InputButton.DPAD_LEFT -> 270;
+        default -> 0;
+      };
+      this.symbolPaint.setColor(CREAM);
+      this.symbolPaint.setAlpha(this.a(235));
+      this.triPath.reset();
+      this.triPath.moveTo(c.x, c.y - s);
+      this.triPath.lineTo(c.x + s * 0.9f, c.y + s * 0.7f);
+      this.triPath.lineTo(c.x - s * 0.9f, c.y + s * 0.7f);
+      this.triPath.close();
+      canvas.save();
+      canvas.rotate(rot, c.x, c.y);
+      canvas.drawPath(this.triPath, this.symbolPaint);
+      canvas.restore();
+      return;
+    }
+
     if(this.faceButtonStyle == TouchFaceButtonStyle.XBOX) {
       // Xbox layout: Y top, B right, A bottom, X left
       final String letter = switch(c.button) {
