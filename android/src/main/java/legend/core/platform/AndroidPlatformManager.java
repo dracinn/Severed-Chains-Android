@@ -59,12 +59,11 @@ import static legend.game.modding.coremod.CoreMod.MOVEMENT_INNER_DEADZONE_CONFIG
 import static legend.game.modding.coremod.CoreMod.MOVEMENT_OUTER_DEADZONE_CONFIG;
 import static legend.game.modding.coremod.CoreMod.RECEIVE_INPUT_ON_INACTIVE_WINDOW_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_CONTROLS_OPACITY_CONFIG;
-import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_BUTTONS_CONFIG;
-import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_SCALE_CONFIG;
-import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_X_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_DPAD_SCALE_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_DPAD_X_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_DPAD_Y_CONFIG;
+import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_SCALE_CONFIG;
+import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_X_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_Y_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_MOVE_CONTROL_CONFIG;
 
@@ -557,8 +556,13 @@ public class AndroidPlatformManager extends PlatformManager {
       this.lastTouchDpadScale = Float.NaN;
     }
 
-    // Push the face-button glyph style to the touch overlay when it changes
-    final TouchFaceButtonStyle faceButtonStyle = CONFIG.getConfig(TOUCH_FACE_BUTTONS_CONFIG.get());
+    // Push the resolved button style to the touch overlay when it changes —
+    // gamepad_button_labels drives physical prompts and touch glyphs alike
+    final TouchFaceButtonStyle faceButtonStyle = switch(this.getGamepadType()) {
+      case PLAYSTATION -> TouchFaceButtonStyle.PLAYSTATION;
+      case SWITCH -> TouchFaceButtonStyle.SWITCH;
+      default -> TouchFaceButtonStyle.XBOX;
+    };
     if(faceButtonStyle != this.lastFaceButtonStyle) {
       this.lastFaceButtonStyle = faceButtonStyle;
       final TouchControlsView overlay = AndroidInput.overlay;
