@@ -46,6 +46,10 @@ public class MenuStack {
   private double scrollAccumulatorX;
   private double scrollAccumulatorY;
 
+  public MenuScreen peek() {
+    return this.screens.peek();
+  }
+
   public <T extends MenuScreen> T pushScreen(final T screen) {
     if(this.screens.isEmpty()) {
       this.registerInputHandlers();

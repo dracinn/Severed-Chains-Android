@@ -5784,6 +5784,18 @@ public class SMap extends EngineState<SMap> {
     return super.getLocation(gameState);
   }
 
+  public boolean hasSavePoint() {
+    return this.hasSavePoint_800d5620;
+  }
+
+  public Vector3f savePointPos() {
+    return this.savePointPos_800d5622;
+  }
+
+  public Vector3f playerPos() {
+    return this.caches_800c68e8.playerMovement_0c;
+  }
+
   @Override
   public GsRVIEW2 getCamera() {
     return this.submap.getCamera();

@@ -42,6 +42,7 @@ import legend.game.modding.events.submap.SubmapWarpEvent;
 import legend.game.scripting.ScriptFile;
 import legend.game.scripting.ScriptState;
 import legend.game.submap.SMap;
+import legend.game.wmap.WMap;
 import legend.game.textures.Image;
 import legend.game.textures.RegisterAtlasTexturesEvent;
 import legend.game.types.EquipmentSlot;
@@ -61,6 +62,8 @@ import lod.lloydmod.menu.LloydBattleAction;
 import lod.lloydmod.menu.LloydDragoonSpellAction;
 import lod.lloydmod.menu.LloydHotPrizeMenu;
 import lod.lloydmod.stats.LloydTemplate;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.legendofdragoon.modloader.Mod;
 import org.legendofdragoon.modloader.events.EventListener;
 import org.legendofdragoon.modloader.events.Priority;
@@ -95,6 +98,7 @@ import static legend.lodmod.LodMod.MP_STAT;
 
 public class LloydMod {
   public static final String MOD_ID = "lloyd_mod";
+  private static final Logger LOGGER = LogManager.getFormatterLogger(LloydMod.class);
   public static boolean DRAMOD_VERSION = false;
   public static boolean ALLOW_LLOYD_NEW_GAME = true;
 
@@ -581,9 +585,9 @@ public class LloydMod {
         }
       }
 
-      // Konami code on the submap adds Lloyd early: UP UP DOWN DOWN
-      // LEFT RIGHT LEFT RIGHT B A
-      if(ALLOW_LLOYD_NEW_GAME && currentEngineState_8004dd04 instanceof SMap) {
+      // Konami code on the submap or world map adds Lloyd early:
+      // UP UP DOWN DOWN LEFT RIGHT LEFT RIGHT B A
+      if(ALLOW_LLOYD_NEW_GAME && (currentEngineState_8004dd04 instanceof SMap || currentEngineState_8004dd04 instanceof WMap)) {
         if(this.konami == null) {
           this.konami = new InputAction[] {
             INPUT_ACTION_MENU_UP.get(), INPUT_ACTION_MENU_UP.get(),
@@ -601,7 +605,12 @@ public class LloydMod {
             this.addLloydToParty();
           }
         } else {
-          this.konamiIndex = event.action == this.konami[0] ? 1 : 0;
+          for(int i = 0; i < this.konami.length; i++) {
+            if(event.action == this.konami[i]) {
+              this.konamiIndex = event.action == this.konami[0] ? 1 : 0;
+              break;
+            }
+          }
         }
       }
     }
@@ -622,6 +631,9 @@ public class LloydMod {
       final CharacterData2c lloyd = LLOYD.get().make(gameState_800babc8);
       lloyd.partyFlags_04 = IN_PARTY | CAN_BE_IN_PARTY;
       gameState_800babc8.addCharacter(lloyd);
+      if(gameState_800babc8.charIds_88.size() < 3) {
+        gameState_800babc8.charIds_88.add(gameState_800babc8.charData_32c.size() - 1);
+      }
 
       if(DRAMOD_VERSION) {
         lloyd.equip(EquipmentSlot.WEAPON, REGISTRIES.equipment.getEntry("dragoon_modifier", "broad_sword").get());
