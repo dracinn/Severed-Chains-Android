@@ -39,6 +39,7 @@ Even though it is not an emulator, Severed Chains cannot be played without the u
 - **Icon Turn Order** — the turn-order display from Dragoon Modifier as a standalone mod, with player and monster portrait icons in battle.
 - **Lloyd Mod** — adds Lloyd as a playable character, with his own spells, menus and battle scripts. Can't wait for him to join? Enter the Konami Code on the submap — **up, up, down, down, left, right, left, right, B, A** — to add him to the party early.
 - **Stardust Indicator** — this fork's own mod: a pulsing gold sparkle marks every uncollected stardust on the submap, and a Stardust Tracker entry in the Goods menu shows which ones you've found and which are still out there, so you never miss one.
+- **Save Point Heal** — this fork's own mod: opening the save menu at a save point restores your active party's HP and MP — Lloyd included when the Lloyd Mod is enabled.
 
 Dragoon Modifier and Additional Additions are the [LoD Modding community](https://github.com/Legend-of-Dragoon-Modding)'s own mods; Icon Turn Order and Lloyd Mod are by [Zychronix](https://github.com/Zychronix). All are vendored and kept up to date with their upstream sources. Stardust Indicator is maintained in this repo under `own_mods/`.
 
