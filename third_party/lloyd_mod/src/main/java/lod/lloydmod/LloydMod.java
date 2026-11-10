@@ -3,6 +3,7 @@ package lod.lloydmod;
 import legend.core.GameEngine;
 import legend.core.lang.I18nText;
 import legend.core.lang.RawText;
+import legend.core.platform.input.InputAction;
 import legend.core.platform.input.InputCodepoints;
 import legend.game.characters.CharacterData2c;
 import legend.game.characters.CharacterTemplate;
@@ -80,6 +81,12 @@ import static legend.game.Scus94491BpeSegment_800b.gameState_800babc8;
 import static legend.game.Scus94491BpeSegment_800b.spGained_800bc950;
 import static legend.game.characters.CharacterData2c.CAN_BE_IN_PARTY;
 import static legend.game.characters.CharacterData2c.IN_PARTY;
+import static legend.game.modding.coremod.CoreMod.INPUT_ACTION_MENU_BACK;
+import static legend.game.modding.coremod.CoreMod.INPUT_ACTION_MENU_CONFIRM;
+import static legend.game.modding.coremod.CoreMod.INPUT_ACTION_MENU_DOWN;
+import static legend.game.modding.coremod.CoreMod.INPUT_ACTION_MENU_LEFT;
+import static legend.game.modding.coremod.CoreMod.INPUT_ACTION_MENU_RIGHT;
+import static legend.game.modding.coremod.CoreMod.INPUT_ACTION_MENU_UP;
 import static legend.lodmod.LodMod.HP_STAT;
 import static legend.lodmod.LodMod.INPUT_ACTION_WMAP_QUEEN_FURY_COOLON;
 import static legend.lodmod.LodMod.MP_STAT;
@@ -121,6 +128,9 @@ public class LloydMod {
   public static boolean hotPrizeActivated = true;
 
   public int addLloydEarly = 0;
+  /** Konami code progress: UP UP DOWN DOWN LEFT RIGHT LEFT RIGHT B A. */
+  private InputAction[] konami;
+  private int konamiIndex;
 
   public LloydMod() {
     GameEngine.EVENTS.register(this);
@@ -563,42 +573,70 @@ public class LloydMod {
             this.addLloydEarly += 1;
 
             if(this.addLloydEarly == 5) {
-              final LloydJoinedPartyEvent joinEvent = EVENTS.postEvent(new LloydJoinedPartyEvent());
-
-              if(!joinEvent.override) {
-                gameState_800babc8.goods_19c.give(CHAOS_DIVINE_DRAGOON_SPIRIT.get(), GoodsSource.GAMEPLAY);
-
-                for(int i = 0; i < gameState_800babc8.charData_32c.size(); i++) {
-                  if(gameState_800babc8.charData_32c.get(i).template instanceof LloydTemplate) {
-                    gameState_800babc8.charData_32c.remove(i);
-                  }
-                }
-
-                final CharacterData2c lloyd = LLOYD.get().make(gameState_800babc8);
-                lloyd.partyFlags_04 = IN_PARTY | CAN_BE_IN_PARTY;
-                gameState_800babc8.addCharacter(lloyd);
-
-                if(DRAMOD_VERSION) {
-                  lloyd.equip(EquipmentSlot.WEAPON, REGISTRIES.equipment.getEntry("dragoon_modifier", "broad_sword").get());
-                  lloyd.equip(EquipmentSlot.HELMET, REGISTRIES.equipment.getEntry("dragoon_modifier", "bandana").get());
-                  lloyd.equip(EquipmentSlot.ARMOUR, REGISTRIES.equipment.getEntry("dragoon_modifier", "leather_armor").get());
-                  lloyd.equip(EquipmentSlot.BOOTS, REGISTRIES.equipment.getEntry("dragoon_modifier", "leather_boots").get());
-                  lloyd.equip(EquipmentSlot.ACCESSORY, REGISTRIES.equipment.getEntry("dragoon_modifier", "bracelet").get());
-                } else {
-                  lloyd.equip(EquipmentSlot.WEAPON, REGISTRIES.equipment.getEntry("lod", "broad_sword").get());
-                  lloyd.equip(EquipmentSlot.HELMET, REGISTRIES.equipment.getEntry("lod", "bandana").get());
-                  lloyd.equip(EquipmentSlot.ARMOUR, REGISTRIES.equipment.getEntry("lod", "leather_armor").get());
-                  lloyd.equip(EquipmentSlot.BOOTS, REGISTRIES.equipment.getEntry("lod", "leather_boots").get());
-                  lloyd.equip(EquipmentSlot.ACCESSORY, REGISTRIES.equipment.getEntry("lod", "bracelet").get());
-                }
-              }
-              GameOverlay.addNotification(3, new RawText("LLOYD ADDED TO PARTY"));
+              this.addLloydToParty();
             } else {
               GameOverlay.addNotification(3, new I18nText("lod_core.ui.hotkey", new RawText("PRESS " + (5 - this.addLloydEarly) + " TIME(S) TO UNLOCK LLOYD"), InputCodepoints.getActionName(INPUT_ACTION_WMAP_QUEEN_FURY_COOLON.get())));
             }
           }
         }
       }
+
+      // Konami code on the submap adds Lloyd early: UP UP DOWN DOWN
+      // LEFT RIGHT LEFT RIGHT B A
+      if(ALLOW_LLOYD_NEW_GAME && currentEngineState_8004dd04 instanceof SMap) {
+        if(this.konami == null) {
+          this.konami = new InputAction[] {
+            INPUT_ACTION_MENU_UP.get(), INPUT_ACTION_MENU_UP.get(),
+            INPUT_ACTION_MENU_DOWN.get(), INPUT_ACTION_MENU_DOWN.get(),
+            INPUT_ACTION_MENU_LEFT.get(), INPUT_ACTION_MENU_RIGHT.get(),
+            INPUT_ACTION_MENU_LEFT.get(), INPUT_ACTION_MENU_RIGHT.get(),
+            INPUT_ACTION_MENU_BACK.get(), INPUT_ACTION_MENU_CONFIRM.get(),
+          };
+        }
+
+        if(event.action == this.konami[this.konamiIndex]) {
+          this.konamiIndex++;
+          if(this.konamiIndex == this.konami.length) {
+            this.konamiIndex = 0;
+            this.addLloydToParty();
+          }
+        } else {
+          this.konamiIndex = event.action == this.konami[0] ? 1 : 0;
+        }
+      }
     }
+  }
+
+  private void addLloydToParty() {
+    final LloydJoinedPartyEvent joinEvent = EVENTS.postEvent(new LloydJoinedPartyEvent());
+
+    if(!joinEvent.override) {
+      gameState_800babc8.goods_19c.give(CHAOS_DIVINE_DRAGOON_SPIRIT.get(), GoodsSource.GAMEPLAY);
+
+      for(int i = 0; i < gameState_800babc8.charData_32c.size(); i++) {
+        if(gameState_800babc8.charData_32c.get(i).template instanceof LloydTemplate) {
+          gameState_800babc8.charData_32c.remove(i);
+        }
+      }
+
+      final CharacterData2c lloyd = LLOYD.get().make(gameState_800babc8);
+      lloyd.partyFlags_04 = IN_PARTY | CAN_BE_IN_PARTY;
+      gameState_800babc8.addCharacter(lloyd);
+
+      if(DRAMOD_VERSION) {
+        lloyd.equip(EquipmentSlot.WEAPON, REGISTRIES.equipment.getEntry("dragoon_modifier", "broad_sword").get());
+        lloyd.equip(EquipmentSlot.HELMET, REGISTRIES.equipment.getEntry("dragoon_modifier", "bandana").get());
+        lloyd.equip(EquipmentSlot.ARMOUR, REGISTRIES.equipment.getEntry("dragoon_modifier", "leather_armor").get());
+        lloyd.equip(EquipmentSlot.BOOTS, REGISTRIES.equipment.getEntry("dragoon_modifier", "leather_boots").get());
+        lloyd.equip(EquipmentSlot.ACCESSORY, REGISTRIES.equipment.getEntry("dragoon_modifier", "bracelet").get());
+      } else {
+        lloyd.equip(EquipmentSlot.WEAPON, REGISTRIES.equipment.getEntry("lod", "broad_sword").get());
+        lloyd.equip(EquipmentSlot.HELMET, REGISTRIES.equipment.getEntry("lod", "bandana").get());
+        lloyd.equip(EquipmentSlot.ARMOUR, REGISTRIES.equipment.getEntry("lod", "leather_armor").get());
+        lloyd.equip(EquipmentSlot.BOOTS, REGISTRIES.equipment.getEntry("lod", "leather_boots").get());
+        lloyd.equip(EquipmentSlot.ACCESSORY, REGISTRIES.equipment.getEntry("lod", "bracelet").get());
+      }
+    }
+    GameOverlay.addNotification(3, new RawText("LLOYD ADDED TO PARTY"));
   }
 }
