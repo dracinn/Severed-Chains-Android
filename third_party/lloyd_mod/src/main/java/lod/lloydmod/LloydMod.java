@@ -253,6 +253,10 @@ public class LloydMod {
 
   @EventListener
   public void giveGoodsEvent(final GiveGoodsEvent event) {
+    if(gameState_800babc8 == null) {
+      return;
+    }
+
     if(event.givenGoods.contains(LodGoods.MOON_MIRROR.get())) {
       if(!gameState_800babc8.goods_19c.has(CHAOS_DIVINE_DRAGOON_SPIRIT.get())) {
         final LloydJoinedPartyEvent joinEvent = EVENTS.postEvent(new LloydJoinedPartyEvent());
@@ -458,7 +462,9 @@ public class LloydMod {
           }
 
           final VitalsStat sp = player.stats.getStat(LodMod.SP_STAT.get());
-          battleState_8006e398.dragoonTurnsRemaining_294[player.typeBentSlot_276] = (int)Math.floor(sp.getCurrent() / 100d);
+          if(battleState_8006e398.dragoonTurnsRemaining_294[player.typeBentSlot_276] != 1) {
+            battleState_8006e398.dragoonTurnsRemaining_294[player.typeBentSlot_276] = (int)Math.floor(sp.getCurrent() / 100d);
+          }
         }
       } else {
         if(lloydUsedSpell == LloydSpells.RUNNING_SLASH.get()) {
@@ -497,6 +503,7 @@ public class LloydMod {
       sp.setCurrent(sp.getCurrent() + amount);
       spGained_800bc950.mergeInt(player.character, amount, Integer::sum);
       this.gainedSp = true;
+      ((Battle)currentEngineState_8004dd04).hud.addFloatingNumberForBent(6 + player.typeBentSlot_276, amount, 0, 0, 0.3f, 1.0333333f, 0.3f);
     }
   }
 
@@ -505,6 +512,7 @@ public class LloydMod {
       final VitalsStat mp = player.stats.getStat(LodMod.MP_STAT.get());
       mp.setCurrent(mp.getCurrent() + amount);
       this.gainedMp = true;
+      ((Battle)currentEngineState_8004dd04).hud.addFloatingNumberForBent(6 + player.typeBentSlot_276, amount, 0, -12, 0.56666666f, 0.53333336f, 1.0333333f);
     }
   }
 

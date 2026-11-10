@@ -278,7 +278,7 @@ public class LloydTemplate extends RetailCharacterTemplate {
         return 230;
       }
 
-      return 5;
+      return 10;
     }
   }
 
@@ -295,7 +295,7 @@ public class LloydTemplate extends RetailCharacterTemplate {
         return 200;
       }
 
-      return 5;
+      return 10;
     }
   }
 

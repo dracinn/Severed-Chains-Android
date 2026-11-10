@@ -4,7 +4,6 @@ package lod.lloydmod.menu;
 import legend.core.renderer.QueuedModelStandard;
 import legend.game.characters.VitalsStat;
 import legend.game.combat.bent.PlayerBattleEntity;
-import legend.game.combat.types.DragoonSpells09;
 import legend.game.combat.ui.BattleHud;
 import legend.game.combat.ui.ListMenu;
 import legend.game.combat.ui.ListPosition;
@@ -35,7 +34,7 @@ import static legend.game.Text.renderText;
 public class LloydCombatAttackMenu extends ListMenu {
   private final FontOptions fontOptions = new FontOptions().colour(TextColour.WHITE);
   private UiBox description;
-  private final DragoonSpells09 spells;
+  private final List<SpellStats0c> spells;
 
 
   public LloydCombatAttackMenu(final BattleHud hud, final PlayerBattleEntity activePlayer, final ListPosition lastPosition, final Runnable onClose) {
@@ -58,8 +57,7 @@ public class LloydCombatAttackMenu extends ListMenu {
       }
     }
 
-    this.spells = new DragoonSpells09(activePlayer.character);
-    this.spells.spells_01.addAll(currentSpells);
+    this.spells = currentSpells;
   }
 
   private static ListPosition modifyLastPosition(final ListPosition lastPosition) {
@@ -70,7 +68,7 @@ public class LloydCombatAttackMenu extends ListMenu {
 
   @Override
   protected int getListCount() {
-    return this.spells.spells_01.size();
+    return this.spells.size();
   }
 
   @Override
@@ -83,7 +81,7 @@ public class LloydCombatAttackMenu extends ListMenu {
       textColour = TextColour.WHITE;
     }
 
-    final SpellStats0c spell = this.spells.spells_01.get(index);
+    final SpellStats0c spell = this.spells.get(index);
 
     this.fontOptions.trim(trim);
     this.fontOptions.horizontalAlign(HorizontalAlign.LEFT);
@@ -112,7 +110,7 @@ public class LloydCombatAttackMenu extends ListMenu {
   }
 
   private void setActiveSpell(final int index) {
-    this.player_08.spell_94 = this.spells.spells_01.get(index);
+    this.player_08.spell_94 = this.spells.get(index);
   }
 
   @Override
@@ -191,7 +189,7 @@ public class LloydCombatAttackMenu extends ListMenu {
     if(this.menuState_00 != 0 && (this.flags_02 & 0x1) != 0) {
       //LAB_800f5f50
       if((this.flags_02 & 0x40) != 0) {
-        final SpellStats0c spell = EVENTS.postEvent(new SpellStatsEvent(this.spells.character_00, this.spells.spells_01.get(this.listScroll_1e + this.listIndex_24))).spell;
+        final SpellStats0c spell = EVENTS.postEvent(new SpellStatsEvent(this.player_08.character, this.spells.get(this.listScroll_1e + this.listIndex_24))).spell;
 
         //Selected item description
         if(this.description == null) {
