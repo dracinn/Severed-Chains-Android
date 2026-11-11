@@ -76,6 +76,9 @@ to run on Android or is an optional extra on top.
 - Touch input stays consistent across rotation: controls release
   cleanly when you rotate mid-press and hit zones always line up with
   what's drawn.
+- In portrait the controls stay at full opacity — the dimmer only
+  applies in landscape, where the overlay sits on top of the game
+  image.
 
 ## Display and rendering
 

@@ -624,9 +624,11 @@ public class AndroidPlatformManager extends PlatformManager {
         CONFIG.setConfig(LEGACY_WIDESCREEN_MODE_CONFIG.get(), SubmapWidescreenMode.FORCED_4_3);
       }
       CONFIG.getLocked(LEGACY_WIDESCREEN_MODE_CONFIG.get()).add("Android");
+      CONFIG.getLocked(TOUCH_CONTROLS_OPACITY_CONFIG.get()).add("Android");
     } else {
       CONFIG.getLocked(ALLOW_WIDESCREEN_CONFIG.get()).remove("Android");
       CONFIG.getLocked(LEGACY_WIDESCREEN_MODE_CONFIG.get()).remove("Android");
+      CONFIG.getLocked(TOUCH_CONTROLS_OPACITY_CONFIG.get()).remove("Android");
     }
 
     // Push the requested screen orientation when it changes
@@ -646,8 +648,10 @@ public class AndroidPlatformManager extends PlatformManager {
       }
     }
 
-    // Push touch-control opacity to the overlay when it changes
-    final float touchOpacity = CONFIG.getConfig(TOUCH_CONTROLS_OPACITY_CONFIG.get());
+    // Push touch-control opacity to the overlay when it changes. Portrait is
+    // locked to fully opaque (its layout is fixed); landscape honours the
+    // configured value.
+    final float touchOpacity = Boolean.TRUE.equals(this.effectivePortrait) ? 1.0f : CONFIG.getConfig(TOUCH_CONTROLS_OPACITY_CONFIG.get());
     if(touchOpacity != this.lastTouchOpacity) {
       this.lastTouchOpacity = touchOpacity;
       final TouchControlsView overlay = AndroidInput.overlay;
@@ -979,6 +983,19 @@ public class AndroidPlatformManager extends PlatformManager {
     if(window != null) {
       window.events().onInputActionPressed(action, false);
       window.events().onInputActionReleased(action);
+    }
+  }
+
+  /** Press or release an InputAction without the automatic counterpart —
+   *  for held inputs like movement directions. */
+  public void injectMenuActionHeld(final InputAction action, final boolean down) {
+    final AndroidWindow window = this.getWindow();
+    if(window != null) {
+      if(down) {
+        window.events().onInputActionPressed(action, false);
+      } else {
+        window.events().onInputActionReleased(action);
+      }
     }
   }
 

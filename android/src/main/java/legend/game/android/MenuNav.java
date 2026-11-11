@@ -1,8 +1,10 @@
 package legend.game.android;
 
 import legend.core.GameEngine;
+import legend.core.platform.AndroidInput;
 import legend.core.platform.AndroidPlatformManager;
 import legend.core.platform.input.InputAction;
+import legend.core.platform.input.InputButton;
 import legend.game.EngineStates;
 import legend.game.SItem;
 import legend.game.inventory.screens.Control;
@@ -32,6 +34,10 @@ import static legend.game.modding.coremod.CoreMod.INPUT_ACTION_MENU_PAGE_UP;
 import static legend.game.modding.coremod.CoreMod.INPUT_ACTION_MENU_RIGHT;
 import static legend.game.modding.coremod.CoreMod.INPUT_ACTION_MENU_TOP;
 import static legend.game.modding.coremod.CoreMod.INPUT_ACTION_MENU_UP;
+import static legend.lodmod.LodMod.INPUT_ACTION_GENERAL_MOVE_DOWN;
+import static legend.lodmod.LodMod.INPUT_ACTION_GENERAL_MOVE_LEFT;
+import static legend.lodmod.LodMod.INPUT_ACTION_GENERAL_MOVE_RIGHT;
+import static legend.lodmod.LodMod.INPUT_ACTION_GENERAL_MOVE_UP;
 
 /**
  * Programmatic model of the game's menu tree for location reporting and
@@ -57,6 +63,14 @@ import static legend.game.modding.coremod.CoreMod.INPUT_ACTION_MENU_UP;
  * are written back to {@code nav_state.txt} and logcat. Commands:
  *   where                          dump the location map (screens + rows)
  *   press up|down|left|right|confirm|back|top|bottom|pageup|pagedown
+ *   press pad_<btn>                raw gamepad-button tap through the touch
+ *                                  device path (pad_a, pad_b, pad_x, pad_y,
+ *                                  pad_start, pad_select, pad_l1, pad_r1,
+ *                                  pad_up/down/left/right) — reaches in-game
+ *                                  handlers that poll buttons rather than
+ *                                  menu actions (e.g. Y opens the menu)
+ *   hold pad_<btn> / release pad_<btn>
+ *                                  hold/release a raw button for movement
  *   focus <text>                   move selection to the row/entry whose
  *                                  label contains <text> (case-insensitive),
  *                                  then confirm
@@ -97,6 +111,8 @@ public final class MenuNav {
   private static String status = "idle";
   private static String lastStatusOut = "";
   private static int statusTicks;
+  /** Raw buttons tapped last tick, released on the next so the press spans a poll. */
+  private static final List<InputButton> pendingReleases = new ArrayList<>();
 
   private static File commandFile() {
     return new File(AndroidEnv.PUBLIC_SAVES_DIR.getParentFile(), "nav_command.txt");
@@ -126,6 +142,13 @@ public final class MenuNav {
       } catch(final IOException e) {
         LOGGER.warn("MenuNav failed to read command file: %s", e.getMessage());
       }
+    }
+
+    if(!pendingReleases.isEmpty()) {
+      for(final InputButton button : pendingReleases) {
+        AndroidInput.gamepadButton(AndroidInput.TOUCH_DEVICE_ID, button, false);
+      }
+      pendingReleases.clear();
     }
 
     pump();
@@ -211,13 +234,41 @@ public final class MenuNav {
     }
 
     if(lower.startsWith("press ")) {
-      final InputAction action = parseAction(lower.substring(6).trim());
+      final String name = lower.substring(6).trim();
+      final InputButton button = parsePadButton(name);
+      if(button != null) {
+        AndroidInput.gamepadButton(AndroidInput.TOUCH_DEVICE_ID, button, true);
+        pendingReleases.add(button);
+        status = "pressed " + name;
+        return;
+      }
+      final InputAction action = parseAction(name);
       if(action == null) {
         status = "error: unknown action in " + cmd;
         return;
       }
       inject(action);
-      status = "pressed " + lower.substring(6).trim();
+      status = "pressed " + name;
+      return;
+    }
+
+    if(lower.startsWith("hold ") || lower.startsWith("release ")) {
+      final boolean down = lower.startsWith("hold ");
+      final String name = lower.substring(down ? 5 : 8).trim();
+      final InputButton button = parsePadButton(name);
+      if(button != null) {
+        pendingReleases.remove(button);
+        AndroidInput.gamepadButton(AndroidInput.TOUCH_DEVICE_ID, button, down);
+        status = (down ? "holding " : "released ") + name;
+        return;
+      }
+      final InputAction action = parseMoveAction(name);
+      if(action != null) {
+        injectHeld(action, down);
+        status = (down ? "holding " : "released ") + name;
+        return;
+      }
+      status = "error: unknown button in " + cmd;
       return;
     }
 
@@ -616,8 +667,42 @@ public final class MenuNav {
     };
   }
 
+  /** pad_* names -> raw gamepad buttons; anything else returns null. */
+  private static InputButton parsePadButton(final String name) {
+    return switch(name) {
+      case "pad_a" -> InputButton.A;
+      case "pad_b" -> InputButton.B;
+      case "pad_x" -> InputButton.X;
+      case "pad_y" -> InputButton.Y;
+      case "pad_start" -> InputButton.START;
+      case "pad_select" -> InputButton.SELECT;
+      case "pad_l1" -> InputButton.LEFT_BUMPER;
+      case "pad_r1" -> InputButton.RIGHT_BUMPER;
+      case "pad_up" -> InputButton.DPAD_UP;
+      case "pad_down" -> InputButton.DPAD_DOWN;
+      case "pad_left" -> InputButton.DPAD_LEFT;
+      case "pad_right" -> InputButton.DPAD_RIGHT;
+      default -> null;
+    };
+  }
+
+  /** move_* names -> held movement actions; anything else returns null. */
+  private static InputAction parseMoveAction(final String name) {
+    return switch(name) {
+      case "move_up" -> INPUT_ACTION_GENERAL_MOVE_UP.get();
+      case "move_down" -> INPUT_ACTION_GENERAL_MOVE_DOWN.get();
+      case "move_left" -> INPUT_ACTION_GENERAL_MOVE_LEFT.get();
+      case "move_right" -> INPUT_ACTION_GENERAL_MOVE_RIGHT.get();
+      default -> null;
+    };
+  }
+
   private static void inject(final InputAction action) {
     ((AndroidPlatformManager)GameEngine.PLATFORM).injectMenuAction(action);
+  }
+
+  private static void injectHeld(final InputAction action, final boolean down) {
+    ((AndroidPlatformManager)GameEngine.PLATFORM).injectMenuActionHeld(action, down);
   }
 
   private static void writeStatus() {
