@@ -57,6 +57,8 @@ To grant access: the setup screen asks once on first run, and its **Enable acces
 - Each release reports its real version number, so installs upgrade cleanly.
 - Launcher icon featuring Dart, because it's LoD after all.
 
+For the full list of everything this fork changes relative to upstream — rendering, storage, compatibility work, built-in mods and more — see [CHANGES_FROM_UPSTREAM.md](CHANGES_FROM_UPSTREAM.md).
+
 ## If the game won't start
 
 Severed Chains renders with OpenGL ES 3.2, with an automatic fallback to a compatibility mode on GPUs that don't fully support it (e.g. older Mali). If the app closes itself while starting up, **just open it again** — a launch that dies mid-initialization is remembered, and the next one automatically retries in the safer mode.
