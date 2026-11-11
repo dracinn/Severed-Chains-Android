@@ -670,19 +670,23 @@ tasks.register('patchStagedSources') {
 }
 
 // Native third-party sources (libogg/opus/opusfile) for the JNI opus bridge.
-// Tarballs are downloaded from downloads.xiph.org and verified against the
-// SHA-256 checksums published in the official SHA256SUMS files there.
+// Each dep lists mirrors in preference order (xiph.org canonical, GitHub
+// release assets as fallback for xiph.org outages); the SHA-256 from the
+// official SHA256SUMS is verified against whichever mirror served the file.
 def thirdPartyDownloads = [
   'libogg-1.3.5': [
-    'https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.gz',
+    ['https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.gz',
+     'https://github.com/xiph/ogg/releases/download/v1.3.5/libogg-1.3.5.tar.gz'],
     '0eb4b4b9420a0f51db142ba3f9c64b333f826532dc0f48c6410ae51f4799b664',
   ],
   'opus-1.5.2': [
-    'https://downloads.xiph.org/releases/opus/opus-1.5.2.tar.gz',
+    ['https://downloads.xiph.org/releases/opus/opus-1.5.2.tar.gz',
+     'https://github.com/xiph/opus/releases/download/v1.5.2/opus-1.5.2.tar.gz'],
     '65c1d2f78b9f2fb20082c38cbe47c951ad5839345876e46941612ee87f9a7ce1',
   ],
   'opusfile-0.12': [
-    'https://downloads.xiph.org/releases/opus/opusfile-0.12.tar.gz',
+    ['https://downloads.xiph.org/releases/opusfile/opusfile-0.12.tar.gz',
+     'https://github.com/xiph/opusfile/releases/download/v0.12/opusfile-0.12.tar.gz'],
     '118d8601c12dd6a44f52423e68ca9083cc9f2bfe72da7a8c1acb22a80ae3550b',
   ],
 ]
@@ -698,14 +702,25 @@ tasks.register('fetchThirdParty') {
     dlDir.mkdirs()
     src.mkdirs()
     thirdPartyDownloads.each { name, meta ->
-      final String url = meta[0]
+      final List<String> urls = meta[0]
       final String expected = meta[1]
       final File tarball = new File(dlDir, "${name}.tar.gz")
       final File outDir = new File(src, name)
 
       if(!tarball.isFile()) {
-        logger.lifecycle("Downloading ${url}")
-        tarball.withOutputStream { it << new URL(url).openStream() }
+        for(final url in urls) {
+          try {
+            logger.lifecycle("Downloading ${url}")
+            tarball.withOutputStream { it << new URL(url).openStream() }
+            break
+          } catch(final Exception e) {
+            logger.warn("Download failed from ${url}: ${e.message}")
+            tarball.delete()
+          }
+        }
+        if(!tarball.isFile()) {
+          throw new GradleException("Failed to download ${name} from any mirror")
+        }
       }
 
       final String actual = java.security.MessageDigest.getInstance('SHA-256')
