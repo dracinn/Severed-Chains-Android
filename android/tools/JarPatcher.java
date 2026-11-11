@@ -26,6 +26,7 @@ import java.util.jar.JarOutputStream;
  *   LogManager.getFormatterLogger()  -> JdkReflect.getFormatterLogger()
  *   Locale.of(lang[, country])       -> JdkCompat.localeOf(...)
  *   StringBuilder.repeat(...)        -> JdkCompat.sbRepeat(sb, ...)
+ *   String.formatted(args)           -> String.format(str, args)
  */
 public final class JarPatcher {
   private JarPatcher() { }
@@ -128,6 +129,16 @@ public final class JarPatcher {
                 changed[0] = true;
                 return;
               }
+            }
+
+            // ART (Android < 14) lacks String.formatted (JDK 15). String is
+            // final, so the invokevirtual always targets String itself;
+            // format(String, Object...) has the same stack shape with the
+            // receiver as the first arg.
+            if(opcode == Opcodes.INVOKEVIRTUAL && owner.equals("java/lang/String") && name.equals("formatted") && descriptor.equals("([Ljava/lang/Object;)Ljava/lang/String;")) {
+              super.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/String", "format", "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;", false);
+              changed[0] = true;
+              return;
             }
 
             // No-arg logger factories infer the caller via StackWalker, which

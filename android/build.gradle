@@ -195,13 +195,15 @@ tasks.register('stageSharedSources', Sync) {
 // javac, -source/-target 25, full JDK platform) and packaged into
 // shared-classes.jar, which AGP dexes as an implementation dependency.
 //
-// At runtime, coreLibraryDesugaring rewrites covered calls (formatted,
-// getFirst/Last/addFirst, readString/writeString, ...). APIs it
+// At runtime, coreLibraryDesugaring rewrites covered calls
+// (getFirst/Last/addFirst, readString/writeString, ...). APIs it
 // does not cover (Math.clamp, virtual threads, bounded Random.nextFloat,
 // absolute bulk Buffer get/put, Math.TAU, Locale.of, JSONObject.keySet,
 // StringBuilder.repeat, Future.resultNow) are
 // rewritten to legend.game.android.JdkCompat by patchStagedSources below, so
 // the upstream files stay byte-identical and merges keep flowing through.
+// String.formatted is also uncovered; patchSharedClasses rewrites it to
+// String.format in bytecode since the receiver is arbitrary.
 // ---------------------------------------------------------------------------
 
 // Regexes applied to every staged upstream line.
@@ -917,6 +919,9 @@ configurations {
     // replacements serve a build-time annotation index instead (see
     // generateAnnotationIndex). Only mod-loader uses this library.
     exclude group: 'org.reflections'
+    // log4j-core comes via files() after bytecode patching; other deps pull
+    // it transitively at older versions, which would ship duplicate classes
+    exclude group: 'org.apache.logging.log4j', module: 'log4j-core'
   }
   implementation.extendsFrom sharedDeps
   transpile
@@ -930,12 +935,15 @@ def unpatchedDeps = [
       dependencies.create('org.legendofdragoon:mod-loader:4.3.5')),
   'script-recompiler.jar': configurations.detachedConfiguration(
       dependencies.create('org.legendofdragoon:script-recompiler:0.7.11')),
+  'log4j-core.jar': configurations.detachedConfiguration(
+      dependencies.create('org.apache.logging.log4j:log4j-core:2.26.1')),
 ]
 unpatchedDeps.each { _, conf -> conf.transitive = false }
 
 def patchedDepsDir = layout.buildDirectory.dir('patched-deps')
 def patchedModLoaderJar = patchedDepsDir.map { it.file('mod-loader.jar') }
 def patchedScriptRecompilerJar = patchedDepsDir.map { it.file('script-recompiler.jar') }
+def patchedLog4jCoreJar = patchedDepsDir.map { it.file('log4j-core.jar') }
 
 tasks.register('compileJarPatcher', JavaCompile) {
   source = fileTree('tools') { include 'JarPatcher.java' }
@@ -960,6 +968,19 @@ tasks.register('patchDependencyJars') {
   dependsOn patchTasks
 }
 
+// Shared staged sources get the same treatment: upstream and the vendored
+// mods call String.formatted (missing on Android < 14) in ~140 places.
+tasks.register('patchSharedClasses', JavaExec) {
+  dependsOn 'compileJarPatcher', 'packageSharedClasses'
+  def unpatched = layout.buildDirectory.file('libs/shared-classes.jar')
+  def patched = layout.buildDirectory.file('libs/shared-classes-patched.jar')
+  inputs.file unpatched
+  outputs.file patched
+  classpath = files(layout.buildDirectory.dir('jar-patcher/classes')) + configurations.jarPatch
+  mainClass = 'JarPatcher'
+  args unpatched.get().asFile.absolutePath, patched.get().asFile.absolutePath
+}
+
 dependencies {
   // Patched at build time by JarPatcher (see patchDependencyJars) to redirect
   // Method.canAccess / Class.getProtectionDomain onto JdkReflect helpers.
@@ -977,7 +998,8 @@ dependencies {
   sharedDeps 'com.google.code.gson:gson:2.13.2'
 
   sharedDeps 'org.apache.logging.log4j:log4j-api:2.26.1'
-  sharedDeps 'org.apache.logging.log4j:log4j-core:2.26.1'
+  // Patched like the other dep jars (MementoMessage calls String.formatted)
+  sharedDeps files(patchedLog4jCoreJar)
 
   sharedDeps "org.joml:joml:1.10.8"
 
@@ -997,7 +1019,7 @@ dependencies {
   // signatures); natives are never loaded - DiscordRichPresence is stubbed.
   sharedDeps 'com.github.JnCrMx:discord-game-sdk4j:v1.0.0'
 
-  implementation files(layout.buildDirectory.dir('libs').map { it.file('shared-classes.jar') })
+  implementation files(layout.buildDirectory.dir('libs').map { it.file('shared-classes-patched.jar') })
 
   coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs_nio:2.1.5'
 
@@ -1181,5 +1203,5 @@ tasks.register('transpileShaders', JavaExec) {
 }
 
 tasks.named('preBuild').configure {
-  dependsOn 'packageSharedClasses', 'fetchThirdParty', 'stageAssets', 'transpileShaders'
+  dependsOn 'patchSharedClasses', 'fetchThirdParty', 'stageAssets', 'transpileShaders'
 }
