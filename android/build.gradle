@@ -615,6 +615,11 @@ tasks.register('patchStagedSources') {
   doLast {
     final File root = layout.buildDirectory.dir('shared-sources').get().asFile
 
+    // Sync only recopies changed sources, so Version.java can keep a stale
+    // versionName stamp from the previous run (the literal transform's
+    // idempotency check then misses). Re-stage it from upstream text.
+    new File(root, 'legend/core/Version.java').text = file('../src/main/java/legend/core/Version.java').getText('UTF-8')
+
     if(!duplicateLiteralTransformKeys.isEmpty()) {
       throw new GradleException("sharedLiteralTransforms lists ${duplicateLiteralTransformKeys} more than once; merge the entries")
     }
