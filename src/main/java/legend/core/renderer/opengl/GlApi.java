@@ -119,6 +119,9 @@ public class GlApi implements RenderApi {
   private int scissorHeight;
   private float scissorScaleX;
   private float scissorScaleY;
+  private boolean overlay;
+  private int overlayVpX;
+  private int overlayVpWidth;
 
   private final Rect4i tempScissorRect = new Rect4i();
   private final Rect4i activeScissorRect = new Rect4i();
@@ -312,12 +315,13 @@ public class GlApi implements RenderApi {
     this.scissorHeight = this.renderHeight;
     this.scissorScaleX = 1.0f;
     this.scissorScaleY = 1.0f;
+    this.overlay = false;
 
     this.backfaceCulling(false);
   }
 
   @Override
-  public void initBatchOverlay(final RenderBatch batch, final int outputWidth, final int outputHeight) {
+  public void initBatchOverlay(final RenderBatch batch, final int outputWidth, final int outputHeight, final int viewportX, final int viewportWidth) {
     this.batch = batch;
     this.widescreen = batch.getRenderMode() == EngineState.RenderMode.PERSPECTIVE && CoreMod.ALLOW_WIDESCREEN_CONFIG.isValid() && CONFIG.getConfig(CoreMod.ALLOW_WIDESCREEN_CONFIG.get()) || batch.getRenderMode() == EngineState.RenderMode.LEGACY && CoreMod.LEGACY_WIDESCREEN_MODE_CONFIG.isValid() && CONFIG.getConfig(CoreMod.LEGACY_WIDESCREEN_MODE_CONFIG.get()) == SubmapWidescreenMode.EXPANDED;
     this.w = (float)outputWidth / batch.nativeWidth;
@@ -327,6 +331,9 @@ public class GlApi implements RenderApi {
     // worldScissor is captured in render-resolution units — rescale to the window
     this.scissorScaleX = (float)outputWidth / this.renderWidth;
     this.scissorScaleY = (float)outputHeight / this.renderHeight;
+    this.overlay = true;
+    this.overlayVpX = viewportX;
+    this.overlayVpWidth = viewportWidth;
 
     this.backfaceCulling(false);
   }
@@ -384,7 +391,13 @@ public class GlApi implements RenderApi {
     this.tempScissorRect.set(Math.round(worldScissor.x * this.scissorScaleX), this.scissorHeight - Math.round((worldScissor.y + worldScissor.h) * this.scissorScaleY), Math.round(worldScissor.w * this.scissorScaleX), Math.round(worldScissor.h * this.scissorScaleY));
 
     if(modelScissor.w != 0 || modelScissor.h != 0) {
-      if(this.widescreen) {
+      if(this.overlay) {
+        // Overlay glyphs land at vpX + (x + widescreenOffset) * (vpW / projW).
+        // Deriving projW from the projection matrix (2 / m00 for orthoLH)
+        // covers every render mode — FORCED_4_3, EXPANDED and widescreen.
+        final float scaleX = this.overlayVpWidth * this.batch.orthographicProjection.m00() / 2.0f;
+        this.tempScissorRect.subregion(Math.round(this.overlayVpX + (modelScissor.x + this.batch.widescreenOrthoOffsetX) * scaleX), this.scissorHeight - Math.round((modelScissor.y + modelScissor.h) * this.h), Math.round(modelScissor.w * scaleX), Math.round(modelScissor.h * this.h));
+      } else if(this.widescreen) {
         this.tempScissorRect.subregion(Math.round((modelScissor.x + this.batch.widescreenOrthoOffsetX) * this.h * ((float)this.batch.expectedWidth / this.batch.nativeWidth)), this.scissorHeight - Math.round((modelScissor.y + modelScissor.h) * this.h), Math.round(modelScissor.w * this.h * ((float)this.batch.expectedWidth / this.batch.nativeWidth)), Math.round(modelScissor.h * this.h));
       } else {
         final float offset;

@@ -33,7 +33,7 @@ public interface RenderApi {
   void initBatch(final RenderBatch batch);
   /** Same as {@link #initBatch} but for a batch rendered after the post
    *  composite at display resolution — output dims are the window's. */
-  void initBatchOverlay(final RenderBatch batch, final int outputWidth, final int outputHeight);
+  void initBatchOverlay(final RenderBatch batch, final int outputWidth, final int outputHeight, final int viewportX, final int viewportWidth);
   void backfaceCulling(final boolean enable);
   void enableDepthTest(final DepthComparator comparator);
   void disableDepthTest();

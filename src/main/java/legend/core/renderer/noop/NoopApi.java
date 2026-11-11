@@ -117,7 +117,7 @@ public class NoopApi implements RenderApi {
   }
 
   @Override
-  public void initBatchOverlay(final RenderBatch batch, final int outputWidth, final int outputHeight) {
+  public void initBatchOverlay(final RenderBatch batch, final int outputWidth, final int outputHeight, final int viewportX, final int viewportWidth) {
 
   }
 

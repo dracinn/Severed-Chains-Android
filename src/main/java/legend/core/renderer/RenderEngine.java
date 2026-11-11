@@ -825,7 +825,28 @@ public class RenderEngine {
           }
 
           this.nativeOrthoBatch.updateProjections();
-          this.api.initBatchOverlay(this.nativeOrthoBatch, this.window.getWidth(), this.window.getHeight());
+
+          // Match pre()'s pillarboxing: in FORCED_4_3 the internal buffer
+          // renders content into a centred 4:3 viewport, and the post blit
+          // keeps that fraction on the window. Without the same narrowing
+          // here the overlay spans the full window — text shifts out of the
+          // content area and glyph scissores (computed pillarboxed) clip it.
+          final int overlayX;
+          final int overlayWidth;
+          if(this.mainBatch.renderMode == EngineState.RenderMode.LEGACY && CONFIG.getConfig(LEGACY_WIDESCREEN_MODE_CONFIG.get()) == SubmapWidescreenMode.FORCED_4_3) {
+            final float expectedAspect = (float)this.mainBatch.nativeWidth / this.mainBatch.nativeHeight;
+            final int expectedRenderWidth = Math.round(this.renderHeight * expectedAspect);
+            final float scale = (float)this.window.getWidth() / this.renderWidth;
+            overlayX = Math.round((this.renderWidth - expectedRenderWidth) / 2.0f * scale);
+            overlayWidth = Math.round(expectedRenderWidth * scale);
+          } else {
+            overlayX = 0;
+            overlayWidth = this.window.getWidth();
+          }
+
+          this.api.initBatchOverlay(this.nativeOrthoBatch, this.window.getWidth(), this.window.getHeight(), overlayX, overlayWidth);
+          this.api.viewport(overlayX, 0, overlayWidth, this.window.getHeight());
+
           this.setProjectionMode(this.nativeOrthoBatch, ProjectionMode._2D);
           this.renderPool(this.nativeOrthoBatch.orthoPool, false);
           this.renderPoolTranslucent(this.nativeOrthoBatch.orthoPool);
