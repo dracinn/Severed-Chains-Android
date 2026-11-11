@@ -5,11 +5,17 @@ import legend.game.saves.ConfigCategory;
 import legend.game.saves.ConfigCollection;
 import legend.game.saves.ConfigStorageLocation;
 
+import static legend.core.GameEngine.PLATFORM;
 import static legend.core.GameEngine.RENDERER;
 
 public class FullscreenConfigEntry extends BoolConfigEntry {
   public FullscreenConfigEntry() {
     super(false, ConfigStorageLocation.GLOBAL, ConfigCategory.GRAPHICS);
+  }
+
+  @Override
+  public boolean hasEditControl() {
+    return !PLATFORM.isAndroid() && super.hasEditControl();
   }
 
   @Override

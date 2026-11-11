@@ -12,6 +12,11 @@ import static legend.core.GameEngine.PLATFORM;
 import static legend.core.GameEngine.RENDERER;
 
 public class MonitorConfigEntry extends ConfigEntry<Integer> {
+  @Override
+  public boolean hasEditControl() {
+    return !PLATFORM.isAndroid() && super.hasEditControl();
+  }
+
   public MonitorConfigEntry() {
     super(
       0,

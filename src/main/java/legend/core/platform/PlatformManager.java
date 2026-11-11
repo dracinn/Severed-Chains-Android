@@ -25,6 +25,11 @@ public abstract class PlatformManager {
 
   public abstract void init();
 
+  /** True on the Android platform — used to hide PC-only settings. */
+  public boolean isAndroid() {
+    return false;
+  }
+
   public void destroy() {
     this.running = false;
   }

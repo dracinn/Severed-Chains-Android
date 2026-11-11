@@ -25,8 +25,12 @@
     <activity
         android:name="legend.game.android.MainActivity"
         android:exported="true"
-        android:screenOrientation="landscape"
-        android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density">
+        android:launchMode="singleTask"
+        android:resizeableActivity="false"
+        android:screenOrientation="fullSensor"
+        android:windowSoftInputMode="adjustPan"
+        android:windowLayoutInDisplayCutoutMode="always"
+        android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenSize|smallestScreenSize|screenLayout|orientation|uiMode|density|fontScale|layoutDirection|colorMode|fontWeightAdjustment|grammaticalGender">
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
         <category android:name="android.intent.category.LAUNCHER" />

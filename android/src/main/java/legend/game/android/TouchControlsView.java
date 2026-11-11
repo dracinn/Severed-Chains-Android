@@ -171,6 +171,10 @@ public class TouchControlsView extends View {
   /** D-pad position/scale pushed from config; x/y outside 0..1 mean "auto". */
   private volatile float dpadCxN = DPAD_POS_AUTO;
   private volatile float dpadCyN = DPAD_POS_AUTO;
+  /** Persisted stick-home position, band-normalized; >= 1 means auto/default. */
+  private volatile float stickCxN = DPAD_POS_AUTO;
+  private volatile float stickCyN = DPAD_POS_AUTO;
+
   private volatile float dpadScaleN = 1.0f;
   private float dpadScale = 1.0f;
 
@@ -253,6 +257,16 @@ public class TouchControlsView extends View {
     this.invalidate();
   }
 
+  /** Called on the UI thread by AndroidPlatformManager when the persisted stick home changes. */
+  public void setStickLayout(final float normalizedX, final float normalizedY) {
+    this.stickCxN = normalizedX;
+    this.stickCyN = normalizedY;
+    if(this.dp != 0) {
+      this.layout();
+      this.invalidate();
+    }
+  }
+
   /** Called on the UI thread by AndroidPlatformManager when the persisted d-pad layout changes. */
   public void setDpadLayout(final float normalizedX, final float normalizedY, final float scale) {
     this.dpadCxN = normalizedX;
@@ -272,16 +286,27 @@ public class TouchControlsView extends View {
     this.faceScaleN = scale;
     if(this.dp != 0) {
       this.faceCx = normalizedX * this.getWidth();
-      this.faceCy = normalizedY * this.getHeight();
+      // Positions are normalized to the controls band, not the full view
+      this.faceCy = this.layoutTop + normalizedY * this.layoutH;
       this.faceScale = Math.max(MIN_FACE_SCALE, Math.min(MAX_FACE_SCALE, scale));
       this.layoutFaceCluster();
       this.invalidate();
     }
   }
 
+  /** Top of the controls band: 0 in landscape; in portrait the game is a
+   *  4:3 band across the top and all controls live below it. */
+  private float layoutTop;
+  private float layoutH;
+  private boolean portrait;
+
   private void layout() {
     final float w = this.getWidth();
     final float h = this.getHeight();
+    this.portrait = h > w;
+    final boolean portrait = this.portrait;
+    this.layoutTop = portrait ? w * 0.75f : 0.0f;
+    this.layoutH = h - this.layoutTop;
     this.dp = this.getResources().getDisplayMetrics().density;
     this.labelPaint.setTextSize(14 * this.dp);
     this.rimPaint.setStrokeWidth(2.2f * this.dp);
@@ -301,18 +326,32 @@ public class TouchControlsView extends View {
 
     // Floating stick rests in the left pillarbox margin and anchors anywhere
     // in the left zone; controls keep priority so the zone may overlap them.
-    this.stickHomeX = w * (this.moveControl == TouchMoveControl.STICK ? 0.175f : 0.08f);
-    this.stickHomeY = h * (this.moveControl == TouchMoveControl.STICK ? 0.70f : 0.62f);
+    // Portrait: the locked layout the user positioned (upper-left rest ring)
+    this.stickHomeX = w * (this.moveControl == TouchMoveControl.STICK ? (portrait ? 0.26f : 0.175f) : (portrait ? 0.26f : 0.08f));
+    this.stickHomeY = this.layoutTop + this.layoutH * (this.moveControl == TouchMoveControl.STICK ? (portrait ? 0.45f : 0.70f) : (portrait ? 0.29f : 0.62f));
+    if(!portrait && this.stickCxN >= 0.0f && this.stickCxN <= 1.0f && this.stickCyN >= 0.0f && this.stickCyN <= 1.0f) {
+      this.stickHomeX = this.stickCxN * w;
+      this.stickHomeY = this.layoutTop + this.stickCyN * this.layoutH;
+    }
     this.stickR = 60 * this.dp;
     this.stickZoneRight = w * 0.30f;
-    this.stickZoneTop = h * 0.25f;
-    this.stickZoneBottom = h * 0.92f;
+    // Portrait band is shallow — give the stick the whole band instead of a
+    // sliver
+    this.stickZoneTop = this.layoutTop + this.layoutH * (portrait ? 0.0f : 0.25f);
+    this.stickZoneBottom = this.layoutTop + this.layoutH * (portrait ? 1.0f : 0.92f);
 
     // Face-button diamond; position/scale come from config (drag the centre
     // gap to move, pinch to resize)
-    this.faceScale = Math.max(MIN_FACE_SCALE, Math.min(MAX_FACE_SCALE, this.faceScaleN));
-    this.faceCx = this.faceCxN * w;
-    this.faceCy = this.faceCyN * h;
+    // Portrait uses the fixed band layout the user positioned — bigger
+    // cluster, centre-right. Persisted positions only apply in landscape.
+    this.faceScale = portrait ? 1.3f : Math.max(MIN_FACE_SCALE, Math.min(MAX_FACE_SCALE, this.faceScaleN));
+    if(portrait) {
+      this.faceCx = w * 0.70f;
+      this.faceCy = this.layoutTop + this.layoutH * 0.43f;
+    } else if(this.faceMovePointerId == -1 && this.faceScalePointerId == -1) {
+      this.faceCx = this.faceCxN * w;
+      this.faceCy = this.layoutTop + this.faceCyN * this.layoutH;
+    }
     this.faceCtrls.add(this.faceCtrl("\u2715", InputButton.A, 0, 1));    // bottom
     this.faceCtrls.add(this.faceCtrl("\u25cb", InputButton.B, 1, 0));    // right
     this.faceCtrls.add(this.faceCtrl("\u25a1", InputButton.X, -1, 0));   // left
@@ -323,7 +362,7 @@ public class TouchControlsView extends View {
     // Shoulder pills along the top edge
     final float sw = 72 * this.dp;
     final float sh = 34 * this.dp;
-    final float sy = sh / 2 + h * 0.02f;
+    final float sy = sh / 2 + this.layoutTop + this.layoutH * 0.02f;
     final Ctrl l2 = Ctrl.axis("L2", InputAxis.LEFT_TRIGGER);
     l2.x = w * 0.04f + sw / 2; l2.y = sy; l2.pw = sw; l2.ph = sh;
     this.controls.add(l2);
@@ -340,12 +379,13 @@ public class TouchControlsView extends View {
     // Select / Start pills centred at the bottom edge
     final float mw = 58 * this.dp;
     final float mh = 26 * this.dp;
-    final float my = h * 0.94f;
+    final float my = this.layoutTop + this.layoutH * (this.portrait ? 0.95f : 0.94f);
+    final float mcx = w * 0.5f;
     final Ctrl select = Ctrl.button("SEL", InputButton.SELECT);
-    select.x = w * 0.5f - mw / 2 - 8 * this.dp; select.y = my; select.pw = mw; select.ph = mh;
+    select.x = mcx - mw / 2 - 8 * this.dp; select.y = my; select.pw = mw; select.ph = mh;
     this.controls.add(select);
     final Ctrl start = Ctrl.button("STA", InputButton.START);
-    start.x = w * 0.5f + mw / 2 + 8 * this.dp; start.y = my; start.pw = mw; start.ph = mh;
+    start.x = mcx + mw / 2 + 8 * this.dp; start.y = my; start.pw = mw; start.ph = mh;
     this.controls.add(start);
   }
 
@@ -377,9 +417,11 @@ public class TouchControlsView extends View {
     // Guarantee a minimum-radius grip; at large scales it just fills the gap.
     this.faceHubR = Math.max(off - br, FACE_HUB_MIN_DP * this.dp);
 
-    // Keep the cluster centre where at least part of it stays reachable
-    this.faceCx = Math.max(this.faceBoundR * 0.4f, Math.min(w - this.faceBoundR * 0.4f, this.faceCx));
-    this.faceCy = Math.max(this.faceBoundR * 0.4f, Math.min(h - this.faceBoundR * 0.4f, this.faceCy));
+    // Keep the cluster centre where at least part of it stays reachable;
+    // portrait has no pillar margin, so the whole cluster stays on-screen
+    final float fEdge = this.faceBoundR * (this.portrait ? 1.0f : 0.4f);
+    this.faceCx = Math.max(fEdge, Math.min(w - fEdge, this.faceCx));
+    this.faceCy = Math.max(this.layoutTop + fEdge, Math.min(this.layoutTop + this.layoutH - fEdge, this.faceCy));
 
     for(final Ctrl c : this.faceCtrls) {
       c.x = this.faceCx + c.ox * off;
@@ -388,12 +430,20 @@ public class TouchControlsView extends View {
     }
   }
 
+  /** D-pad is moveable/resizable when it's the solo movement control, or in
+   *  portrait where the band layout invites custom positioning. */
+  /** Portrait layout is fixed; only a landscape solo d-pad is adjustable. */
+  private boolean dpadAdjustable() {
+    return this.moveControl == TouchMoveControl.DPAD && !this.portrait;
+  }
+
   /** Positions the d-pad discs around the current centre/scale. */
   private void layoutDpad() {
     final float w = this.getWidth();
     final float h = this.getHeight();
-    // Move/resize only applies to a solo d-pad; BOTH uses the default size
-    final float scale = this.moveControl == TouchMoveControl.DPAD ? this.dpadScale : 1.0f;
+    // Portrait locks to the user's larger pad; only a landscape solo d-pad
+    // uses the adjustable scale
+    final float scale = this.portrait ? 1.45f : (this.dpadAdjustable() ? this.dpadScale : 1.0f);
     final float off = DPAD_OFF_DP * this.dp * scale;
     final float br = DPAD_R_DP * this.dp * scale;
     this.dpadBoundR = off + br + 12 * this.dp;
@@ -405,18 +455,20 @@ public class TouchControlsView extends View {
     // BOTH sits low-right of the stick, a solo d-pad centres between them.
     // A drag in progress owns the centre until it persists on release.
     if(this.dpadMovePointerId == -1) {
-      if(this.moveControl == TouchMoveControl.DPAD && this.dpadCxN >= 0.0f && this.dpadCxN <= 1.0f && this.dpadCyN >= 0.0f && this.dpadCyN <= 1.0f) {
+      if(this.dpadAdjustable() && this.dpadCxN >= 0.0f && this.dpadCxN <= 1.0f && this.dpadCyN >= 0.0f && this.dpadCyN <= 1.0f) {
         this.dpadCx = this.dpadCxN * w;
-        this.dpadCy = this.dpadCyN * h;
+        this.dpadCy = this.layoutTop + this.dpadCyN * this.layoutH;
       } else {
-        this.dpadCx = w * (this.moveControl == TouchMoveControl.DPAD ? 0.175f : 0.27f);
-        this.dpadCy = h * (this.moveControl == TouchMoveControl.DPAD ? 0.70f : 0.78f);
+        this.dpadCx = w * (this.moveControl == TouchMoveControl.DPAD ? (this.portrait ? 0.26f : 0.175f) : (this.portrait ? 0.32f : 0.27f));
+        this.dpadCy = this.layoutTop + this.layoutH * (this.moveControl == TouchMoveControl.DPAD ? (this.portrait ? 0.45f : 0.70f) : (this.portrait ? 0.70f : 0.78f));
       }
     }
 
-    // Keep the centre where at least part of it stays reachable
-    this.dpadCx = Math.max(this.dpadBoundR * 0.4f, Math.min(w - this.dpadBoundR * 0.4f, this.dpadCx));
-    this.dpadCy = Math.max(this.dpadBoundR * 0.4f, Math.min(h - this.dpadBoundR * 0.4f, this.dpadCy));
+    // Keep the centre where at least part of it stays reachable;
+    // portrait has no pillar margin, so the whole pad stays on-screen
+    final float dEdge = this.dpadBoundR * (this.portrait ? 1.0f : 0.4f);
+    this.dpadCx = Math.max(dEdge, Math.min(w - dEdge, this.dpadCx));
+    this.dpadCy = Math.max(this.layoutTop + dEdge, Math.min(this.layoutTop + this.layoutH - dEdge, this.dpadCy));
 
     for(final Ctrl c : this.dpadCtrls) {
       c.x = this.dpadCx + c.ox * off;
@@ -492,9 +544,10 @@ public class TouchControlsView extends View {
     final float w = this.getWidth();
     final float h = this.getHeight();
     if(w > 0 && h > 0) {
-      AndroidInput.reportDpadLayout(this.dpadCx / w, this.dpadCy / h, this.dpadScale);
+      AndroidInput.reportDpadLayout(this.dpadCx / w, (this.dpadCy - this.layoutTop) / this.layoutH, this.dpadScale);
     }
   }
+
 
   private boolean inFaceCluster(final float x, final float y) {
     final float dx = x - this.faceCx;
@@ -517,7 +570,28 @@ public class TouchControlsView extends View {
 
   @Override
   protected void onSizeChanged(final int w, final int h, final int oldw, final int oldh) {
+    if(oldw > 0 && oldh > 0 && (h > w) != (oldh > oldw)) {
+      // Control positions are rebuilt for the other orientation — release
+      // everything so a finger held across the flip doesn't keep a stale
+      // press or silently remap under the new layout
+      this.releaseAllInputs();
+    }
     this.layout();
+  }
+
+  private void releaseAllInputs() {
+    for(final Object token : this.heldTokens) {
+      this.emit(token, false);
+    }
+    this.heldTokens.clear();
+    this.active.clear();
+    this.dpadPointers.clear();
+    this.releaseStick();
+    this.faceMovePointerId = -1;
+    this.faceScalePointerId = -1;
+    this.dpadMovePointerId = -1;
+    this.dpadScalePointerId = -1;
+    this.gestureConsumed = false;
   }
 
   /** Called from AndroidInput when a physical gamepad reports input. */
@@ -551,7 +625,7 @@ public class TouchControlsView extends View {
           this.pinchStartCy = this.faceCy;
           this.pinchStartMidX = (x + this.faceMoveX) * 0.5f;
           this.pinchStartMidY = (y + this.faceMoveY) * 0.5f;
-        } else if(this.moveControl == TouchMoveControl.DPAD && this.dpadScalePointerId == -1 && this.inDpadPinchZone(x, y)
+        } else if(this.dpadAdjustable() && this.dpadScalePointerId == -1 && this.inDpadPinchZone(x, y)
             && (this.dpadMovePointerId != -1 || this.dpadPointers.size() == 1)) {
           // Second finger joins the pinch to resize. A lone direction-holding
           // finger converts into the move anchor so resize doesn't need the
@@ -574,7 +648,7 @@ public class TouchControlsView extends View {
           this.dpadPinchStartCy = this.dpadCy;
           this.dpadPinchStartMidX = (x + this.dpadMoveX) * 0.5f;
           this.dpadPinchStartMidY = (y + this.dpadMoveY) * 0.5f;
-        } else if(this.faceMovePointerId == -1 && this.inFaceHub(x, y)) {
+        } else if(!this.portrait && this.faceMovePointerId == -1 && this.inFaceHub(x, y)) {
           // Centre grip is claimed before the buttons: it may overlap the
           // inner edge of the discs at small scales, which is the tradeoff
           // for keeping a shrunken cluster grabbable.
@@ -584,7 +658,7 @@ public class TouchControlsView extends View {
           this.grabDX = x - this.faceCx;
           this.grabDY = y - this.faceCy;
           this.gestureConsumed = true;
-        } else if(this.dpadMovePointerId == -1 && this.moveControl == TouchMoveControl.DPAD && this.inDpadHub(x, y)) {
+        } else if(this.dpadMovePointerId == -1 && this.dpadAdjustable() && this.inDpadHub(x, y)) {
           // D-pad centre grip (solo mode only): drag to move it, like the face-cluster hub
           this.dpadMovePointerId = id;
           this.dpadMoveX = x;
@@ -607,7 +681,7 @@ public class TouchControlsView extends View {
           this.gestureConsumed = true;
           this.active.put(id, new float[] {x, y});
           this.invalidate();
-        } else if(this.faceMovePointerId == -1 && this.inFaceCluster(x, y)) {
+        } else if(!this.portrait && this.faceMovePointerId == -1 && this.inFaceCluster(x, y)) {
           // Finger in the empty middle of the diamond: drag to move the cluster
           this.faceMovePointerId = id;
           this.faceMoveX = x;
@@ -651,6 +725,7 @@ public class TouchControlsView extends View {
         if(id == this.stickPointerId) {
           this.releaseStick();
         }
+
         if(id == this.faceScalePointerId) {
           this.faceScalePointerId = -1;
         }
@@ -678,6 +753,7 @@ public class TouchControlsView extends View {
             this.dpadScalePointerId = -1;
             this.persistDpadLayout();
           }
+
         }
       }
     }
@@ -726,7 +802,7 @@ public class TouchControlsView extends View {
     final float w = this.getWidth();
     final float h = this.getHeight();
     if(w > 0 && h > 0) {
-      AndroidInput.reportFaceLayout(this.faceCx / w, this.faceCy / h, this.faceScale);
+      AndroidInput.reportFaceLayout(this.faceCx / w, (this.faceCy - this.layoutTop) / this.layoutH, this.faceScale);
     }
   }
 
@@ -744,6 +820,7 @@ public class TouchControlsView extends View {
     }
     this.invalidate();
   }
+
 
   /** Recompute deflection for the owning finger and emit changed axes. */
   private void updateStick(final float x, final float y) {
@@ -835,6 +912,7 @@ public class TouchControlsView extends View {
     return x < this.stickZoneRight && y > this.stickZoneTop && y < this.stickZoneBottom;
   }
 
+
   private Ctrl hit(final float x, final float y) {
     for(final Ctrl c : this.controls) {
       final float dx = x - c.x;
@@ -868,7 +946,7 @@ public class TouchControlsView extends View {
       for(final Ctrl c : this.dpadCtrls) {
         this.drawDiscButton(canvas, c, this.heldTokens.contains(c.button));
       }
-      if(this.moveControl == TouchMoveControl.DPAD) {
+      if(this.dpadAdjustable()) {
         this.drawGrip(canvas, this.dpadCx, this.dpadCy, this.dpadScale);
       }
     }

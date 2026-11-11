@@ -71,6 +71,7 @@ import legend.game.modding.coremod.config.SfxVolumeConfigEntry;
 import legend.game.modding.coremod.config.ShowAdvancedOptionsConfigEntry;
 import legend.game.modding.coremod.config.TouchControlsOpacityConfigEntry;
 
+import legend.game.modding.coremod.config.OrientationConfigEntry;
 import legend.game.modding.coremod.config.TouchMoveControlConfigEntry;
 import legend.game.modding.coremod.config.TransformationModeConfigEntry;
 import legend.game.modding.coremod.config.UnlockPartyConfig;
@@ -120,6 +121,7 @@ public class CoreMod {
   public static final RegistryDelegate<GamepadButtonLabelsConfigEntry> GAMEPAD_BUTTON_LABELS_CONFIG = CONFIG_REGISTRAR.register("gamepad_button_labels", GamepadButtonLabelsConfigEntry::new);
 
   public static final RegistryDelegate<TouchMoveControlConfigEntry> TOUCH_MOVE_CONTROL_CONFIG = CONFIG_REGISTRAR.register("touch_move_control", TouchMoveControlConfigEntry::new);
+  public static final RegistryDelegate<OrientationConfigEntry> ORIENTATION_CONFIG = CONFIG_REGISTRAR.register("orientation", OrientationConfigEntry::new);
   public static final RegistryDelegate<TouchControlsOpacityConfigEntry> TOUCH_CONTROLS_OPACITY_CONFIG = CONFIG_REGISTRAR.register("touch_controls_opacity", TouchControlsOpacityConfigEntry::new);
   /** Face-button cluster position/scale, written back by the touch overlay; no menu control. */
   public static final RegistryDelegate<HiddenFloatConfigEntry> TOUCH_FACE_X_CONFIG = CONFIG_REGISTRAR.register("touch_face_x", () -> new HiddenFloatConfigEntry(0.91f));
@@ -129,6 +131,9 @@ public class CoreMod {
   public static final RegistryDelegate<HiddenFloatConfigEntry> TOUCH_DPAD_X_CONFIG = CONFIG_REGISTRAR.register("touch_dpad_x", () -> new HiddenFloatConfigEntry(2.0f));
   public static final RegistryDelegate<HiddenFloatConfigEntry> TOUCH_DPAD_Y_CONFIG = CONFIG_REGISTRAR.register("touch_dpad_y", () -> new HiddenFloatConfigEntry(2.0f));
   public static final RegistryDelegate<HiddenFloatConfigEntry> TOUCH_DPAD_SCALE_CONFIG = CONFIG_REGISTRAR.register("touch_dpad_scale", () -> new HiddenFloatConfigEntry(1.0f));
+
+  public static final RegistryDelegate<HiddenFloatConfigEntry> TOUCH_STICK_X_CONFIG = CONFIG_REGISTRAR.register("touch_stick_x", () -> new HiddenFloatConfigEntry(2.0f));
+  public static final RegistryDelegate<HiddenFloatConfigEntry> TOUCH_STICK_Y_CONFIG = CONFIG_REGISTRAR.register("touch_stick_y", () -> new HiddenFloatConfigEntry(2.0f));
   public static final RegistryDelegate<IgnoreSteamInputModeConfigEntry> IGNORE_STEAM_INPUT_MODE_CONFIG = CONFIG_REGISTRAR.register("ignore_steam_input_mode", IgnoreSteamInputModeConfigEntry::new);
   public static final RegistryDelegate<BoolConfigEntry> ALLOW_WIDESCREEN_CONFIG = CONFIG_REGISTRAR.register("allow_widescreen", AllowWidescreenConfigEntry::new);
   public static final RegistryDelegate<LegacyWidescreenModeConfig> LEGACY_WIDESCREEN_MODE_CONFIG = CONFIG_REGISTRAR.register("submap_widescreen_mode", LegacyWidescreenModeConfig::new);

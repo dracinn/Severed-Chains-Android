@@ -595,6 +595,13 @@ import java.awt.image.BufferedImage;
     '    try {\n      sort.invoke(null, a, lo, hi, c, work, workBase, workLen);\n    } catch(final IllegalAccessException | InvocationTargetException e) {\n      throw new RuntimeException(e);\n    }':
     '    if(sort == null) {\n      java.util.Arrays.sort(a, lo, hi, c);\n      return;\n    }\n\n    try {\n      sort.invoke(null, a, lo, hi, c, work, workBase, workLen);\n    } catch(final IllegalAccessException | InvocationTargetException e) {\n      throw new RuntimeException(e);\n    }',
   ],
+  'legend/core/Version.java': [
+    // Display the app version instead of the CI channel tag on the title
+    // screen: "3.0.0-<versionName>" (e.g. 3.0.0-0.1.2). BUILD/CHANNEL keep
+    // their own semantics for isRelease() and the updater.
+    '''public static final String FULL_VERSION = VERSION + '-' + BUILD + '-' + CHANNEL;''':
+    """public static final String FULL_VERSION = VERSION + '-' + "${buildVersionName}";""",
+  ],
 ]
 
 // A Groovy map keeps only the last entry for a repeated key, so a file listed

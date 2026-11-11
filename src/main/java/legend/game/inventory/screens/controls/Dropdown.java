@@ -121,6 +121,15 @@ public class Dropdown<T> extends Control {
     return this.selectedIndex;
   }
 
+  /** Index of the option currently hovered in the open dropdown list, or -1 when closed. */
+  public int getHoverIndex() {
+    return this.hoverIndex;
+  }
+
+  public TextComponent getOptionText(final int index) {
+    return this.toString.toTextComponent(index, this.options.get(index));
+  }
+
   public T getSelectedOption() {
     if(this.selectedIndex == -1) {
       return null;

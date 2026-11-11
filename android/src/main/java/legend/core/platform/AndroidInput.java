@@ -98,6 +98,22 @@ public final class AndroidInput {
     return layout;
   }
 
+  /**
+   * [normalizedX, normalizedY]
+   */
+  private static volatile float[] pendingStickLayout;
+
+  public static void reportStickLayout(final float normalizedX, final float normalizedY) {
+    pendingStickLayout = new float[] {normalizedX, normalizedY};
+  }
+
+  @Nullable
+  public static float[] consumePendingStickLayout() {
+    final float[] layout = pendingStickLayout;
+    pendingStickLayout = null;
+    return layout;
+  }
+
   // ------------------------------------------------------------------
   // Producers (UI thread)
   // ------------------------------------------------------------------

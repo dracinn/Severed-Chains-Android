@@ -1,12 +1,15 @@
 package legend.core.platform;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
 import android.os.CombinedVibration;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.VibratorManager;
+import android.util.Base64;
 import android.view.InputDevice;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -28,18 +31,24 @@ import legend.core.platform.input.InputClass;
 import legend.core.platform.input.InputGamepadType;
 import legend.core.platform.input.InputKey;
 import legend.core.platform.input.KeyInputActivation;
+import legend.core.platform.input.Orientation;
 import legend.core.platform.input.ScancodeInputActivation;
 import legend.core.platform.input.TouchFaceButtonStyle;
 import legend.core.platform.input.TouchMoveControl;
+import legend.core.renderer.SubmapWidescreenMode;
 import legend.game.android.AndroidEnv;
+import legend.game.android.MenuNav;
 import legend.game.android.TouchControlsView;
 import legend.game.modding.events.input.InputPressedEvent;
 import legend.game.modding.events.input.InputReleasedEvent;
+import legend.game.saves.ConfigCategory;
+import legend.game.saves.ConfigEntry;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
 import org.joml.Math;
+import org.legendofdragoon.modloader.registries.RegistryId;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -51,6 +60,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static legend.core.GameEngine.CONFIG;
+import static legend.core.GameEngine.REGISTRIES;
 import static legend.core.GameEngine.EVENTS;
 import static legend.game.modding.coremod.CoreMod.GAMEPAD_BUTTON_LABELS_CONFIG;
 import static legend.game.modding.coremod.CoreMod.MENU_INNER_DEADZONE_CONFIG;
@@ -62,6 +72,11 @@ import static legend.game.modding.coremod.CoreMod.TOUCH_CONTROLS_OPACITY_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_DPAD_SCALE_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_DPAD_X_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_DPAD_Y_CONFIG;
+import static legend.game.modding.coremod.CoreMod.TOUCH_STICK_X_CONFIG;
+import static legend.game.modding.coremod.CoreMod.TOUCH_STICK_Y_CONFIG;
+import static legend.game.modding.coremod.CoreMod.ALLOW_WIDESCREEN_CONFIG;
+import static legend.game.modding.coremod.CoreMod.LEGACY_WIDESCREEN_MODE_CONFIG;
+import static legend.game.modding.coremod.CoreMod.ORIENTATION_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_SCALE_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_X_CONFIG;
 import static legend.game.modding.coremod.CoreMod.TOUCH_FACE_Y_CONFIG;
@@ -91,6 +106,10 @@ public class AndroidPlatformManager extends PlatformManager {
   private boolean clearActionStates;
   private TouchFaceButtonStyle lastFaceButtonStyle;
   private TouchMoveControl lastMoveControl;
+  private Orientation lastOrientation;
+  /** The display's actual orientation last time configs were synced —
+   *  graphics settings are scoped per orientation. Null until the first sync. */
+  private Boolean effectivePortrait;
   private float lastTouchOpacity = Float.NaN;
   private float lastTouchFaceX = Float.NaN;
   private float lastTouchFaceY = Float.NaN;
@@ -98,6 +117,8 @@ public class AndroidPlatformManager extends PlatformManager {
   private float lastTouchDpadX = Float.NaN;
   private float lastTouchDpadY = Float.NaN;
   private float lastTouchDpadScale = Float.NaN;
+  private float lastTouchStickX = Float.NaN;
+  private float lastTouchStickY = Float.NaN;
   private TouchControlsView lastOverlay;
 
   private final IntSet gamepads = new IntOpenHashSet();
@@ -119,6 +140,11 @@ public class AndroidPlatformManager extends PlatformManager {
   public void init() {
     this.gamepads.clear();
     AndroidInput.scanGamepads();
+  }
+
+  @Override
+  public boolean isAndroid() {
+    return true;
   }
 
   @Override
@@ -540,6 +566,12 @@ public class AndroidPlatformManager extends PlatformManager {
       CONFIG.setConfig(TOUCH_DPAD_SCALE_CONFIG.get(), pendingDpadLayout[2]);
     }
 
+    final float[] pendingStickLayout = AndroidInput.consumePendingStickLayout();
+    if(pendingStickLayout != null) {
+      CONFIG.setConfig(TOUCH_STICK_X_CONFIG.get(), pendingStickLayout[0]);
+      CONFIG.setConfig(TOUCH_STICK_Y_CONFIG.get(), pendingStickLayout[1]);
+    }
+
     // A recreated activity builds a fresh overlay that starts at defaults —
     // clear the change-detection sentinels so all three pushes re-fire for it.
     final TouchControlsView overlayNow = AndroidInput.overlay;
@@ -554,6 +586,9 @@ public class AndroidPlatformManager extends PlatformManager {
       this.lastTouchDpadX = Float.NaN;
       this.lastTouchDpadY = Float.NaN;
       this.lastTouchDpadScale = Float.NaN;
+      this.lastTouchStickX = Float.NaN;
+      this.lastTouchStickY = Float.NaN;
+      this.lastOrientation = null;
     }
 
     // Push the resolved button style to the touch overlay when it changes —
@@ -569,6 +604,36 @@ public class AndroidPlatformManager extends PlatformManager {
       if(overlay != null) {
         overlay.post(() -> overlay.setFaceButtonStyle(faceButtonStyle));
       }
+    }
+
+    // Portrait and landscape each carry an independent set of graphics
+    // settings — stashed under separate keys when the orientation flips.
+    this.syncOrientationScopedConfigs();
+
+    // Programmatic menu navigation — command file + location reporting
+    MenuNav.tick();
+
+    // Widescreen is forced 4:3 + locked only in portrait — the portrait band
+    // layout needs it. Landscape leaves both widescreen modes selectable.
+    if(this.effectivePortrait) {
+      if(CONFIG.getConfig(ALLOW_WIDESCREEN_CONFIG.get())) {
+        CONFIG.setConfig(ALLOW_WIDESCREEN_CONFIG.get(), false);
+      }
+      CONFIG.getLocked(ALLOW_WIDESCREEN_CONFIG.get()).add("Android");
+      if(CONFIG.getConfig(LEGACY_WIDESCREEN_MODE_CONFIG.get()) != SubmapWidescreenMode.FORCED_4_3) {
+        CONFIG.setConfig(LEGACY_WIDESCREEN_MODE_CONFIG.get(), SubmapWidescreenMode.FORCED_4_3);
+      }
+      CONFIG.getLocked(LEGACY_WIDESCREEN_MODE_CONFIG.get()).add("Android");
+    } else {
+      CONFIG.getLocked(ALLOW_WIDESCREEN_CONFIG.get()).remove("Android");
+      CONFIG.getLocked(LEGACY_WIDESCREEN_MODE_CONFIG.get()).remove("Android");
+    }
+
+    // Push the requested screen orientation when it changes
+    final Orientation orientation = CONFIG.getConfig(ORIENTATION_CONFIG.get());
+    if(orientation != this.lastOrientation) {
+      this.lastOrientation = orientation;
+      AndroidEnv.setOrientation(orientation);
     }
 
     // Push the movement-control mode (stick/d-pad/both) when it changes
@@ -616,6 +681,18 @@ public class AndroidPlatformManager extends PlatformManager {
       final TouchControlsView overlay = AndroidInput.overlay;
       if(overlay != null) {
         overlay.post(() -> overlay.setDpadLayout(dpadX, dpadY, dpadScale));
+      }
+    }
+
+    // Push the stick home position to the overlay when it changes
+    final float stickX = CONFIG.getConfig(TOUCH_STICK_X_CONFIG.get());
+    final float stickY = CONFIG.getConfig(TOUCH_STICK_Y_CONFIG.get());
+    if(stickX != this.lastTouchStickX || stickY != this.lastTouchStickY) {
+      this.lastTouchStickX = stickX;
+      this.lastTouchStickY = stickY;
+      final TouchControlsView overlay = AndroidInput.overlay;
+      if(overlay != null) {
+        overlay.post(() -> overlay.setStickLayout(stickX, stickY));
       }
     }
   }
@@ -895,6 +972,16 @@ public class AndroidPlatformManager extends PlatformManager {
     AndroidEnv.context().startActivity(intent);
   }
 
+  /** Injects a menu InputAction as if it came from a real input device —
+   *  reaches the title screen, MenuStack screens and any other listener. */
+  public void injectMenuAction(final InputAction action) {
+    final AndroidWindow window = this.getWindow();
+    if(window != null) {
+      window.events().onInputActionPressed(action, false);
+      window.events().onInputActionReleased(action);
+    }
+  }
+
   @Override
   public String getPasteText() {
     final android.content.ClipboardManager clipboard = (android.content.ClipboardManager)AndroidEnv.context().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
@@ -909,6 +996,68 @@ public class AndroidPlatformManager extends PlatformManager {
 
     final CharSequence text = clip.getItemAt(0).coerceToText(AndroidEnv.context());
     return text == null ? "" : text.toString();
+  }
+
+  /** Portrait and landscape get independent copies of every graphics-category
+   *  config. When the display orientation flips, current values are stashed
+   *  under the outgoing orientation's keys and the incoming orientation's stash
+   *  (if any) is restored. Values persist in SharedPreferences so each
+   *  orientation survives app restarts. */
+  private void syncOrientationScopedConfigs() {
+    final boolean portrait = AndroidEnv.isPortrait();
+
+    if(this.effectivePortrait == null) {
+      this.effectivePortrait = portrait;
+      // Cold start: the config file holds whichever orientation was active when
+      // it was last saved — restore this orientation's own values over it.
+      this.loadOrientationConfigs(portrait);
+      return;
+    }
+
+    if(this.effectivePortrait != portrait) {
+      this.stashOrientationConfigs(this.effectivePortrait);
+      this.loadOrientationConfigs(portrait);
+      this.effectivePortrait = portrait;
+    }
+  }
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  private void stashOrientationConfigs(final boolean portrait) {
+    final SharedPreferences.Editor editor = AndroidEnv.context().getSharedPreferences("orientation_configs", Context.MODE_PRIVATE).edit();
+
+    for(final RegistryId configId : REGISTRIES.config) {
+      final ConfigEntry configEntry = REGISTRIES.config.getEntry(configId).get();
+
+      if(configEntry.category == ConfigCategory.GRAPHICS) {
+        final Object value = CONFIG.getConfig(configEntry);
+        if(value != null) {
+          editor.putString("gfx_" + (portrait ? 'P' : 'L') + '_' + configId, Base64.encodeToString((byte[])configEntry.serializer.apply(value), Base64.DEFAULT));
+        }
+      }
+    }
+
+    editor.apply();
+  }
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  private void loadOrientationConfigs(final boolean portrait) {
+    final SharedPreferences prefs = AndroidEnv.context().getSharedPreferences("orientation_configs", Context.MODE_PRIVATE);
+    final String prefix = "gfx_" + (portrait ? 'P' : 'L') + '_';
+
+    for(final RegistryId configId : REGISTRIES.config) {
+      final ConfigEntry configEntry = REGISTRIES.config.getEntry(configId).get();
+
+      if(configEntry.category == ConfigCategory.GRAPHICS) {
+        final String serialized = prefs.getString(prefix + configId, null);
+        if(serialized != null) {
+          try {
+            CONFIG.setConfig(configEntry, configEntry.deserializer.apply(Base64.decode(serialized, Base64.DEFAULT)));
+          } catch(final Exception e) {
+            LOGGER.warn("Failed to restore orientation-scoped config {}", configId, e);
+          }
+        }
+      }
+    }
   }
 
   private static final class AxisInputState {

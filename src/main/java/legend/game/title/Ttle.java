@@ -146,6 +146,19 @@ public class Ttle extends EngineState<Ttle> {
   private int loadingStage;
   private int selectedMenuOption;
   private boolean hasCampaigns;
+
+  public int getSelectedMenuOption() {
+    return this.selectedMenuOption;
+  }
+
+  public boolean hasCampaigns() {
+    return this.hasCampaigns;
+  }
+
+  /** True while the main title menu is accepting up/down/confirm input. */
+  public boolean isMenuInputReady() {
+    return this.menuLoadingStage == 3 && this.menuState_800c672c < 3;
+  }
   private List<Path> uncategorizedSaves = List.of();
   private List<Path> foundMemcards = List.of();
   private boolean saveCategorizationShown;

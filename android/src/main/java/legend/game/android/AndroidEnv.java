@@ -45,6 +45,39 @@ public final class AndroidEnv {
   /** The single game engine thread; survives Activity recreation. */
   private static boolean gameStarted;
 
+  private static android.app.Activity activity;
+
+  /** UI thread: remember the live Activity for orientation changes. */
+  public static void setActivity(final android.app.Activity act) {
+    activity = act;
+  }
+
+  /** Game thread -> UI thread: apply a requested orientation to the Activity. */
+  public static void setOrientation(final legend.core.platform.input.Orientation orientation) {
+    final android.app.Activity act = activity;
+    if(act == null) {
+      return;
+    }
+
+    act.runOnUiThread(() -> {
+      final int mode = switch(orientation) {
+        case PORTRAIT -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT;
+        case LANDSCAPE -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE;
+        default -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR;
+      };
+      if(act.getRequestedOrientation() != mode) {
+        act.setRequestedOrientation(mode);
+      }
+    });
+  }
+
+  /** The display's actual current orientation — differs from the requested
+   *  Orientation setting when it is AUTO, and lags behind a fresh lock request
+   *  until the system finishes rotating. */
+  public static boolean isPortrait() {
+    return context.getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT;
+  }
+
   /** Focusable IME target owned by the Activity; survives as static state. */
   @Nullable
   private static android.view.View imeView;

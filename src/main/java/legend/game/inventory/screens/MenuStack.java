@@ -17,6 +17,7 @@ import legend.game.modding.coremod.CoreMod;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -48,6 +49,11 @@ public class MenuStack {
 
   public MenuScreen peek() {
     return this.screens.peek();
+  }
+
+  /** All stacked screens, top of stack first. */
+  public List<MenuScreen> getScreens() {
+    return List.copyOf(this.screens);
   }
 
   public <T extends MenuScreen> T pushScreen(final T screen) {
