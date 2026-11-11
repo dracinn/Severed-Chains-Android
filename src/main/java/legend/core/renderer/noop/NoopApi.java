@@ -117,6 +117,11 @@ public class NoopApi implements RenderApi {
   }
 
   @Override
+  public void initBatchOverlay(final RenderBatch batch, final int outputWidth, final int outputHeight) {
+
+  }
+
+  @Override
   public void backfaceCulling(final boolean enable) {
 
   }

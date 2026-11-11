@@ -108,6 +108,10 @@ public class GlesApi implements RenderApi {
   private float h;
   private int renderWidth;
   private int renderHeight;
+  private int scissorWidth;
+  private int scissorHeight;
+  private float scissorScaleX;
+  private float scissorScaleY;
 
   private final Rect4i tempScissorRect = new Rect4i();
   private final Rect4i activeScissorRect = new Rect4i();
@@ -293,6 +297,25 @@ public class GlesApi implements RenderApi {
     this.widescreen = batch.getRenderMode() == EngineState.RenderMode.PERSPECTIVE && CoreMod.ALLOW_WIDESCREEN_CONFIG.isValid() && CONFIG.getConfig(CoreMod.ALLOW_WIDESCREEN_CONFIG.get()) || batch.getRenderMode() == EngineState.RenderMode.LEGACY && CoreMod.LEGACY_WIDESCREEN_MODE_CONFIG.isValid() && CONFIG.getConfig(CoreMod.LEGACY_WIDESCREEN_MODE_CONFIG.get()) == SubmapWidescreenMode.EXPANDED;
     this.w = (float)this.renderWidth / batch.nativeWidth;
     this.h = (float)this.renderHeight / batch.nativeHeight;
+    this.scissorWidth = this.renderWidth;
+    this.scissorHeight = this.renderHeight;
+    this.scissorScaleX = 1.0f;
+    this.scissorScaleY = 1.0f;
+
+    this.backfaceCulling(false);
+  }
+
+  @Override
+  public void initBatchOverlay(final RenderBatch batch, final int outputWidth, final int outputHeight) {
+    this.batch = batch;
+    this.widescreen = batch.getRenderMode() == EngineState.RenderMode.PERSPECTIVE && CoreMod.ALLOW_WIDESCREEN_CONFIG.isValid() && CONFIG.getConfig(CoreMod.ALLOW_WIDESCREEN_CONFIG.get()) || batch.getRenderMode() == EngineState.RenderMode.LEGACY && CoreMod.LEGACY_WIDESCREEN_MODE_CONFIG.isValid() && CONFIG.getConfig(CoreMod.LEGACY_WIDESCREEN_MODE_CONFIG.get()) == SubmapWidescreenMode.EXPANDED;
+    this.w = (float)outputWidth / batch.nativeWidth;
+    this.h = (float)outputHeight / batch.nativeHeight;
+    this.scissorWidth = outputWidth;
+    this.scissorHeight = outputHeight;
+    // worldScissor is captured in render-resolution units — rescale to the window
+    this.scissorScaleX = (float)outputWidth / this.renderWidth;
+    this.scissorScaleY = (float)outputHeight / this.renderHeight;
 
     this.backfaceCulling(false);
   }
@@ -347,17 +370,17 @@ public class GlesApi implements RenderApi {
     final Rect4i worldScissor = model.worldScissor();
     final Rect4i modelScissor = model.modelScissor();
 
-    this.tempScissorRect.set(worldScissor.x, this.renderHeight - (worldScissor.y + worldScissor.h), worldScissor.w, worldScissor.h);
+    this.tempScissorRect.set(Math.round(worldScissor.x * this.scissorScaleX), this.scissorHeight - Math.round((worldScissor.y + worldScissor.h) * this.scissorScaleY), Math.round(worldScissor.w * this.scissorScaleX), Math.round(worldScissor.h * this.scissorScaleY));
 
     if(modelScissor.w != 0 || modelScissor.h != 0) {
       if(this.widescreen) {
-        this.tempScissorRect.subregion(Math.round((modelScissor.x + this.batch.widescreenOrthoOffsetX) * this.h * ((float)this.batch.expectedWidth / this.batch.nativeWidth)), this.renderHeight - Math.round((modelScissor.y + modelScissor.h) * this.h), Math.round(modelScissor.w * this.h * ((float)this.batch.expectedWidth / this.batch.nativeWidth)), Math.round(modelScissor.h * this.h));
+        this.tempScissorRect.subregion(Math.round((modelScissor.x + this.batch.widescreenOrthoOffsetX) * this.h * ((float)this.batch.expectedWidth / this.batch.nativeWidth)), this.scissorHeight - Math.round((modelScissor.y + modelScissor.h) * this.h), Math.round(modelScissor.w * this.h * ((float)this.batch.expectedWidth / this.batch.nativeWidth)), Math.round(modelScissor.h * this.h));
       } else {
         final float offset;
         final float w;
 
         if(this.batch.getRenderMode() == EngineState.RenderMode.LEGACY && CONFIG.getConfig(CoreMod.LEGACY_WIDESCREEN_MODE_CONFIG.get()) == SubmapWidescreenMode.FORCED_4_3) {
-          final float ratio = (float)this.renderWidth / this.renderHeight;
+          final float ratio = (float)this.scissorWidth / this.scissorHeight;
           final float adjustedW = this.batch.nativeHeight * ratio;
           offset = (adjustedW - this.batch.nativeWidth) / 2.0f;
           w = this.h;
@@ -366,7 +389,7 @@ public class GlesApi implements RenderApi {
           w = this.w;
         }
 
-        this.tempScissorRect.subregion(Math.round((modelScissor.x + offset) * w), this.renderHeight - Math.round((modelScissor.y + modelScissor.h) * this.h), Math.round(modelScissor.w * w), Math.round(modelScissor.h * this.h));
+        this.tempScissorRect.subregion(Math.round((modelScissor.x + offset) * w), this.scissorHeight - Math.round((modelScissor.y + modelScissor.h) * this.h), Math.round(modelScissor.w * w), Math.round(modelScissor.h * this.h));
       }
     }
 

@@ -325,8 +325,13 @@ public class RenderEngine {
 
   private final Deque<Runnable> tasks = new LinkedList<>();
 
+  /** Ortho content queued here is drawn post-composite at display
+   *  resolution (e.g. text), bypassing the internal-resolution buffer. */
+  private final RenderBatch nativeOrthoBatch;
+
   public RenderEngine() {
     this.mainBatch = new RenderBatch(this, this.lightBuffer);
+    this.nativeOrthoBatch = new RenderBatch(this, this.mainBatch, this.lightBuffer);
     this.scissorStack = new ScissorStack(this, this.mainBatch);
   }
 
@@ -350,6 +355,7 @@ public class RenderEngine {
 
   private void resetBatches() {
     this.mainBatch.reset();
+    this.nativeOrthoBatch.reset();
 
     for(int i = 0; i < this.batches.size(); i++) {
       this.batches.get(i).reset();
@@ -362,6 +368,7 @@ public class RenderEngine {
 
   public void setRenderMode(final EngineState.RenderMode renderMode) {
     this.mainBatch.setRenderMode(renderMode);
+    this.nativeOrthoBatch.setRenderMode(renderMode);
   }
 
   public EngineState.RenderMode getRenderMode() {
@@ -374,6 +381,7 @@ public class RenderEngine {
 
   public void setProjectionSize(final int width, final int height) {
     this.mainBatch.setProjectionSize(width, height);
+    this.nativeOrthoBatch.setProjectionSize(width, height);
     this.updateResolution();
   }
 
@@ -403,6 +411,7 @@ public class RenderEngine {
 
   public void updateProjections() {
     this.mainBatch.updateProjections();
+    this.nativeOrthoBatch.updateProjections();
   }
 
   public Matrix4f getPerspectiveProjection() {
@@ -665,6 +674,7 @@ public class RenderEngine {
 
           this.mainBatch.modelPool.ignoreQueues = false;
           this.mainBatch.orthoPool.ignoreQueues = false;
+          this.nativeOrthoBatch.orthoPool.ignoreQueues = false;
         } else {
           for(int i = 0; i < this.batches.size(); i++) {
             this.batches.get(i).modelPool.ignoreQueues = true;
@@ -673,6 +683,7 @@ public class RenderEngine {
 
           this.mainBatch.modelPool.ignoreQueues = true;
           this.mainBatch.orthoPool.ignoreQueues = true;
+          this.nativeOrthoBatch.orthoPool.ignoreQueues = true;
         }
 
         this.renderFrame();
@@ -804,6 +815,27 @@ public class RenderEngine {
 
         // If we don't unbind the framebuffer textures, window resizing will crash since it has to resize the framebuffer
         this.api.unbindTexture();
+
+        // Ortho content routed to the native overlay renders on top of the
+        // composited frame at display resolution instead of the internal one
+        if(!this.nativeOrthoBatch.orthoPool.isEmpty()) {
+          if(this.nativeOrthoBatch.needsSorting) {
+            this.sortOrthoPool(this.nativeOrthoBatch.orthoPool);
+            this.nativeOrthoBatch.needsSorting = false;
+          }
+
+          this.nativeOrthoBatch.updateProjections();
+          this.api.initBatchOverlay(this.nativeOrthoBatch, this.window.getWidth(), this.window.getHeight());
+          this.setProjectionMode(this.nativeOrthoBatch, ProjectionMode._2D);
+          this.renderPool(this.nativeOrthoBatch.orthoPool, false);
+          this.renderPoolTranslucent(this.nativeOrthoBatch.orthoPool);
+
+          // Translucent rendering disables the depth mask — restore it or the
+          // next frame's depth clears are masked out and stale depth kills
+          // opaque ortho content (e.g. the title background)
+          this.api.disableDepthTest();
+          this.api.translucency(null);
+        }
       }
 
       // If we're paused, don't reset the pool so that we keep rendering the same scene over and over again
@@ -1225,6 +1257,11 @@ public class RenderEngine {
 
   public <T extends QueuedModel<?, ?>> T queueOrthoModel(final Obj obj, final MV mv, final Class<T> type) {
     return this.mainBatch.queueOrthoModel(obj, mv, type);
+  }
+
+  /** Queues ortho content that renders post-composite at display resolution. */
+  public <T extends QueuedModel<?, ?>> T queueNativeOrthoModel(final Obj obj, final MV mv, final Class<T> type) {
+    return this.nativeOrthoBatch.queueOrthoModel(obj, mv, type);
   }
 
   /** NOTE: you have to add widescreenOrthoOffsetX yourself */

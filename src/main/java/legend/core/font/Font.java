@@ -64,10 +64,10 @@ public class Font {
       mv.scale(5.0f, 5.0f, 1.0f);
       mv.transfer.x += 5.0f;
       mv.transfer.y += 5.0f;
-      return RENDERER.queueOrthoModel(RENDERER.lineBox, mv, QueuedModelStandard.class);
+      return RENDERER.queueNativeOrthoModel(RENDERER.lineBox, mv, QueuedModelStandard.class);
     }
 
-    return RENDERER.queueOrthoModel(this.obj, transforms, QueuedModelStandard.class)
+    return RENDERER.queueNativeOrthoModel(this.obj, transforms, QueuedModelStandard.class)
       .texture(this.texture)
       .vertices(this.glyphs.get(chr).index * 4, 4)
     ;
