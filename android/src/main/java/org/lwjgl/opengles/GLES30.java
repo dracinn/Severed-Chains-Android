@@ -96,4 +96,24 @@ public class GLES30 extends GLES20 {
   public static void glTexStorage2D(final int target, final int levels, final int internalformat, final int width, final int height) {
     android.opengl.GLES30.glTexStorage2D(target, levels, internalformat, width, height);
   }
+
+  public static final int GL_PROGRAM_BINARY_RETRIEVABLE_HINT = 0x8257;
+  public static final int GL_PROGRAM_BINARY_LENGTH = 0x8741;
+  public static final int GL_NUM_PROGRAM_BINARY_FORMATS = 0x87FE;
+
+  public static void glProgramParameteri(final int program, final int pname, final int value) {
+    android.opengl.GLES30.glProgramParameteri(program, pname, value);
+  }
+
+  public static void glProgramBinary(final int program, final int binaryFormat, final Buffer binary, final int length) {
+    android.opengl.GLES30.glProgramBinary(program, binaryFormat, binary, length);
+  }
+
+  /** Returns the program binary format, or -1 if the query failed. */
+  public static int glGetProgramBinary(final int program, final Buffer binary) {
+    final int[] length = new int[1];
+    final int[] format = new int[1];
+    android.opengl.GLES30.glGetProgramBinary(program, binary.remaining(), length, 0, format, 0, binary);
+    return format[0];
+  }
 }

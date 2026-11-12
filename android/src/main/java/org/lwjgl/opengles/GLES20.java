@@ -97,6 +97,7 @@ public class GLES20 {
   public static final int GL_VENDOR = android.opengl.GLES20.GL_VENDOR;
   public static final int GL_RENDERER = android.opengl.GLES20.GL_RENDERER;
   public static final int GL_VERSION = android.opengl.GLES20.GL_VERSION;
+  public static final int GL_EXTENSIONS = android.opengl.GLES20.GL_EXTENSIONS;
   public static final int GL_SHADING_LANGUAGE_VERSION = android.opengl.GLES20.GL_SHADING_LANGUAGE_VERSION;
   public static final int GL_DONT_CARE = android.opengl.GLES20.GL_DONT_CARE;
   public static final int GL_UNPACK_ALIGNMENT = android.opengl.GLES20.GL_UNPACK_ALIGNMENT;
