@@ -122,15 +122,22 @@ jobs:
       run: |
         tag="${GITHUB_REF_NAME}"
         prev="$(git tag -l 'v*' --sort=-v:refname | grep -vx "$tag" | head -1)"
+        range="$prev..HEAD"
+        [ -z "$prev" ] && range="HEAD"
         {
           echo "## What's Changed"
           echo
+          # --first-parent keeps upstream merges to one line; expand each merge
+          # to list the upstream commits it brought in as a sub-list.
+          git log --first-parent --format='%H %s' "$range" | while read -r sha subject; do
+            echo "- $subject (${sha:0:9})"
+            if [ "$(git rev-list --parents -n1 "$sha" | wc -w)" -gt 2 ]; then
+              git log --first-parent --pretty='  - upstream: %s (%h)' "$(git rev-parse "$sha^1")..$(git rev-parse "$sha^2")"
+            fi
+          done
           if [ -n "$prev" ]; then
-            git log --first-parent --pretty='- %s (%h)' "$prev..HEAD"
             echo
             echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/$prev...$tag"
-          else
-            git log --first-parent --pretty='- %s (%h)' HEAD
           fi
         } > release-notes.md
         cp android/build/outputs/apk/debug/android-debug.apk severedchains-debug.apk
