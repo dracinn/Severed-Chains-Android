@@ -68,33 +68,41 @@ android {
 
   ndkVersion = '25.2.9519653'
 
+  // Signing comes from SIGNING_* env vars (CI: secrets -> decoded keystore)
+  // or releaseKeystore*/releaseStorePassword/releaseKey* project properties
+  // (local: ~/.gradle/gradle.properties). Signing every build type with the
+  // same key keeps local installs upgradable to/from published releases.
+  def releaseKs = System.getenv('SIGNING_KEYSTORE_PATH') ?: project.findProperty('releaseKeystorePath')
+
   signingConfigs {
-    // CI injects SIGNING_* env vars (secrets -> decoded keystore path,
-    // passwords, alias). Absent locally, where debug signing suffices and
-    // assembleRelease produces an unsigned APK.
     release {
-      if(System.getenv('SIGNING_KEYSTORE_PATH') != null) {
-        storeFile file(System.getenv('SIGNING_KEYSTORE_PATH'))
-        storePassword System.getenv('SIGNING_STORE_PASSWORD')
-        keyAlias System.getenv('SIGNING_KEY_ALIAS')
-        keyPassword System.getenv('SIGNING_KEY_PASSWORD')
+      if(releaseKs != null) {
+        storeFile file(releaseKs)
+        storePassword System.getenv('SIGNING_STORE_PASSWORD') ?: project.findProperty('releaseStorePassword')
+        keyAlias System.getenv('SIGNING_KEY_ALIAS') ?: project.findProperty('releaseKeyAlias')
+        keyPassword System.getenv('SIGNING_KEY_PASSWORD') ?: project.findProperty('releaseKeyPassword')
       }
     }
   }
 
   buildTypes {
     release {
-      if(System.getenv('SIGNING_KEYSTORE_PATH') != null) {
+      if(releaseKs != null) {
+        signingConfig = signingConfigs.release
+      }
+    }
+    debug {
+      if(releaseKs != null) {
         signingConfig = signingConfigs.release
       }
     }
     // Release-speed build for performance testing: not debuggable (full ART
-    // optimization, no GL debug context, no verbose engine log) but signed
-    // with the debug key so CI can produce it without the release keystore.
+    // optimization, no GL debug context, no verbose engine log). Falls back
+    // to the debug key so CI can produce it without the release keystore.
     // src/perf/AndroidManifest.xml marks it profileable for Android Studio.
     perf {
       initWith release
-      signingConfig = signingConfigs.debug
+      signingConfig = releaseKs != null ? signingConfigs.release : signingConfigs.debug
       matchingFallbacks = ['release']
     }
   }
