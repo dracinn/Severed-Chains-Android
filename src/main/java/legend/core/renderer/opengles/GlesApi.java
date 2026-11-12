@@ -72,7 +72,9 @@ import static org.lwjgl.opengles.GLES20.GL_VERSION;
 import static org.lwjgl.opengles.GLES20.glBindFramebuffer;
 import static org.lwjgl.opengles.GLES20.glBlendEquation;
 import static org.lwjgl.opengles.GLES20.glBlendFunc;
+import static org.lwjgl.opengles.GLES20.GL_TEXTURE_2D;
 import static org.lwjgl.opengles.GLES20.glClear;
+import static org.lwjgl.opengles.GLES20.glCopyTexSubImage2D;
 import static org.lwjgl.opengles.GLES20.glClearColor;
 import static org.lwjgl.opengles.GLES20.glDepthFunc;
 import static org.lwjgl.opengles.GLES20.glDepthMask;
@@ -292,6 +294,12 @@ public class GlesApi implements RenderApi {
   @Override
   public void unbindTexture() {
     GlesTexture.unbind();
+  }
+
+  @Override
+  public void copyFramebufferToTexture(final Texture texture, final int x, final int y, final int w, final int h) {
+    texture.use();
+    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, x, y, w, h);
   }
 
   @Override

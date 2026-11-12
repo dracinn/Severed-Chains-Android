@@ -268,6 +268,10 @@ public class GLES20 {
     android.opengl.GLES20.glDisableVertexAttribArray(index);
   }
 
+  public static void glCopyTexSubImage2D(final int target, final int level, final int xoffset, final int yoffset, final int x, final int y, final int width, final int height) {
+    android.opengl.GLES20.glCopyTexSubImage2D(target, level, xoffset, yoffset, x, y, width, height);
+  }
+
   public static void glFramebufferTexture2D(final int target, final int attachment, final int textarget, final int texture, final int level) {
     android.opengl.GLES20.glFramebufferTexture2D(target, attachment, textarget, texture, level);
   }

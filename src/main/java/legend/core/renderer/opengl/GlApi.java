@@ -68,8 +68,10 @@ import static org.lwjgl.opengl.GL11C.GL_VENDOR;
 import static org.lwjgl.opengl.GL11C.GL_VERSION;
 import static org.lwjgl.opengl.GL11C.GL_VERTEX_ARRAY;
 import static org.lwjgl.opengl.GL11C.glBlendFunc;
+import static org.lwjgl.opengl.GL11C.GL_TEXTURE_2D;
 import static org.lwjgl.opengl.GL11C.glClear;
 import static org.lwjgl.opengl.GL11C.glClearColor;
+import static org.lwjgl.opengl.GL11C.glCopyTexSubImage2D;
 import static org.lwjgl.opengl.GL11C.glDepthFunc;
 import static org.lwjgl.opengl.GL11C.glDepthMask;
 import static org.lwjgl.opengl.GL11C.glDisable;
@@ -303,6 +305,12 @@ public class GlApi implements RenderApi {
   @Override
   public void unbindTexture() {
     GlTexture.unbind();
+  }
+
+  @Override
+  public void copyFramebufferToTexture(final Texture texture, final int x, final int y, final int w, final int h) {
+    texture.use();
+    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, x, y, w, h);
   }
 
   @Override

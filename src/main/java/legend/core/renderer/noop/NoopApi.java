@@ -112,6 +112,11 @@ public class NoopApi implements RenderApi {
   }
 
   @Override
+  public void copyFramebufferToTexture(final Texture texture, final int x, final int y, final int w, final int h) {
+
+  }
+
+  @Override
   public void initBatch(final RenderBatch batch) {
 
   }

@@ -30,6 +30,9 @@ public interface RenderApi {
   void unbindFramebuffer();
   void unbindTexture();
 
+  /** Copies a region of the currently bound (window) framebuffer into a texture. */
+  void copyFramebufferToTexture(final Texture texture, final int x, final int y, final int w, final int h);
+
   void initBatch(final RenderBatch batch);
   /** Same as {@link #initBatch} but for a batch rendered after the post
    *  composite at display resolution — output dims are the window's. */

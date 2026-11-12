@@ -22,19 +22,17 @@ public class QueuePool<T> {
 
   /**
    * Appends the queued entries of another pool to the end of this pool's
-   * queue. Returns the number of entries appended so they can be removed
-   * again with {@link #unmerge}.
+   * queue so they can be rendered together — e.g. sorted as one pool. The
+   * borrowed entries remain in the other pool; remove them again with
+   * {@link #unmerge}.
    */
-  public int merge(final QueuePool<T> pool) {
+  public void merge(final QueuePool<T> pool) {
     this.queue.addAll(pool.queue);
-    return pool.queue.size();
   }
 
-  /** Removes the last {@code count} queued entries. */
-  public void unmerge(final int count) {
-    for(int i = 0; i < count; i++) {
-      this.queue.remove(this.queue.size() - 1);
-    }
+  /** Removes entries previously borrowed via {@link #merge}. */
+  public void unmerge(final QueuePool<T> pool) {
+    this.queue.removeAll(pool.queue);
   }
 
   public T get(final int index) {
