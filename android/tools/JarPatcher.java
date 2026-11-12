@@ -28,11 +28,20 @@ import java.util.jar.JarOutputStream;
  *   StringBuilder.repeat(...)        -> JdkCompat.sbRepeat(sb, ...)
  *   String.formatted(args)           -> String.format(str, args)
  *   XBuffer.get(i) / put(i, ...)     -> JdkCompat.get/put(buf, i, ...)
+ *   List.getFirst()/removeLast()/... -> JdkCompat.first/removeLast/...(list)
  */
 public final class JarPatcher {
   private JarPatcher() { }
 
   private static final String JDK_REFLECT = "legend/game/android/JdkReflect";
+
+  // List-typed owners whose Java 21 SequencedCollection calls reroute to
+  // JdkCompat. Deque/ArrayDeque stay out: their first/last methods are
+  // native on ART and their receivers are not Lists.
+  private static final java.util.Set<String> SEQ_LIST_OWNERS = java.util.Set.of(
+      "java/util/List", "java/util/ArrayList", "java/util/LinkedList",
+      "java/util/Vector", "java/util/Stack", "java/util/AbstractList",
+      "java/util/AbstractSequentialList", "java/util/CopyOnWriteArrayList");
 
   public static void main(final String[] args) throws Exception {
     if(args.length != 2) {
@@ -146,6 +155,21 @@ public final class JarPatcher {
             if(opcode == Opcodes.INVOKEVIRTUAL && owner.startsWith("java/nio/") && owner.endsWith("Buffer") && !owner.equals("java/nio/Buffer")
                 && ((name.equals("get") && descriptor.startsWith("(I)")) || (name.equals("put") && descriptor.startsWith("(I") && descriptor.charAt(2) != ')'))) {
               super.visitMethodInsn(Opcodes.INVOKESTATIC, "legend/game/android/JdkCompat", name, "(L" + owner + ";" + descriptor.substring(1), false);
+              changed[0] = true;
+              return;
+            }
+
+            // ART lacks the Java 21 SequencedCollection defaults invoked on
+            // List-typed receivers (list.getFirst(), list.removeLast(), ...).
+            // Deque-owned calls are native since API 1 and stay untouched.
+            // Owners are limited to List-family types so the prepended
+            // (List) arg always verifies; JdkCompat dispatches to Deque
+            // when the runtime object is one.
+            if((opcode == Opcodes.INVOKEINTERFACE || opcode == Opcodes.INVOKEVIRTUAL) && SEQ_LIST_OWNERS.contains(owner)
+                && (((name.equals("getFirst") || name.equals("getLast") || name.equals("removeFirst") || name.equals("removeLast")) && descriptor.equals("()Ljava/lang/Object;"))
+                    || ((name.equals("addFirst") || name.equals("addLast")) && descriptor.equals("(Ljava/lang/Object;)V")))) {
+              final String helper = name.startsWith("get") ? Character.toLowerCase(name.charAt(3)) + name.substring(4) : name;
+              super.visitMethodInsn(Opcodes.INVOKESTATIC, "legend/game/android/JdkCompat", helper, "(Ljava/util/List;" + descriptor.substring(1), false);
               changed[0] = true;
               return;
             }
