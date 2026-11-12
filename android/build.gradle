@@ -697,20 +697,19 @@ import java.awt.image.BufferedImage;
 def literalTransformKeys = (buildFile.text =~ /(?m)^  '([^']+\.java)': \[/).collect { it[1] }
 def duplicateLiteralTransformKeys = literalTransformKeys.findAll { key -> literalTransformKeys.count(key) > 1 }.unique()
 
-tasks.register('patchStagedSources') {
+// Typed as Sync (not a project.sync call — Task.project at execution time is
+// deprecated and will fail in Gradle 10). shared-sources is this task's
+// tracked output: it always holds fully patched sources at task boundaries,
+// so compileShared's input snapshot can never capture the raw pre-patch
+// state. Sync recopies files that differ from the unpatched source; the
+// doLast transform pass then re-applies idempotently.
+tasks.register('patchStagedSources', Sync) {
   dependsOn 'stageSharedSources'
   def unpatchedDir = layout.buildDirectory.dir('shared-sources-unpatched')
   def patchedDir = layout.buildDirectory.dir('shared-sources')
-  // shared-sources is this task's tracked output: it always holds fully
-  // patched sources at task boundaries, so compileShared's input snapshot
-  // can never capture the raw pre-patch state.
-  inputs.dir unpatchedDir
-  outputs.dir patchedDir
+  from unpatchedDir
+  into patchedDir
   doLast {
-    project.sync {
-      from unpatchedDir
-      into patchedDir
-    }
     final File root = patchedDir.get().asFile
 
     if(!duplicateLiteralTransformKeys.isEmpty()) {
@@ -1285,6 +1284,9 @@ tasks.register('transpileShaders', JavaExec) {
   outputs.dir layout.buildDirectory.dir('generated/assets/shaders')
   classpath = files(transpilerClasses) + configurations.transpile
   mainClass = 'ShaderTranspiler'
+  // JDK 25 warns on LWJGL's System::load native access and sun.misc.Unsafe
+  // usage; both become hard errors in a later JDK.
+  jvmArgs '--enable-native-access=ALL-UNNAMED', '--sun-misc-unsafe-memory-access=allow'
   doFirst {
     // Hash-named outputs; clear leftovers from older sources so the APK
     // never ships stale shader assets.
