@@ -44,3 +44,5 @@ target_link_libraries(opusfile PUBLIC ogg opus)
 
 add_library(scopus SHARED opus_jni.c yuv2rgb.c debug_gl.c os_jni.c)
 target_link_libraries(scopus PRIVATE opusfile opus ogg log EGL GLESv3)
+# Android 15+ requires LOAD segments aligned to 16 KB pages
+target_link_options(scopus PRIVATE -Wl,-z,max-page-size=16384)
