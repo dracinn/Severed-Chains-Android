@@ -1,0 +1,596 @@
+# JDK members the dex references that are absent at minSdk or
+# missing from ART entirely, accepted after review. Format:
+#   owner	name	desc-or-field	reason
+java/awt/BasicStroke	<class>	not in ART
+java/awt/BasicStroke	<init>(FII)V	class not in ART
+java/awt/BorderLayout	<class>	not in ART
+java/awt/BorderLayout	<init>(II)V	class not in ART
+java/awt/Color	<class>	not in ART
+java/awt/Color	<init>(III)V	class not in ART
+java/awt/Color	WHITE	class not in ART
+java/awt/Color	black	class not in ART
+java/awt/Color	lightGray	class not in ART
+java/awt/Color	white	class not in ART
+java/awt/Component	<class>	not in ART
+java/awt/Component	isDisplayable()Z	class not in ART
+java/awt/Component	isLightweight()Z	class not in ART
+java/awt/Component	isVisible()Z	class not in ART
+java/awt/Container	add(Ljava/awt/Component;)Ljava/awt/Component;	class not in ART
+java/awt/Container	add(Ljava/awt/Component;Ljava/lang/Object;)V	class not in ART
+java/awt/Container	getLayout()Ljava/awt/LayoutManager;	class not in ART
+java/awt/Container	setBackground(Ljava/awt/Color;)V	class not in ART
+java/awt/Container	setLayout(Ljava/awt/LayoutManager;)V	class not in ART
+java/awt/Container	validate()V	class not in ART
+java/awt/Desktop	getDesktop()Ljava/awt/Desktop;	class not in ART
+java/awt/Desktop	open(Ljava/io/File;)V	class not in ART
+java/awt/Dimension	<class>	not in ART
+java/awt/Dimension	<init>(II)V	class not in ART
+java/awt/Dimension	getHeight()D	class not in ART
+java/awt/Dimension	getWidth()D	class not in ART
+java/awt/Dimension	height	class not in ART
+java/awt/Dimension	width	class not in ART
+java/awt/FlowLayout	<class>	not in ART
+java/awt/FlowLayout	<init>()V	class not in ART
+java/awt/Font	<class>	not in ART
+java/awt/Font	<init>(Ljava/lang/String;II)V	class not in ART
+java/awt/Font	getPSName()Ljava/lang/String;	class not in ART
+java/awt/FontMetrics	getAscent()I	class not in ART
+java/awt/FontMetrics	getHeight()I	class not in ART
+java/awt/FontMetrics	getLeading()I	class not in ART
+java/awt/FontMetrics	stringWidth(Ljava/lang/String;)I	class not in ART
+java/awt/Graphics	<class>	not in ART
+java/awt/Graphics	dispose()V	class not in ART
+java/awt/Graphics	drawLine(IIII)V	class not in ART
+java/awt/Graphics	drawRoundRect(IIIIII)V	class not in ART
+java/awt/Graphics	drawString(Ljava/lang/String;II)V	class not in ART
+java/awt/Graphics	fillRoundRect(IIIIII)V	class not in ART
+java/awt/Graphics	setColor(Ljava/awt/Color;)V	class not in ART
+java/awt/Graphics2D	<class>	not in ART
+java/awt/Graphics2D	dispose()V	class not in ART
+java/awt/Graphics2D	draw(Ljava/awt/Shape;)V	class not in ART
+java/awt/Graphics2D	fill(Ljava/awt/Shape;)V	class not in ART
+java/awt/Graphics2D	getFontRenderContext()Ljava/awt/font/FontRenderContext;	class not in ART
+java/awt/Graphics2D	scale(DD)V	class not in ART
+java/awt/Graphics2D	setColor(Ljava/awt/Color;)V	class not in ART
+java/awt/Graphics2D	setRenderingHint(Ljava/awt/RenderingHints$Key;Ljava/lang/Object;)V	class not in ART
+java/awt/Graphics2D	setStroke(Ljava/awt/Stroke;)V	class not in ART
+java/awt/Graphics2D	translate(DD)V	class not in ART
+java/awt/GraphicsEnvironment	createGraphics(Ljava/awt/image/BufferedImage;)Ljava/awt/Graphics2D;	class not in ART
+java/awt/GraphicsEnvironment	getLocalGraphicsEnvironment()Ljava/awt/GraphicsEnvironment;	class not in ART
+java/awt/GraphicsEnvironment	isHeadless()Z	class not in ART
+java/awt/GridBagConstraints	<class>	not in ART
+java/awt/GridBagConstraints	<init>(IIIIDDIILjava/awt/Insets;II)V	class not in ART
+java/awt/GridBagLayout	<class>	not in ART
+java/awt/GridBagLayout	<init>()V	class not in ART
+java/awt/GridBagLayout	columnWeights	class not in ART
+java/awt/GridBagLayout	columnWidths	class not in ART
+java/awt/GridBagLayout	rowHeights	class not in ART
+java/awt/GridBagLayout	rowWeights	class not in ART
+java/awt/HeadlessException	<class>	not in ART
+java/awt/HeadlessException	<init>(Ljava/lang/String;)V	class not in ART
+java/awt/Insets	<class>	not in ART
+java/awt/Insets	<init>(IIII)V	class not in ART
+java/awt/Point	getX()D	class not in ART
+java/awt/Point	getY()D	class not in ART
+java/awt/Rectangle	getSize()Ljava/awt/Dimension;	class not in ART
+java/awt/Rectangle	height	class not in ART
+java/awt/Rectangle	width	class not in ART
+java/awt/RenderingHints	KEY_ANTIALIASING	class not in ART
+java/awt/RenderingHints	KEY_TEXT_ANTIALIASING	class not in ART
+java/awt/RenderingHints	VALUE_ANTIALIAS_ON	class not in ART
+java/awt/RenderingHints	VALUE_TEXT_ANTIALIAS_ON	class not in ART
+java/awt/Window	<class>	not in ART
+java/awt/event/ActionEvent	<class>	not in ART
+java/awt/event/ActionListener	<class>	not in ART
+java/awt/event/WindowAdapter	<class>	not in ART
+java/awt/event/WindowAdapter	<init>()V	class not in ART
+java/awt/event/WindowEvent	<class>	not in ART
+java/awt/event/WindowEvent	<init>(Ljava/awt/Window;I)V	class not in ART
+java/awt/font/TextLayout	<class>	not in ART
+java/awt/font/TextLayout	<init>(Ljava/lang/String;Ljava/awt/Font;Ljava/awt/font/FontRenderContext;)V	class not in ART
+java/awt/font/TextLayout	getAdvance()F	class not in ART
+java/awt/font/TextLayout	getBounds()Ljava/awt/geom/Rectangle2D;	class not in ART
+java/awt/geom/CubicCurve2D	setCurve(DDDDDDDD)V	class not in ART
+java/awt/geom/CubicCurve2D$Double	<class>	not in ART
+java/awt/geom/CubicCurve2D$Double	<init>()V	class not in ART
+java/awt/geom/Point2D	<class>	not in ART
+java/awt/geom/Point2D	<init>()V	class not in ART
+java/awt/geom/Point2D	getX()D	class not in ART
+java/awt/geom/Point2D	getY()D	class not in ART
+java/awt/geom/Rectangle2D	<class>	not in ART
+java/awt/geom/Rectangle2D	getBounds()Ljava/awt/Rectangle;	class not in ART
+java/awt/geom/Rectangle2D	getHeight()D	class not in ART
+java/awt/geom/Rectangle2D$Double	<class>	not in ART
+java/awt/geom/Rectangle2D$Double	<init>(DDDD)V	class not in ART
+java/awt/geom/Rectangle2D$Double	getCenterX()D	class not in ART
+java/awt/geom/Rectangle2D$Double	getCenterY()D	class not in ART
+java/awt/geom/Rectangle2D$Double	getMaxY()D	class not in ART
+java/awt/geom/Rectangle2D$Double	getMinY()D	class not in ART
+java/awt/geom/Rectangle2D$Double	height	class not in ART
+java/awt/geom/Rectangle2D$Double	width	class not in ART
+java/awt/geom/Rectangle2D$Double	x	class not in ART
+java/awt/geom/Rectangle2D$Double	y	class not in ART
+java/awt/image/BufferedImage	<class>	not in ART
+java/awt/image/BufferedImage	<init>(III)V	class not in ART
+java/awt/image/BufferedImage	createGraphics()Ljava/awt/Graphics2D;	class not in ART
+java/awt/image/BufferedImage	getGraphics()Ljava/awt/Graphics;	class not in ART
+java/awt/image/BufferedImage	getHeight()I	class not in ART
+java/awt/image/BufferedImage	getRaster()Ljava/awt/image/WritableRaster;	class not in ART
+java/awt/image/BufferedImage	getWidth()I	class not in ART
+java/awt/image/WritableRaster	getDataElements(IILjava/lang/Object;)Ljava/lang/Object;	class not in ART
+java/awt/print/PageFormat	<class>	not in ART
+java/awt/print/PageFormat	getHeight()D	class not in ART
+java/awt/print/PageFormat	getImageableHeight()D	class not in ART
+java/awt/print/PageFormat	getImageableWidth()D	class not in ART
+java/awt/print/PageFormat	getWidth()D	class not in ART
+java/awt/print/Printable	<class>	not in ART
+java/beans/BeanInfo	getPropertyDescriptors()[Ljava/beans/PropertyDescriptor;	class not in ART
+java/beans/IndexedPropertyDescriptor	<class>	not in ART
+java/beans/IndexedPropertyDescriptor	getIndexedPropertyType()Ljava/lang/Class;	class not in ART
+java/beans/IndexedPropertyDescriptor	getIndexedReadMethod()Ljava/lang/reflect/Method;	class not in ART
+java/beans/IndexedPropertyDescriptor	getIndexedWriteMethod()Ljava/lang/reflect/Method;	class not in ART
+java/beans/IndexedPropertyDescriptor	getName()Ljava/lang/String;	class not in ART
+java/beans/IndexedPropertyDescriptor	getReadMethod()Ljava/lang/reflect/Method;	class not in ART
+java/beans/IndexedPropertyDescriptor	getWriteMethod()Ljava/lang/reflect/Method;	class not in ART
+java/beans/IndexedPropertyDescriptor	setReadMethod(Ljava/lang/reflect/Method;)V	class not in ART
+java/beans/IndexedPropertyDescriptor	setWriteMethod(Ljava/lang/reflect/Method;)V	class not in ART
+java/beans/IntrospectionException	<class>	not in ART
+java/beans/IntrospectionException	<init>(Ljava/lang/String;)V	class not in ART
+java/beans/Introspector	decapitalize(Ljava/lang/String;)Ljava/lang/String;	class not in ART
+java/beans/Introspector	flushCaches()V	class not in ART
+java/beans/Introspector	getBeanInfo(Ljava/lang/Class;)Ljava/beans/BeanInfo;	class not in ART
+java/beans/PropertyDescriptor	<class>	not in ART
+java/beans/PropertyDescriptor	<init>(Ljava/lang/String;Ljava/lang/reflect/Method;Ljava/lang/reflect/Method;)V	class not in ART
+java/beans/PropertyDescriptor	getName()Ljava/lang/String;	class not in ART
+java/beans/PropertyDescriptor	getPropertyEditorClass()Ljava/lang/Class;	class not in ART
+java/beans/PropertyDescriptor	getPropertyType()Ljava/lang/Class;	class not in ART
+java/beans/PropertyDescriptor	getReadMethod()Ljava/lang/reflect/Method;	class not in ART
+java/beans/PropertyDescriptor	getWriteMethod()Ljava/lang/reflect/Method;	class not in ART
+java/beans/PropertyDescriptor	setWriteMethod(Ljava/lang/reflect/Method;)V	class not in ART
+java/lang/Math	fma(DDD)D	since 33
+java/lang/Math	fma(FFF)F	since 33
+java/lang/ProcessHandle	current()Ljava/lang/ProcessHandle;	class not in ART
+java/lang/ProcessHandle	pid()J	class not in ART
+java/lang/StringBuffer	codePointAt(I)I	not in ART
+java/lang/StringBuffer	ensureCapacity(I)V	not in ART
+java/lang/StringBuffer	getChars(II[CI)V	since 37
+java/lang/StringBuffer	indexOf(Ljava/lang/String;)I	not in ART
+java/lang/StringBuffer	indexOf(Ljava/lang/String;I)I	not in ART
+java/lang/StringBuffer	lastIndexOf(Ljava/lang/String;I)I	not in ART
+java/lang/StringBuffer	setCharAt(IC)V	not in ART
+java/lang/StringBuffer	setLength(I)V	not in ART
+java/lang/StringBuffer	substring(I)Ljava/lang/String;	not in ART
+java/lang/StringBuffer	substring(II)Ljava/lang/String;	not in ART
+java/lang/StringBuilder	capacity()I	not in ART
+java/lang/StringBuilder	codePointAt(I)I	not in ART
+java/lang/StringBuilder	codePointBefore(I)I	not in ART
+java/lang/StringBuilder	ensureCapacity(I)V	not in ART
+java/lang/StringBuilder	getChars(II[CI)V	since 37
+java/lang/StringBuilder	indexOf(Ljava/lang/String;)I	not in ART
+java/lang/StringBuilder	indexOf(Ljava/lang/String;I)I	not in ART
+java/lang/StringBuilder	lastIndexOf(Ljava/lang/String;I)I	not in ART
+java/lang/StringBuilder	offsetByCodePoints(II)I	not in ART
+java/lang/StringBuilder	setCharAt(IC)V	not in ART
+java/lang/StringBuilder	setLength(I)V	not in ART
+java/lang/StringBuilder	substring(I)Ljava/lang/String;	not in ART
+java/lang/StringBuilder	substring(II)Ljava/lang/String;	not in ART
+java/lang/StringBuilder	trimToSize()V	not in ART
+java/lang/invoke/MethodHandleProxies	asInterfaceInstance(Ljava/lang/Class;Ljava/lang/invoke/MethodHandle;)Ljava/lang/Object;	class not in ART
+java/lang/management/LockInfo	<class>	not in ART
+java/lang/management/LockInfo	getClassName()Ljava/lang/String;	class not in ART
+java/lang/management/LockInfo	getIdentityHashCode()I	class not in ART
+java/lang/management/ManagementFactory	getPlatformMBeanServer()Ljavax/management/MBeanServer;	class not in ART
+java/lang/management/ManagementFactory	getRuntimeMXBean()Ljava/lang/management/RuntimeMXBean;	class not in ART
+java/lang/management/ManagementFactory	getThreadMXBean()Ljava/lang/management/ThreadMXBean;	class not in ART
+java/lang/management/MonitorInfo	getLockedStackDepth()I	class not in ART
+java/lang/management/RuntimeMXBean	getStartTime()J	class not in ART
+java/lang/management/ThreadInfo	<class>	not in ART
+java/lang/management/ThreadInfo	getLockInfo()Ljava/lang/management/LockInfo;	class not in ART
+java/lang/management/ThreadInfo	getLockOwnerId()J	class not in ART
+java/lang/management/ThreadInfo	getLockOwnerName()Ljava/lang/String;	class not in ART
+java/lang/management/ThreadInfo	getLockedMonitors()[Ljava/lang/management/MonitorInfo;	class not in ART
+java/lang/management/ThreadInfo	getLockedSynchronizers()[Ljava/lang/management/LockInfo;	class not in ART
+java/lang/management/ThreadInfo	getStackTrace()[Ljava/lang/StackTraceElement;	class not in ART
+java/lang/management/ThreadInfo	getThreadId()J	class not in ART
+java/lang/management/ThreadInfo	getThreadName()Ljava/lang/String;	class not in ART
+java/lang/management/ThreadInfo	getThreadState()Ljava/lang/Thread$State;	class not in ART
+java/lang/management/ThreadInfo	isInNative()Z	class not in ART
+java/lang/management/ThreadInfo	isSuspended()Z	class not in ART
+java/lang/management/ThreadMXBean	dumpAllThreads(ZZ)[Ljava/lang/management/ThreadInfo;	class not in ART
+java/lang/management/ThreadMXBean	getThreadInfo(J)Ljava/lang/management/ThreadInfo;	class not in ART
+java/math/BigInteger	longValueExact()J	since 31
+java/net/UnixDomainSocketAddress	of(Ljava/lang/String;)Ljava/net/UnixDomainSocketAddress;	class not in ART
+java/rmi/MarshalledObject	<class>	not in ART
+java/rmi/MarshalledObject	<init>(Ljava/lang/Object;)V	class not in ART
+java/rmi/MarshalledObject	get()Ljava/lang/Object;	class not in ART
+java/util/stream/Stream	takeWhile(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;	since 34
+javax/annotation/processing/AbstractProcessor	<class>	not in ART
+javax/annotation/processing/AbstractProcessor	<init>()V	class not in ART
+javax/annotation/processing/AbstractProcessor	init(Ljavax/annotation/processing/ProcessingEnvironment;)V	class not in ART
+javax/annotation/processing/Filer	createResource(Ljavax/tools/JavaFileManager$Location;Ljava/lang/CharSequence;Ljava/lang/CharSequence;[Ljavax/lang/model/element/Element;)Ljavax/tools/FileObject;	class not in ART
+javax/annotation/processing/Messager	printMessage(Ljavax/tools/Diagnostic$Kind;Ljava/lang/CharSequence;)V	class not in ART
+javax/annotation/processing/Messager	printMessage(Ljavax/tools/Diagnostic$Kind;Ljava/lang/CharSequence;Ljavax/lang/model/element/Element;)V	class not in ART
+javax/annotation/processing/ProcessingEnvironment	<class>	not in ART
+javax/annotation/processing/ProcessingEnvironment	getElementUtils()Ljavax/lang/model/util/Elements;	class not in ART
+javax/annotation/processing/ProcessingEnvironment	getFiler()Ljavax/annotation/processing/Filer;	class not in ART
+javax/annotation/processing/ProcessingEnvironment	getMessager()Ljavax/annotation/processing/Messager;	class not in ART
+javax/annotation/processing/ProcessingEnvironment	getOptions()Ljava/util/Map;	class not in ART
+javax/annotation/processing/ProcessingEnvironment	getTypeUtils()Ljavax/lang/model/util/Types;	class not in ART
+javax/annotation/processing/RoundEnvironment	<class>	not in ART
+javax/annotation/processing/RoundEnvironment	getElementsAnnotatedWith(Ljava/lang/Class;)Ljava/util/Set;	class not in ART
+javax/annotation/processing/RoundEnvironment	getElementsAnnotatedWith(Ljavax/lang/model/element/TypeElement;)Ljava/util/Set;	class not in ART
+javax/annotation/processing/RoundEnvironment	processingOver()Z	class not in ART
+javax/imageio/ImageIO	read(Ljava/io/InputStream;)Ljava/awt/image/BufferedImage;	class not in ART
+javax/imageio/ImageIO	write(Ljava/awt/image/RenderedImage;Ljava/lang/String;Ljava/io/File;)Z	class not in ART
+javax/jms/Connection	<class>	not in ART
+javax/jms/Connection	close()V	class not in ART
+javax/jms/Connection	createSession(ZI)Ljavax/jms/Session;	class not in ART
+javax/jms/Connection	start()V	class not in ART
+javax/jms/ConnectionFactory	<class>	not in ART
+javax/jms/ConnectionFactory	createConnection()Ljavax/jms/Connection;	class not in ART
+javax/jms/ConnectionFactory	createConnection(Ljava/lang/String;Ljava/lang/String;)Ljavax/jms/Connection;	class not in ART
+javax/jms/Destination	<class>	not in ART
+javax/jms/JMSException	getLocalizedMessage()Ljava/lang/String;	class not in ART
+javax/jms/MapMessage	<class>	not in ART
+javax/jms/MapMessage	setObject(Ljava/lang/String;Ljava/lang/Object;)V	class not in ART
+javax/jms/Message	<class>	not in ART
+javax/jms/Message	setJMSTimestamp(J)V	class not in ART
+javax/jms/MessageConsumer	<class>	not in ART
+javax/jms/MessageProducer	<class>	not in ART
+javax/jms/MessageProducer	close()V	class not in ART
+javax/jms/MessageProducer	send(Ljavax/jms/Message;)V	class not in ART
+javax/jms/Session	<class>	not in ART
+javax/jms/Session	close()V	class not in ART
+javax/jms/Session	createConsumer(Ljavax/jms/Destination;)Ljavax/jms/MessageConsumer;	class not in ART
+javax/jms/Session	createMapMessage()Ljavax/jms/MapMessage;	class not in ART
+javax/jms/Session	createObjectMessage(Ljava/io/Serializable;)Ljavax/jms/ObjectMessage;	class not in ART
+javax/jms/Session	createProducer(Ljavax/jms/Destination;)Ljavax/jms/MessageProducer;	class not in ART
+javax/jms/Session	createTextMessage(Ljava/lang/String;)Ljavax/jms/TextMessage;	class not in ART
+javax/lang/model/SourceVersion	<class>	not in ART
+javax/lang/model/SourceVersion	latest()Ljavax/lang/model/SourceVersion;	class not in ART
+javax/lang/model/element/AnnotationMirror	<class>	not in ART
+javax/lang/model/element/AnnotationMirror	getAnnotationType()Ljavax/lang/model/type/DeclaredType;	class not in ART
+javax/lang/model/element/AnnotationMirror	getElementValues()Ljava/util/Map;	class not in ART
+javax/lang/model/element/AnnotationValue	<class>	not in ART
+javax/lang/model/element/AnnotationValue	getValue()Ljava/lang/Object;	class not in ART
+javax/lang/model/element/Element	<class>	not in ART
+javax/lang/model/element/Element	accept(Ljavax/lang/model/element/ElementVisitor;Ljava/lang/Object;)Ljava/lang/Object;	class not in ART
+javax/lang/model/element/Element	asType()Ljavax/lang/model/type/TypeMirror;	class not in ART
+javax/lang/model/element/Element	getAnnotation(Ljava/lang/Class;)Ljava/lang/annotation/Annotation;	class not in ART
+javax/lang/model/element/Element	getAnnotationMirrors()Ljava/util/List;	class not in ART
+javax/lang/model/element/Element	getEnclosingElement()Ljavax/lang/model/element/Element;	class not in ART
+javax/lang/model/element/Element	getKind()Ljavax/lang/model/element/ElementKind;	class not in ART
+javax/lang/model/element/ElementKind	FIELD	class not in ART
+javax/lang/model/element/ElementKind	PARAMETER	class not in ART
+javax/lang/model/element/ElementKind	ordinal()I	class not in ART
+javax/lang/model/element/ElementKind	values()[Ljavax/lang/model/element/ElementKind;	class not in ART
+javax/lang/model/element/ExecutableElement	<class>	not in ART
+javax/lang/model/element/ExecutableElement	getEnclosingElement()Ljavax/lang/model/element/Element;	class not in ART
+javax/lang/model/element/ExecutableElement	getModifiers()Ljava/util/Set;	class not in ART
+javax/lang/model/element/ExecutableElement	getParameters()Ljava/util/List;	class not in ART
+javax/lang/model/element/ExecutableElement	getReturnType()Ljavax/lang/model/type/TypeMirror;	class not in ART
+javax/lang/model/element/ExecutableElement	getSimpleName()Ljavax/lang/model/element/Name;	class not in ART
+javax/lang/model/element/Modifier	<class>	not in ART
+javax/lang/model/element/Modifier	PUBLIC	class not in ART
+javax/lang/model/element/Modifier	STATIC	class not in ART
+javax/lang/model/element/TypeElement	<class>	not in ART
+javax/lang/model/element/TypeElement	getAnnotation(Ljava/lang/Class;)Ljava/lang/annotation/Annotation;	class not in ART
+javax/lang/model/element/TypeElement	getEnclosedElements()Ljava/util/List;	class not in ART
+javax/lang/model/element/VariableElement	<class>	not in ART
+javax/lang/model/element/VariableElement	asType()Ljavax/lang/model/type/TypeMirror;	class not in ART
+javax/lang/model/element/VariableElement	getAnnotation(Ljava/lang/Class;)Ljava/lang/annotation/Annotation;	class not in ART
+javax/lang/model/element/VariableElement	getEnclosingElement()Ljavax/lang/model/element/Element;	class not in ART
+javax/lang/model/element/VariableElement	getSimpleName()Ljavax/lang/model/element/Name;	class not in ART
+javax/lang/model/type/ArrayType	<class>	not in ART
+javax/lang/model/type/ArrayType	getComponentType()Ljavax/lang/model/type/TypeMirror;	class not in ART
+javax/lang/model/type/DeclaredType	<class>	not in ART
+javax/lang/model/type/DeclaredType	asElement()Ljavax/lang/model/element/Element;	class not in ART
+javax/lang/model/type/TypeMirror	<class>	not in ART
+javax/lang/model/type/TypeMirror	accept(Ljavax/lang/model/type/TypeVisitor;Ljava/lang/Object;)Ljava/lang/Object;	class not in ART
+javax/lang/model/util/Elements	<class>	not in ART
+javax/lang/model/util/Elements	getBinaryName(Ljavax/lang/model/element/TypeElement;)Ljavax/lang/model/element/Name;	class not in ART
+javax/lang/model/util/Elements	getTypeElement(Ljava/lang/CharSequence;)Ljavax/lang/model/element/TypeElement;	class not in ART
+javax/lang/model/util/SimpleElementVisitor7	<class>	not in ART
+javax/lang/model/util/SimpleElementVisitor7	<init>()V	class not in ART
+javax/lang/model/util/SimpleElementVisitor7	<init>(Ljava/lang/Object;)V	class not in ART
+javax/lang/model/util/SimpleTypeVisitor8	<class>	not in ART
+javax/lang/model/util/SimpleTypeVisitor8	<init>()V	class not in ART
+javax/lang/model/util/Types	isAssignable(Ljavax/lang/model/type/TypeMirror;Ljavax/lang/model/type/TypeMirror;)Z	class not in ART
+javax/mail/Authenticator	<class>	not in ART
+javax/mail/Authenticator	<init>()V	class not in ART
+javax/mail/Message$RecipientType	<class>	not in ART
+javax/mail/Message$RecipientType	BCC	class not in ART
+javax/mail/Message$RecipientType	CC	class not in ART
+javax/mail/Message$RecipientType	TO	class not in ART
+javax/mail/PasswordAuthentication	<class>	not in ART
+javax/mail/PasswordAuthentication	<init>(Ljava/lang/String;Ljava/lang/String;)V	class not in ART
+javax/mail/Session	<class>	not in ART
+javax/mail/Session	getInstance(Ljava/util/Properties;Ljavax/mail/Authenticator;)Ljavax/mail/Session;	class not in ART
+javax/mail/Session	setDebug(Z)V	class not in ART
+javax/mail/Session	setProtocolForAddress(Ljava/lang/String;Ljava/lang/String;)V	class not in ART
+javax/mail/Transport	send(Ljavax/mail/Message;)V	class not in ART
+javax/mail/internet/InternetAddress	<class>	not in ART
+javax/mail/internet/InternetAddress	<init>(Ljava/lang/String;)V	class not in ART
+javax/mail/internet/InternetAddress	parse(Ljava/lang/String;Z)[Ljavax/mail/internet/InternetAddress;	class not in ART
+javax/mail/internet/InternetHeaders	<class>	not in ART
+javax/mail/internet/InternetHeaders	<init>()V	class not in ART
+javax/mail/internet/InternetHeaders	setHeader(Ljava/lang/String;Ljava/lang/String;)V	class not in ART
+javax/mail/internet/MimeBodyPart	<class>	not in ART
+javax/mail/internet/MimeBodyPart	<init>(Ljavax/mail/internet/InternetHeaders;[B)V	class not in ART
+javax/mail/internet/MimeMessage	<class>	not in ART
+javax/mail/internet/MimeMessage	<init>(Ljavax/mail/Session;)V	class not in ART
+javax/mail/internet/MimeMessage	setContent(Ljavax/mail/Multipart;)V	class not in ART
+javax/mail/internet/MimeMessage	setFrom()V	class not in ART
+javax/mail/internet/MimeMessage	setFrom(Ljavax/mail/Address;)V	class not in ART
+javax/mail/internet/MimeMessage	setRecipients(Ljavax/mail/Message$RecipientType;[Ljavax/mail/Address;)V	class not in ART
+javax/mail/internet/MimeMessage	setReplyTo([Ljavax/mail/Address;)V	class not in ART
+javax/mail/internet/MimeMessage	setSentDate(Ljava/util/Date;)V	class not in ART
+javax/mail/internet/MimeMessage	setSubject(Ljava/lang/String;)V	class not in ART
+javax/mail/internet/MimeMessage	setSubject(Ljava/lang/String;Ljava/lang/String;)V	class not in ART
+javax/mail/internet/MimeMultipart	<class>	not in ART
+javax/mail/internet/MimeMultipart	<init>()V	class not in ART
+javax/mail/internet/MimeMultipart	addBodyPart(Ljavax/mail/BodyPart;)V	class not in ART
+javax/mail/internet/MimeUtility	encode(Ljava/io/OutputStream;Ljava/lang/String;)Ljava/io/OutputStream;	class not in ART
+javax/mail/internet/MimeUtility	getEncoding(Ljavax/activation/DataSource;)Ljava/lang/String;	class not in ART
+javax/mail/util/ByteArrayDataSource	<class>	not in ART
+javax/mail/util/ByteArrayDataSource	<init>([BLjava/lang/String;)V	class not in ART
+javax/management/MBeanNotificationInfo	<class>	not in ART
+javax/management/MBeanNotificationInfo	<init>([Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V	class not in ART
+javax/management/MBeanRegistration	<class>	not in ART
+javax/management/MBeanServer	<class>	not in ART
+javax/management/MBeanServer	isRegistered(Ljavax/management/ObjectName;)Z	class not in ART
+javax/management/MBeanServer	queryNames(Ljavax/management/ObjectName;Ljavax/management/QueryExp;)Ljava/util/Set;	class not in ART
+javax/management/MBeanServer	registerMBean(Ljava/lang/Object;Ljavax/management/ObjectName;)Ljavax/management/ObjectInstance;	class not in ART
+javax/management/MBeanServer	unregisterMBean(Ljavax/management/ObjectName;)V	class not in ART
+javax/management/Notification	<class>	not in ART
+javax/management/Notification	<init>(Ljava/lang/String;Ljava/lang/Object;JJ)V	class not in ART
+javax/management/Notification	<init>(Ljava/lang/String;Ljava/lang/Object;JJLjava/lang/String;)V	class not in ART
+javax/management/Notification	setUserData(Ljava/lang/Object;)V	class not in ART
+javax/management/NotificationBroadcasterSupport	<class>	not in ART
+javax/management/NotificationBroadcasterSupport	<init>(Ljava/util/concurrent/Executor;[Ljavax/management/MBeanNotificationInfo;)V	class not in ART
+javax/management/NotificationBroadcasterSupport	addNotificationListener(Ljavax/management/NotificationListener;Ljavax/management/NotificationFilter;Ljava/lang/Object;)V	class not in ART
+javax/management/NotificationFilter	<class>	not in ART
+javax/management/NotificationListener	<class>	not in ART
+javax/management/ObjectName	<class>	not in ART
+javax/management/ObjectName	<init>(Ljava/lang/String;)V	class not in ART
+javax/naming/Context	<class>	not in ART
+javax/naming/Context	close()V	class not in ART
+javax/naming/InitialContext	<class>	not in ART
+javax/naming/InitialContext	<init>(Ljava/util/Hashtable;)V	class not in ART
+javax/naming/InitialContext	lookup(Ljava/lang/String;)Ljava/lang/Object;	class not in ART
+javax/naming/NamingException	getMessage()Ljava/lang/String;	class not in ART
+javax/print/DocFlavor$SERVICE_FORMATTED	PRINTABLE	class not in ART
+javax/print/DocPrintJob	print(Ljavax/print/Doc;Ljavax/print/attribute/PrintRequestAttributeSet;)V	class not in ART
+javax/print/PrintService	createPrintJob()Ljavax/print/DocPrintJob;	class not in ART
+javax/print/SimpleDoc	<class>	not in ART
+javax/print/SimpleDoc	<init>(Ljava/lang/Object;Ljavax/print/DocFlavor;Ljavax/print/attribute/DocAttributeSet;)V	class not in ART
+javax/print/StreamPrintServiceFactory	getPrintService(Ljava/io/OutputStream;)Ljavax/print/StreamPrintService;	class not in ART
+javax/print/StreamPrintServiceFactory	lookupStreamPrintServiceFactories(Ljavax/print/DocFlavor;Ljava/lang/String;)[Ljavax/print/StreamPrintServiceFactory;	class not in ART
+javax/print/attribute/HashPrintRequestAttributeSet	<class>	not in ART
+javax/print/attribute/HashPrintRequestAttributeSet	<init>()V	class not in ART
+javax/script/Bindings	<class>	not in ART
+javax/script/Bindings	put(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;	class not in ART
+javax/script/Bindings	remove(Ljava/lang/Object;)Ljava/lang/Object;	class not in ART
+javax/script/Compilable	<class>	not in ART
+javax/script/Compilable	compile(Ljava/lang/String;)Ljavax/script/CompiledScript;	class not in ART
+javax/script/CompiledScript	<class>	not in ART
+javax/script/CompiledScript	eval(Ljavax/script/Bindings;)Ljava/lang/Object;	class not in ART
+javax/script/ScriptEngine	<class>	not in ART
+javax/script/ScriptEngine	eval(Ljava/lang/String;)Ljava/lang/Object;	class not in ART
+javax/script/ScriptEngine	eval(Ljava/lang/String;Ljavax/script/Bindings;)Ljava/lang/Object;	class not in ART
+javax/script/ScriptEngine	getFactory()Ljavax/script/ScriptEngineFactory;	class not in ART
+javax/script/ScriptEngineFactory	<class>	not in ART
+javax/script/ScriptEngineFactory	getEngineName()Ljava/lang/String;	class not in ART
+javax/script/ScriptEngineFactory	getEngineVersion()Ljava/lang/String;	class not in ART
+javax/script/ScriptEngineFactory	getLanguageName()Ljava/lang/String;	class not in ART
+javax/script/ScriptEngineFactory	getNames()Ljava/util/List;	class not in ART
+javax/script/ScriptEngineFactory	getParameter(Ljava/lang/String;)Ljava/lang/Object;	class not in ART
+javax/script/ScriptEngineFactory	getScriptEngine()Ljavax/script/ScriptEngine;	class not in ART
+javax/script/ScriptEngineManager	<class>	not in ART
+javax/script/ScriptEngineManager	<init>()V	class not in ART
+javax/script/ScriptEngineManager	getEngineByName(Ljava/lang/String;)Ljavax/script/ScriptEngine;	class not in ART
+javax/script/ScriptEngineManager	getEngineFactories()Ljava/util/List;	class not in ART
+javax/script/SimpleBindings	<class>	not in ART
+javax/script/SimpleBindings	<init>()V	class not in ART
+javax/script/SimpleBindings	put(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;	class not in ART
+javax/script/SimpleBindings	putAll(Ljava/util/Map;)V	class not in ART
+javax/servlet/ServletContextEvent	<class>	not in ART
+javax/servlet/ServletContextListener	<class>	not in ART
+javax/sound/sampled/AudioFormat	<class>	not in ART
+javax/sound/sampled/AudioFormat	<init>(FIIZZ)V	class not in ART
+javax/sound/sampled/AudioSystem	getSourceDataLine(Ljavax/sound/sampled/AudioFormat;)Ljavax/sound/sampled/SourceDataLine;	class not in ART
+javax/sound/sampled/SourceDataLine	<class>	not in ART
+javax/sound/sampled/SourceDataLine	open()V	class not in ART
+javax/sound/sampled/SourceDataLine	start()V	class not in ART
+javax/sound/sampled/SourceDataLine	write([BII)I	class not in ART
+javax/swing/BorderFactory	createEmptyBorder()Ljavax/swing/border/Border;	class not in ART
+javax/swing/BorderFactory	createEmptyBorder(IIII)Ljavax/swing/border/Border;	class not in ART
+javax/swing/BoxLayout	<class>	not in ART
+javax/swing/BoxLayout	<init>(Ljava/awt/Container;I)V	class not in ART
+javax/swing/DefaultListModel	<class>	not in ART
+javax/swing/DefaultListModel	<init>()V	class not in ART
+javax/swing/DefaultListModel	addElement(Ljava/lang/Object;)V	class not in ART
+javax/swing/Icon	<class>	not in ART
+javax/swing/JButton	<class>	not in ART
+javax/swing/JButton	<init>(Ljava/lang/String;)V	class not in ART
+javax/swing/JButton	addActionListener(Ljava/awt/event/ActionListener;)V	class not in ART
+javax/swing/JComponent	<class>	not in ART
+javax/swing/JComponent	<init>()V	class not in ART
+javax/swing/JComponent	getBounds()Ljava/awt/Rectangle;	class not in ART
+javax/swing/JComponent	getComponentGraphics(Ljava/awt/Graphics;)Ljava/awt/Graphics;	class not in ART
+javax/swing/JComponent	getHeight()I	class not in ART
+javax/swing/JComponent	getWidth()I	class not in ART
+javax/swing/JComponent	paint(Ljava/awt/Graphics;)V	class not in ART
+javax/swing/JComponent	setBorder(Ljavax/swing/border/Border;)V	class not in ART
+javax/swing/JEditorPane	<class>	not in ART
+javax/swing/JEditorPane	getDocument()Ljavax/swing/text/Document;	class not in ART
+javax/swing/JEditorPane	setText(Ljava/lang/String;)V	class not in ART
+javax/swing/JFileChooser	<class>	not in ART
+javax/swing/JFileChooser	<init>()V	class not in ART
+javax/swing/JFileChooser	addChoosableFileFilter(Ljavax/swing/filechooser/FileFilter;)V	class not in ART
+javax/swing/JFileChooser	approveSelection()V	class not in ART
+javax/swing/JFileChooser	getSelectedFile()Ljava/io/File;	class not in ART
+javax/swing/JFileChooser	setCurrentDirectory(Ljava/io/File;)V	class not in ART
+javax/swing/JFileChooser	setFileFilter(Ljavax/swing/filechooser/FileFilter;)V	class not in ART
+javax/swing/JFileChooser	setSelectedFile(Ljava/io/File;)V	class not in ART
+javax/swing/JFileChooser	showSaveDialog(Ljava/awt/Component;)I	class not in ART
+javax/swing/JFrame	<class>	not in ART
+javax/swing/JFrame	<init>()V	class not in ART
+javax/swing/JFrame	addWindowListener(Ljava/awt/event/WindowListener;)V	class not in ART
+javax/swing/JFrame	dispatchEvent(Ljava/awt/AWTEvent;)V	class not in ART
+javax/swing/JFrame	dispose()V	class not in ART
+javax/swing/JFrame	getContentPane()Ljava/awt/Container;	class not in ART
+javax/swing/JFrame	getLocationOnScreen()Ljava/awt/Point;	class not in ART
+javax/swing/JFrame	getSize()Ljava/awt/Dimension;	class not in ART
+javax/swing/JFrame	pack()V	class not in ART
+javax/swing/JFrame	setContentPane(Ljava/awt/Container;)V	class not in ART
+javax/swing/JFrame	setDefaultCloseOperation(I)V	class not in ART
+javax/swing/JFrame	setLocation(II)V	class not in ART
+javax/swing/JFrame	setLocationRelativeTo(Ljava/awt/Component;)V	class not in ART
+javax/swing/JFrame	setPreferredSize(Ljava/awt/Dimension;)V	class not in ART
+javax/swing/JFrame	setTitle(Ljava/lang/String;)V	class not in ART
+javax/swing/JFrame	setVisible(Z)V	class not in ART
+javax/swing/JList	<class>	not in ART
+javax/swing/JList	<init>()V	class not in ART
+javax/swing/JList	addListSelectionListener(Ljavax/swing/event/ListSelectionListener;)V	class not in ART
+javax/swing/JList	getMaxSelectionIndex()I	class not in ART
+javax/swing/JList	getMinSelectionIndex()I	class not in ART
+javax/swing/JList	getModel()Ljavax/swing/ListModel;	class not in ART
+javax/swing/JList	isSelectedIndex(I)Z	class not in ART
+javax/swing/JList	setModel(Ljavax/swing/ListModel;)V	class not in ART
+javax/swing/JOptionPane	showConfirmDialog(Ljava/awt/Component;Ljava/lang/Object;Ljava/lang/String;I)I	class not in ART
+javax/swing/JOptionPane	showMessageDialog(Ljava/awt/Component;Ljava/lang/Object;)V	class not in ART
+javax/swing/JOptionPane	showMessageDialog(Ljava/awt/Component;Ljava/lang/Object;Ljava/lang/String;I)V	class not in ART
+javax/swing/JPanel	<class>	not in ART
+javax/swing/JPanel	<init>()V	class not in ART
+javax/swing/JPanel	<init>(Ljava/awt/LayoutManager;)V	class not in ART
+javax/swing/JPanel	add(Ljava/awt/Component;)Ljava/awt/Component;	class not in ART
+javax/swing/JPanel	add(Ljava/awt/Component;Ljava/lang/Object;)V	class not in ART
+javax/swing/JPanel	setLayout(Ljava/awt/LayoutManager;)V	class not in ART
+javax/swing/JScrollPane	<class>	not in ART
+javax/swing/JScrollPane	<init>()V	class not in ART
+javax/swing/JScrollPane	<init>(Ljava/awt/Component;)V	class not in ART
+javax/swing/JScrollPane	setViewportView(Ljava/awt/Component;)V	class not in ART
+javax/swing/JScrollPane	setVisible(Z)V	class not in ART
+javax/swing/JSlider	<class>	not in ART
+javax/swing/JSlider	<init>(IIII)V	class not in ART
+javax/swing/JSlider	addChangeListener(Ljavax/swing/event/ChangeListener;)V	class not in ART
+javax/swing/JSlider	getValue()I	class not in ART
+javax/swing/JSplitPane	<class>	not in ART
+javax/swing/JSplitPane	<init>()V	class not in ART
+javax/swing/JSplitPane	<init>(ILjava/awt/Component;Ljava/awt/Component;)V	class not in ART
+javax/swing/JSplitPane	getDividerLocation()I	class not in ART
+javax/swing/JSplitPane	setBorder(Ljavax/swing/border/Border;)V	class not in ART
+javax/swing/JSplitPane	setBottomComponent(Ljava/awt/Component;)V	class not in ART
+javax/swing/JSplitPane	setContinuousLayout(Z)V	class not in ART
+javax/swing/JSplitPane	setDividerLocation(I)V	class not in ART
+javax/swing/JSplitPane	setDividerSize(I)V	class not in ART
+javax/swing/JSplitPane	setLeftComponent(Ljava/awt/Component;)V	class not in ART
+javax/swing/JSplitPane	setOneTouchExpandable(Z)V	class not in ART
+javax/swing/JSplitPane	setOrientation(I)V	class not in ART
+javax/swing/JSplitPane	setResizeWeight(D)V	class not in ART
+javax/swing/JSplitPane	setRightComponent(Ljava/awt/Component;)V	class not in ART
+javax/swing/JSplitPane	setTopComponent(Ljava/awt/Component;)V	class not in ART
+javax/swing/JTabbedPane	<class>	not in ART
+javax/swing/JTabbedPane	<init>()V	class not in ART
+javax/swing/JTabbedPane	addTab(Ljava/lang/String;Ljava/awt/Component;)V	class not in ART
+javax/swing/JTabbedPane	setBorder(Ljavax/swing/border/Border;)V	class not in ART
+javax/swing/JTextPane	<class>	not in ART
+javax/swing/JTextPane	<init>()V	class not in ART
+javax/swing/JTextPane	addCaretListener(Ljavax/swing/event/CaretListener;)V	class not in ART
+javax/swing/JToolBar	<class>	not in ART
+javax/swing/JToolBar	<init>()V	class not in ART
+javax/swing/JTree	<class>	not in ART
+javax/swing/JTree	<init>()V	class not in ART
+javax/swing/JTree	<init>(Ljavax/swing/tree/TreeNode;)V	class not in ART
+javax/swing/JTree	addTreeSelectionListener(Ljavax/swing/event/TreeSelectionListener;)V	class not in ART
+javax/swing/JTree	getLastSelectedPathComponent()Ljava/lang/Object;	class not in ART
+javax/swing/JTree	getSelectionModel()Ljavax/swing/tree/TreeSelectionModel;	class not in ART
+javax/swing/JTree	getSelectionPath()Ljavax/swing/tree/TreePath;	class not in ART
+javax/swing/JTree	scrollPathToVisible(Ljavax/swing/tree/TreePath;)V	class not in ART
+javax/swing/JTree	setModel(Ljavax/swing/tree/TreeModel;)V	class not in ART
+javax/swing/JTree	setRootVisible(Z)V	class not in ART
+javax/swing/JTree	setSelectionPath(Ljavax/swing/tree/TreePath;)V	class not in ART
+javax/swing/JTree	setShowsRootHandles(Z)V	class not in ART
+javax/swing/ListModel	getElementAt(I)Ljava/lang/Object;	class not in ART
+javax/swing/SwingUtilities	invokeAndWait(Ljava/lang/Runnable;)V	class not in ART
+javax/swing/UIManager	put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;	class not in ART
+javax/swing/event/CaretEvent	<class>	not in ART
+javax/swing/event/CaretEvent	getDot()I	class not in ART
+javax/swing/event/CaretEvent	getSource()Ljava/lang/Object;	class not in ART
+javax/swing/event/CaretListener	<class>	not in ART
+javax/swing/event/ChangeEvent	<class>	not in ART
+javax/swing/event/ChangeListener	<class>	not in ART
+javax/swing/event/ListSelectionEvent	<class>	not in ART
+javax/swing/event/ListSelectionListener	<class>	not in ART
+javax/swing/event/TreeModelListener	<class>	not in ART
+javax/swing/event/TreeSelectionEvent	<class>	not in ART
+javax/swing/event/TreeSelectionEvent	getNewLeadSelectionPath()Ljavax/swing/tree/TreePath;	class not in ART
+javax/swing/event/TreeSelectionEvent	getSource()Ljava/lang/Object;	class not in ART
+javax/swing/event/TreeSelectionListener	<class>	not in ART
+javax/swing/filechooser/FileFilter	<class>	not in ART
+javax/swing/filechooser/FileFilter	<init>()V	class not in ART
+javax/swing/text/DefaultHighlighter	DefaultPainter	class not in ART
+javax/swing/text/Document	getProperty(Ljava/lang/Object;)Ljava/lang/Object;	class not in ART
+javax/swing/text/Document	putProperty(Ljava/lang/Object;Ljava/lang/Object;)V	class not in ART
+javax/swing/text/Highlighter	addHighlight(IILjavax/swing/text/Highlighter$HighlightPainter;)Ljava/lang/Object;	class not in ART
+javax/swing/text/Highlighter	removeAllHighlights()V	class not in ART
+javax/swing/text/JTextComponent	<class>	not in ART
+javax/swing/text/JTextComponent	getCaretPosition()I	class not in ART
+javax/swing/text/JTextComponent	getDocument()Ljavax/swing/text/Document;	class not in ART
+javax/swing/text/JTextComponent	getHighlighter()Ljavax/swing/text/Highlighter;	class not in ART
+javax/swing/text/JTextComponent	modelToView(I)Ljava/awt/Rectangle;	class not in ART
+javax/swing/text/JTextComponent	moveCaretPosition(I)V	class not in ART
+javax/swing/text/JTextComponent	scrollRectToVisible(Ljava/awt/Rectangle;)V	class not in ART
+javax/swing/tree/DefaultMutableTreeNode	<class>	not in ART
+javax/swing/tree/DefaultMutableTreeNode	<init>(Ljava/lang/Object;)V	class not in ART
+javax/swing/tree/TreeModel	<class>	not in ART
+javax/swing/tree/TreePath	<class>	not in ART
+javax/swing/tree/TreePath	<init>([Ljava/lang/Object;)V	class not in ART
+javax/swing/tree/TreePath	getLastPathComponent()Ljava/lang/Object;	class not in ART
+javax/swing/tree/TreeSelectionModel	setSelectionMode(I)V	class not in ART
+javax/tools/Diagnostic$Kind	<class>	not in ART
+javax/tools/Diagnostic$Kind	ERROR	class not in ART
+javax/tools/Diagnostic$Kind	NOTE	class not in ART
+javax/tools/Diagnostic$Kind	WARNING	class not in ART
+javax/tools/Diagnostic$Kind	ordinal()I	class not in ART
+javax/tools/Diagnostic$Kind	valueOf(Ljava/lang/String;)Ljavax/tools/Diagnostic$Kind;	class not in ART
+javax/tools/Diagnostic$Kind	values()[Ljavax/tools/Diagnostic$Kind;	class not in ART
+javax/tools/FileObject	openOutputStream()Ljava/io/OutputStream;	class not in ART
+javax/tools/StandardLocation	CLASS_OUTPUT	class not in ART
+javax/xml/stream/XMLInputFactory	<class>	not in ART
+javax/xml/stream/XMLOutputFactory	<class>	not in ART
+javax/xml/stream/XMLOutputFactory	createXMLStreamWriter(Ljava/io/OutputStream;)Ljavax/xml/stream/XMLStreamWriter;	class not in ART
+javax/xml/stream/XMLOutputFactory	createXMLStreamWriter(Ljava/io/Writer;)Ljavax/xml/stream/XMLStreamWriter;	class not in ART
+javax/xml/stream/XMLOutputFactory	newInstance()Ljavax/xml/stream/XMLOutputFactory;	class not in ART
+javax/xml/stream/XMLStreamException	getNestedException()Ljava/lang/Throwable;	class not in ART
+javax/xml/stream/XMLStreamWriter	<class>	not in ART
+javax/xml/stream/XMLStreamWriter	close()V	class not in ART
+javax/xml/stream/XMLStreamWriter	writeAttribute(Ljava/lang/String;Ljava/lang/String;)V	class not in ART
+javax/xml/stream/XMLStreamWriter	writeCharacters(Ljava/lang/String;)V	class not in ART
+javax/xml/stream/XMLStreamWriter	writeEmptyElement(Ljava/lang/String;)V	class not in ART
+javax/xml/stream/XMLStreamWriter	writeEndDocument()V	class not in ART
+javax/xml/stream/XMLStreamWriter	writeEndElement()V	class not in ART
+javax/xml/stream/XMLStreamWriter	writeStartDocument()V	class not in ART
+javax/xml/stream/XMLStreamWriter	writeStartElement(Ljava/lang/String;)V	class not in ART
+sun/misc/Unsafe	<class>	not in ART
+sun/misc/Unsafe	arrayBaseOffset(Ljava/lang/Class;)I	class not in ART
+sun/misc/Unsafe	arrayIndexScale(Ljava/lang/Class;)I	class not in ART
+sun/misc/Unsafe	compareAndSwapLong(Ljava/lang/Object;JJJ)Z	class not in ART
+sun/misc/Unsafe	getDouble(J)D	class not in ART
+sun/misc/Unsafe	getDouble(Ljava/lang/Object;J)D	class not in ART
+sun/misc/Unsafe	getFloat(J)F	class not in ART
+sun/misc/Unsafe	getFloat(Ljava/lang/Object;J)F	class not in ART
+sun/misc/Unsafe	getInt(Ljava/lang/Object;J)I	class not in ART
+sun/misc/Unsafe	getIntVolatile(Ljava/lang/Object;J)I	class not in ART
+sun/misc/Unsafe	getLong(J)J	class not in ART
+sun/misc/Unsafe	getLong(Ljava/lang/Object;J)J	class not in ART
+sun/misc/Unsafe	getObject(Ljava/lang/Object;J)Ljava/lang/Object;	class not in ART
+sun/misc/Unsafe	objectFieldOffset(Ljava/lang/reflect/Field;)J	class not in ART
+sun/misc/Unsafe	putDouble(Ljava/lang/Object;JD)V	class not in ART
+sun/misc/Unsafe	putFloat(Ljava/lang/Object;JF)V	class not in ART
+sun/misc/Unsafe	putInt(Ljava/lang/Object;JI)V	class not in ART
+sun/misc/Unsafe	putLong(Ljava/lang/Object;JJ)V	class not in ART
+sun/misc/Unsafe	putLongVolatile(Ljava/lang/Object;JJ)V	class not in ART
+sun/misc/Unsafe	putOrderedInt(Ljava/lang/Object;JI)V	class not in ART
+sun/misc/Unsafe	putOrderedLong(Ljava/lang/Object;JJ)V	class not in ART

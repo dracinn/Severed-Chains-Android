@@ -63,7 +63,9 @@ public final class MainActivity extends Activity {
     // letterbox at the top (default mode, no draw under the notch). Nav and
     // status bars are made transparent so their hidden surfaces don't
     // composite black over our content.
-    this.getWindow().setDecorFitsSystemWindows(false);
+    if(android.os.Build.VERSION.SDK_INT >= 30) {
+      this.getWindow().setDecorFitsSystemWindows(false);
+    }
     // decorFits(false) alone is ignored in this compat-letterboxed window —
     // the legacy layout flags drive the same inset bypass
     this.getWindow().getDecorView().setSystemUiVisibility(
@@ -77,13 +79,17 @@ public final class MainActivity extends Activity {
     // nav-inset region (84px) can never be painted, even by surfaces.
     this.getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
       | android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
-    final android.view.WindowManager.LayoutParams lp = this.getWindow().getAttributes();
-    lp.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
-    this.getWindow().setAttributes(lp);
+    if(android.os.Build.VERSION.SDK_INT >= 28) {
+      final android.view.WindowManager.LayoutParams lp = this.getWindow().getAttributes();
+      lp.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+      this.getWindow().setAttributes(lp);
+    }
     this.getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
-    this.getWindow().setStatusBarContrastEnforced(false);
     this.getWindow().setNavigationBarColor(android.graphics.Color.TRANSPARENT);
-    this.getWindow().setNavigationBarContrastEnforced(false);
+    if(android.os.Build.VERSION.SDK_INT >= 29) {
+      this.getWindow().setStatusBarContrastEnforced(false);
+      this.getWindow().setNavigationBarContrastEnforced(false);
+    }
 
     AndroidEnv.init(this);
     AndroidEnv.setActivity(this);
@@ -373,7 +379,7 @@ public final class MainActivity extends Activity {
   public void onWindowFocusChanged(final boolean hasFocus) {
     super.onWindowFocusChanged(hasFocus);
     AndroidInput.focus(hasFocus);
-    if(hasFocus && this.getWindow().getInsetsController() != null) {
+    if(hasFocus && android.os.Build.VERSION.SDK_INT >= 30 && this.getWindow().getInsetsController() != null) {
       this.getWindow().getInsetsController().setSystemBarsBehavior(android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
       this.getWindow().getInsetsController().hide(android.view.WindowInsets.Type.systemBars());
       // hide() rewrites the legacy visibility flags — re-assert the layout
@@ -382,6 +388,15 @@ public final class MainActivity extends Activity {
         android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
           | android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
           | android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+    } else if(hasFocus && android.os.Build.VERSION.SDK_INT < 30) {
+      // No WindowInsetsController before API 30 — hide via legacy flags
+      this.getWindow().getDecorView().setSystemUiVisibility(
+        android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+          | android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+          | android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+          | android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+          | android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
+          | android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
     }
   }
 

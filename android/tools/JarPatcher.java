@@ -27,6 +27,14 @@ import java.util.jar.JarOutputStream;
  *   Locale.of(lang[, country])       -> JdkCompat.localeOf(...)
  *   StringBuilder.repeat(...)        -> JdkCompat.sbRepeat(sb, ...)
  *   String.formatted(args)           -> String.format(str, args)
+ *   Math.fma(a,b,c)                  -> JdkCompat.fma(a, b, c)
+ *   ByteArrayOutputStream.writeBytes -> JdkCompat.writeBytes(baos, b)
+ *   String.lines()                   -> JdkCompat.lines(str)
+ *   CompletableFuture.completeAsync  -> JdkCompat.completeAsync(cf, ...)
+ *   InputStream.readAllBytes()       -> JdkCompat.readAllBytes(in)
+ *   Random.nextInt(origin, bound)    -> JdkCompat.nextInt(rnd, ...)
+ *   BigInteger.longValueExact()      -> JdkCompat.longValueExact(bi)
+ *   new FileReader(name, charset)    -> new FileReader(name)
  *   XBuffer.get(i) / put(i, ...)     -> JdkCompat.get/put(buf, i, ...)
  *   List.getFirst()/removeLast()/... -> JdkCompat.first/removeLast/...(list)
  */
@@ -180,6 +188,79 @@ public final class JarPatcher {
             // receiver as the first arg.
             if(opcode == Opcodes.INVOKEVIRTUAL && owner.equals("java/lang/String") && name.equals("formatted") && descriptor.equals("([Ljava/lang/Object;)Ljava/lang/String;")) {
               super.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/String", "format", "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;", false);
+              changed[0] = true;
+              return;
+            }
+
+            // ART lacks Math.fma (API 33). Plain a*b+c in JdkCompat; same
+            // fallback JOML itself applies when fma is unavailable.
+            if(opcode == Opcodes.INVOKESTATIC && owner.equals("java/lang/Math") && name.equals("fma") && (descriptor.equals("(FFF)F") || descriptor.equals("(DDD)D"))) {
+              super.visitMethodInsn(Opcodes.INVOKESTATIC, "legend/game/android/JdkCompat", "fma", descriptor, false);
+              changed[0] = true;
+              return;
+            }
+
+            // ART lacks ByteArrayOutputStream.writeBytes (API 33).
+            if(opcode == Opcodes.INVOKEVIRTUAL && owner.equals("java/io/ByteArrayOutputStream") && name.equals("writeBytes") && descriptor.equals("([B)V")) {
+              super.visitMethodInsn(Opcodes.INVOKESTATIC, "legend/game/android/JdkCompat", "writeBytes", "(Ljava/io/ByteArrayOutputStream;[B)V", false);
+              changed[0] = true;
+              return;
+            }
+
+            // ART lacks String.lines (API 33); String is final so the owner
+            // is always java/lang/String.
+            if(opcode == Opcodes.INVOKEVIRTUAL && owner.equals("java/lang/String") && name.equals("lines") && descriptor.equals("()Ljava/util/stream/Stream;")) {
+              super.visitMethodInsn(Opcodes.INVOKESTATIC, "legend/game/android/JdkCompat", "lines", "(Ljava/lang/String;)Ljava/util/stream/Stream;", false);
+              changed[0] = true;
+              return;
+            }
+
+            // ART lacks CompletableFuture.completeAsync (API 31).
+            if(opcode == Opcodes.INVOKEVIRTUAL && owner.equals("java/util/concurrent/CompletableFuture") && name.equals("completeAsync")) {
+              if(descriptor.equals("(Ljava/util/function/Supplier;)Ljava/util/concurrent/CompletableFuture;")) {
+                super.visitMethodInsn(Opcodes.INVOKESTATIC, "legend/game/android/JdkCompat", "completeAsync", "(Ljava/util/concurrent/CompletableFuture;Ljava/util/function/Supplier;)Ljava/util/concurrent/CompletableFuture;", false);
+                changed[0] = true;
+                return;
+              }
+              if(descriptor.equals("(Ljava/util/function/Supplier;Ljava/util/concurrent/Executor;)Ljava/util/concurrent/CompletableFuture;")) {
+                super.visitMethodInsn(Opcodes.INVOKESTATIC, "legend/game/android/JdkCompat", "completeAsync", "(Ljava/util/concurrent/CompletableFuture;Ljava/util/function/Supplier;Ljava/util/concurrent/Executor;)Ljava/util/concurrent/CompletableFuture;", false);
+                changed[0] = true;
+                return;
+              }
+            }
+
+            // ART lacks InputStream.readAllBytes (API 33).
+            if(opcode == Opcodes.INVOKEVIRTUAL && owner.equals("java/io/InputStream") && name.equals("readAllBytes") && descriptor.equals("()[B")) {
+              super.visitMethodInsn(Opcodes.INVOKESTATIC, "legend/game/android/JdkCompat", "readAllBytes", "(Ljava/io/InputStream;)[B", false);
+              changed[0] = true;
+              return;
+            }
+
+            // ART lacks Random.nextInt(origin, bound) (API 35). Restricted to
+            // owners assignable to java.util.Random so the widened JdkCompat
+            // parameter verifies (SplittableRandom implements only
+            // RandomGenerator and is intentionally not matched).
+            if(opcode == Opcodes.INVOKEVIRTUAL && name.equals("nextInt") && descriptor.equals("(II)I")
+                && (owner.equals("java/util/Random") || owner.equals("java/security/SecureRandom") || owner.equals("java/util/concurrent/ThreadLocalRandom"))) {
+              super.visitMethodInsn(Opcodes.INVOKESTATIC, "legend/game/android/JdkCompat", "nextInt", "(Ljava/util/Random;II)I", false);
+              changed[0] = true;
+              return;
+            }
+
+            // ART lacks BigInteger.longValueExact (API 31).
+            if(opcode == Opcodes.INVOKEVIRTUAL && owner.equals("java/math/BigInteger") && name.equals("longValueExact") && descriptor.equals("()J")) {
+              super.visitMethodInsn(Opcodes.INVOKESTATIC, "legend/game/android/JdkCompat", "longValueExact", "(Ljava/math/BigInteger;)J", false);
+              changed[0] = true;
+              return;
+            }
+
+            // ART lacks the FileReader(String, Charset) constructor (API 33).
+            // Stack is [uninit, String, Charset]: drop the charset (callers
+            // pass UTF-8 and ART's default charset is UTF-8) and delegate to
+            // the single-arg constructor.
+            if(opcode == Opcodes.INVOKESPECIAL && owner.equals("java/io/FileReader") && name.equals("<init>") && descriptor.equals("(Ljava/lang/String;Ljava/nio/charset/Charset;)V")) {
+              super.visitInsn(Opcodes.POP);
+              super.visitMethodInsn(Opcodes.INVOKESPECIAL, owner, "<init>", "(Ljava/lang/String;)V", false);
               changed[0] = true;
               return;
             }

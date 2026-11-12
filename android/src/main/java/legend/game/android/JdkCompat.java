@@ -3,6 +3,7 @@ package legend.game.android;
 import android.graphics.Bitmap;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -794,6 +795,80 @@ public final class JdkCompat {
    * the class of the frame above the method that called this — i.e. the
    * caller's caller, matching StackWalker's semantics for lockConfig.
    */
+  /** Math.fma (API 33) - plain multiply-add, the same fallback joml uses. */
+  public static float fma(final float a, final float b, final float c) {
+    return a * b + c;
+  }
+
+  /** Math.fma (API 33). */
+  public static double fma(final double a, final double b, final double c) {
+    return a * b + c;
+  }
+
+  /** ByteArrayOutputStream.writeBytes (API 33). */
+  public static void writeBytes(final ByteArrayOutputStream out, final byte[] b) {
+    out.write(b, 0, b.length);
+  }
+
+  /** String.lines (API 33) - same line-terminator set: \n, \r, \r\n. */
+  public static java.util.stream.Stream<String> lines(final String s) {
+    return new java.io.BufferedReader(new java.io.StringReader(s)).lines();
+  }
+
+  /** CompletableFuture.completeAsync (API 31) - common-pool overload. */
+  public static <T> java.util.concurrent.CompletableFuture<T> completeAsync(final java.util.concurrent.CompletableFuture<T> cf, final java.util.function.Supplier<? extends T> supplier) {
+    return completeAsync(cf, supplier, java.util.concurrent.ForkJoinPool.commonPool());
+  }
+
+  /** CompletableFuture.completeAsync(supplier, executor) (API 31). */
+  public static <T> java.util.concurrent.CompletableFuture<T> completeAsync(final java.util.concurrent.CompletableFuture<T> cf, final java.util.function.Supplier<? extends T> supplier, final java.util.concurrent.Executor executor) {
+    executor.execute(() -> {
+      try {
+        cf.complete(supplier.get());
+      } catch(final Throwable t) {
+        cf.completeExceptionally(t);
+      }
+    });
+    return cf;
+  }
+
+  /** InputStream.readAllBytes (API 33). */
+  public static byte[] readAllBytes(final java.io.InputStream in) throws IOException {
+    final ByteArrayOutputStream out = new ByteArrayOutputStream();
+    final byte[] buf = new byte[8192];
+    int n;
+    while((n = in.read(buf)) != -1) {
+      out.write(buf, 0, n);
+    }
+    return out.toByteArray();
+  }
+
+  /** Random.nextInt(origin, bound) (API 35), mirroring the JDK range checks. */
+  public static int nextInt(final Random random, final int origin, final int bound) {
+    if(origin >= bound) {
+      throw new IllegalArgumentException("bound must be greater than origin");
+    }
+    final int n = bound - origin;
+    if(n > 0) {
+      return random.nextInt(n) + origin;
+    }
+    // bound - origin overflowed; rejection-sample like the JDK does
+    int r;
+    do {
+      r = random.nextInt();
+    } while(r < origin || r >= bound);
+    return r;
+  }
+
+  /** BigInteger.longValueExact (API 31). */
+  public static long longValueExact(final java.math.BigInteger value) {
+    final long v = value.longValue();
+    if(java.math.BigInteger.valueOf(v).equals(value)) {
+      return v;
+    }
+    throw new ArithmeticException("BigInteger out of long range");
+  }
+
   public static Class<?> callerClass() {
     boolean foundHelperCaller = false;
     for(final StackTraceElement element : Thread.currentThread().getStackTrace()) {

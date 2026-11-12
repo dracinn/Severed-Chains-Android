@@ -262,6 +262,33 @@ def sharedLiteralTransforms = [
     'StackWalker.StackFrame frame = DebugHelper.getCallerFrame();':
     'legend.game.android.JdkCompat.CallerFrame frame = DebugHelper.getCallerFrame();',
   ],
+  'legend/core/MathHelper.java': [
+    // java.lang.invoke.VarHandle is API 33+ on ART; MathHelper.<clinit> would
+    // crash class-load on older devices. Little-endian shifts are equivalent
+    // to byteArrayViewVarHandle(..., ByteOrder.nativeOrder()) on every ABI we
+    // support. Imports must go too or the dead types linger in the constant
+    // pool.
+    'import java.lang.invoke.MethodHandles;': '',
+    'import java.lang.invoke.VarHandle;': '',
+    'import java.nio.ByteOrder;': '',
+    '''  private static final VarHandle SHORT_VIEW = MethodHandles.byteArrayViewVarHandle(short[].class, ByteOrder.nativeOrder());
+  private static final VarHandle INT_VIEW = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.nativeOrder());
+  private static final VarHandle LONG_VIEW = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.nativeOrder());''':
+    '''  // ART lacks java.lang.invoke.VarHandle before API 33; little-endian
+  // shifts match byteArrayViewVarHandle(ByteOrder.nativeOrder()).''',
+    '    return (short)SHORT_VIEW.get(data, offset);':
+    '    return (short)(data[offset] & 0xff | data[offset + 1] << 8);',
+    '    SHORT_VIEW.set(data, offset, value);':
+    '    data[offset] = (byte)value; data[offset + 1] = (byte)(value >> 8);',
+    '    return (int)INT_VIEW.get(data, offset);':
+    '    return data[offset] & 0xff | (data[offset + 1] & 0xff) << 8 | (data[offset + 2] & 0xff) << 16 | data[offset + 3] << 24;',
+    '    INT_VIEW.set(data, offset, value);':
+    '    data[offset] = (byte)value; data[offset + 1] = (byte)(value >> 8); data[offset + 2] = (byte)(value >> 16); data[offset + 3] = (byte)(value >> 24);',
+    '    return (long)LONG_VIEW.get(data, offset);':
+    '    return data[offset] & 0xffL | (data[offset + 1] & 0xffL) << 8 | (data[offset + 2] & 0xffL) << 16 | (data[offset + 3] & 0xffL) << 24 | (data[offset + 4] & 0xffL) << 32 | (data[offset + 5] & 0xffL) << 40 | (data[offset + 6] & 0xffL) << 48 | (long)data[offset + 7] << 56;',
+    '    LONG_VIEW.set(data, offset, value);':
+    '    data[offset] = (byte)value; data[offset + 1] = (byte)(value >> 8); data[offset + 2] = (byte)(value >> 16); data[offset + 3] = (byte)(value >> 24); data[offset + 4] = (byte)(value >> 32); data[offset + 5] = (byte)(value >> 40); data[offset + 6] = (byte)(value >> 48); data[offset + 7] = (byte)(value >> 56);',
+  ],
   'legend/core/DebugHelper.java': [
     // java.lang.StackWalker was added to ART in API 34 — walk the thread
     // stack instead, keeping upstream's exclusion set (crash log:
@@ -1037,6 +1064,7 @@ configurations {
   implementation.extendsFrom sharedDeps
   transpile
   jarPatch
+  apiCheck
 }
 
 // Stock dep jars are resolved only to feed JarPatcher; sharedDeps consumes
@@ -1144,6 +1172,9 @@ dependencies {
 
   // Host-side bytecode patcher for dependency jars (JarPatcher.java)
   jarPatch 'org.ow2.asm:asm:9.8'
+
+  // Host-side dex API-surface check (ApiSurfaceCheck.java)
+  apiCheck 'com.android.tools.smali:smali-dexlib2:3.0.10'
 }
 
 // Patch gfx/shaders for Android before staging/transpiling. Upstream files
@@ -1322,4 +1353,52 @@ tasks.register('transpileShaders', JavaExec) {
 
 tasks.named('preBuild').configure {
   dependsOn 'patchSharedClasses', 'fetchThirdParty', 'stageAssets', 'transpileShaders'
+}
+
+// Post-dex check that every java.* member the app references resolves on ART
+// at minSdk. Upstream is compiled against the JDK bootclasspath, so missing
+// members (StackWalker, StringBuilder.repeat, Future.resultNow) compile fine
+// and only surface as on-device NoSuchMethodErrors. Scanning the dex catches
+// them post-desugar: covered calls already point at j$ types.
+def apiSurfaceClasses = layout.buildDirectory.dir('classes/api-surface')
+def apiVersionsXml = layout.buildDirectory.file('api-db/data/api-versions.xml')
+def apiBaseline = file('api-surface-baseline.txt')
+def minSdkLevel = android.defaultConfig.minSdk
+
+tasks.register('copyApiVersions', Copy) {
+  from new File(androidJar).parentFile
+  include 'data/api-versions.xml'
+  into layout.buildDirectory.dir('api-db')
+}
+
+tasks.register('compileApiSurfaceCheck', JavaCompile) {
+  source = files('tools/ApiSurfaceCheck.java')
+  classpath = configurations.apiCheck
+  destinationDirectory = apiSurfaceClasses
+  options.release = 17
+}
+
+tasks.register('checkApiSurface', JavaExec) {
+  dependsOn 'compileApiSurfaceCheck', 'copyApiVersions', 'assembleDebug'
+  def dexDirs = [
+    layout.buildDirectory.dir('intermediates/dex/debug/mergeExtDexDebug'),
+    layout.buildDirectory.dir('intermediates/dex/debug/mergeProjectDexDebug'),
+    layout.buildDirectory.dir('intermediates/dex/debug/mergeLibDexDebug'),
+  ]
+  inputs.dir apiVersionsXml.get().asFile.parentFile
+  dexDirs.each { inputs.dir it }
+  inputs.file apiBaseline
+  classpath = files(apiSurfaceClasses) + configurations.apiCheck
+  mainClass = 'ApiSurfaceCheck'
+  if(project.hasProperty('updateApiBaseline')) {
+    args apiVersionsXml.get().asFile.absolutePath, minSdkLevel.toString(), '-',
+      '--write-baseline', apiBaseline.absolutePath
+  } else {
+    args apiVersionsXml.get().asFile.absolutePath, minSdkLevel.toString(), apiBaseline.absolutePath
+  }
+  dexDirs.each { args it.get().asFile.absolutePath }
+}
+
+tasks.named('check').configure {
+  dependsOn 'checkApiSurface'
 }
