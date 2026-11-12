@@ -20,21 +20,6 @@ public class QueuePool<T> {
     this.pools.put(cls, new QueueType<>(constructor));
   }
 
-  /**
-   * Appends the queued entries of another pool to the end of this pool's
-   * queue so they can be rendered together — e.g. sorted as one pool. The
-   * borrowed entries remain in the other pool; remove them again with
-   * {@link #unmerge}.
-   */
-  public void merge(final QueuePool<T> pool) {
-    this.queue.addAll(pool.queue);
-  }
-
-  /** Removes entries previously borrowed via {@link #merge}. */
-  public void unmerge(final QueuePool<T> pool) {
-    this.queue.removeAll(pool.queue);
-  }
-
   public T get(final int index) {
     return this.queue.get(index);
   }

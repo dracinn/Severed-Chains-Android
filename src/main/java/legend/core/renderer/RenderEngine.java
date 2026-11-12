@@ -223,6 +223,9 @@ public class RenderEngine {
   public static final ShaderType<ShaderOptionsScreen> SCREEN_SHADER = new ShaderType<>(
     options -> loadShader("Post", "post", "screen", options),
     shader -> {
+      shader.use();
+      shader.uniformInt("screen").set(0);
+      shader.uniformInt("sceneDepth").set(1);
       final ShaderUniformInt enableCrt = shader.uniformInt("enableCrt");
       final ShaderUniformFloat time = shader.uniformFloat("time");
       final ShaderUniformFloat scanlinesOpacity = shader.uniformFloat("scanlines_opacity");
@@ -726,13 +729,13 @@ public class RenderEngine {
 
         this.api.wireframe(false);
 
-        // When text is on screen, mainBatch's ortho renders post-composite in
-        // the overlay pass — and when the frame also has 3D content, the post
-        // blit writes the scene depth buffer to the window framebuffer via
-        // gl_FragDepth so the overlay can depth-test against it. With no text
-        // or no 3D models the propagated depth is never tested against
+        // Text renders post-composite in the overlay pass, so the post blit
+        // writes the final internal depth buffer (models + opaque ortho) to
+        // the window framebuffer via gl_FragDepth. Overlay text depth-tests
+        // against it, which is how covering UI keeps occluding it. Only runs
+        // when text is on screen
         final boolean overlayOrtho = !this.nativeOrthoBatch.orthoPool.isEmpty();
-        final boolean propagateDepth = overlayOrtho && !this.mainBatch.modelPool.isEmpty();
+        final boolean propagateDepth = overlayOrtho;
         if(propagateDepth) {
           this.api.enableDepthTest(DepthComparator.ALWAYS);
         } else {
@@ -841,15 +844,14 @@ public class RenderEngine {
         // If we don't unbind the framebuffer textures, window resizing will crash since it has to resize the framebuffer
         this.api.unbindTexture();
 
-        // Ortho content renders post-composite at display resolution so that
-        // it's not softened by the resolution scaler or post shader. All ortho
-        // pools are merged into a single z-sorted, blended draw order — if UI
-        // rendered into the internal buffer while text drew on top, covering
-        // windows couldn't occlude or dim text. Only needed when text is on
-        // screen; otherwise mainBatch's ortho already rendered upstream-style
+        // Native-resolution ortho content (text) renders post-composite at
+        // display resolution so that it's not softened by the resolution
+        // scaler or post shader. It depth-tests against the scene depth
+        // propagated by the post blit, so opaque UI that rendered over it in
+        // the internal buffer still occludes it here. All other ortho content
+        // renders in the internal buffer upstream-style — moving it into this
+        // pass would reorder translucent models behind opaque ortho sprites
         if(overlayOrtho) {
-          this.nativeOrthoBatch.orthoPool.merge(this.mainBatch.orthoPool);
-
           this.sortOrthoPool(this.nativeOrthoBatch.orthoPool);
           this.nativeOrthoBatch.needsSorting = false;
 
@@ -898,7 +900,6 @@ public class RenderEngine {
         }
 
         this.api.unbindTexture();
-        this.nativeOrthoBatch.orthoPool.unmerge(this.mainBatch.orthoPool);
       }
 
       // If we're paused, don't reset the pool so that we keep rendering the same scene over and over again
@@ -995,13 +996,7 @@ public class RenderEngine {
 
     this.api.wireframe(false);
     this.setProjectionMode(batch, ProjectionMode._2D);
-    // When there's text on screen, mainBatch's ortho content renders
-    // post-composite in the overlay pass so that UI and text share a single
-    // z-sorted draw order at display resolution. With no text, upstream's
-    // internal-resolution render is already correct and much cheaper
-    if(batch != this.mainBatch || this.nativeOrthoBatch.orthoPool.isEmpty()) {
-      this.renderPool(batch.orthoPool, false);
-    }
+    this.renderPool(batch.orthoPool, false);
 
     this.api.wireframe(this.wireframeMode);
     this.setProjectionMode(batch, ProjectionMode._3D);
@@ -1009,9 +1004,7 @@ public class RenderEngine {
 
     this.api.wireframe(false);
     this.setProjectionMode(batch, ProjectionMode._2D);
-    if(batch != this.mainBatch || this.nativeOrthoBatch.orthoPool.isEmpty()) {
-      this.renderPoolTranslucent(batch.orthoPool);
-    }
+    this.renderPoolTranslucent(batch.orthoPool);
   }
 
   private void renderPool(final QueuePool<QueuedModel<?, ?>> pool, final boolean backFaceCulling) {
