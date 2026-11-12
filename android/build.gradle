@@ -181,7 +181,10 @@ tasks.register('stageSharedSources', Sync) {
   // This fork's own in-tree mods (mods/; not vendored, fully redistributable)
   from '../own_mods/stardust_indicator/src/main/java'
   from '../own_mods/savepoint_heal/src/main/java'
-  into layout.buildDirectory.dir('shared-sources')
+  // Raw staging only. patchStagedSources syncs this into shared-sources and
+  // applies transforms there, so consumers never see the reverted raw state
+  // (Sync would otherwise recopy over the patched files every build).
+  into layout.buildDirectory.dir('shared-sources-unpatched')
   sharedSourceExcludes.each { exclude it }
 }
 
@@ -614,13 +617,19 @@ def duplicateLiteralTransformKeys = literalTransformKeys.findAll { key -> litera
 
 tasks.register('patchStagedSources') {
   dependsOn 'stageSharedSources'
+  def unpatchedDir = layout.buildDirectory.dir('shared-sources-unpatched')
+  def patchedDir = layout.buildDirectory.dir('shared-sources')
+  // shared-sources is this task's tracked output: it always holds fully
+  // patched sources at task boundaries, so compileShared's input snapshot
+  // can never capture the raw pre-patch state.
+  inputs.dir unpatchedDir
+  outputs.dir patchedDir
   doLast {
-    final File root = layout.buildDirectory.dir('shared-sources').get().asFile
-
-    // Sync only recopies changed sources, so Version.java can keep a stale
-    // versionName stamp from the previous run (the literal transform's
-    // idempotency check then misses). Re-stage it from upstream text.
-    new File(root, 'legend/core/Version.java').text = file('../src/main/java/legend/core/Version.java').getText('UTF-8')
+    project.sync {
+      from unpatchedDir
+      into patchedDir
+    }
+    final File root = patchedDir.get().asFile
 
     if(!duplicateLiteralTransformKeys.isEmpty()) {
       throw new GradleException("sharedLiteralTransforms lists ${duplicateLiteralTransformKeys} more than once; merge the entries")
@@ -805,7 +814,7 @@ tasks.register('compileShared', JavaCompile) {
 def annotationIndexDir = layout.buildDirectory.dir('generated/annotation-index')
 
 tasks.register('generateAnnotationIndex') {
-  dependsOn 'stageSharedSources'
+  dependsOn 'patchStagedSources'
   def sharedSources = layout.buildDirectory.dir('shared-sources')
   inputs.dir sharedSources
   def indexFile = annotationIndexDir.map { it.file('META-INF/sc/annotation-index.txt') }
