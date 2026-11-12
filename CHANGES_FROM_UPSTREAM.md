@@ -82,10 +82,12 @@ to run on Android or is an optional extra on top.
 
 ## Display and rendering
 
-- Text renders at the screen's native resolution regardless of the
-  internal render resolution, so menus and dialogue are sharp on
+- Text and 2D UI render at the screen's native resolution regardless of
+  the internal render resolution, so menus and dialogue are sharp on
   high-DPI phone screens even when the 3D scene runs at PS1-style
-  resolutions.
+  resolutions. Z-order and translucency match upstream — covering
+  windows still dim or occlude the text and UI beneath them, and
+  frame-capture effects (battle transition, distortions) include the UI.
 - Extra internal-resolution options fill in the 240p integer-scaling
   ladder, so you can pick the sharpest option for your exact display.
 - A sharpening option improves upscaling when the internal render

@@ -20,6 +20,23 @@ public class QueuePool<T> {
     this.pools.put(cls, new QueueType<>(constructor));
   }
 
+  /**
+   * Appends the queued entries of another pool to the end of this pool's
+   * queue. Returns the number of entries appended so they can be removed
+   * again with {@link #unmerge}.
+   */
+  public int merge(final QueuePool<T> pool) {
+    this.queue.addAll(pool.queue);
+    return pool.queue.size();
+  }
+
+  /** Removes the last {@code count} queued entries. */
+  public void unmerge(final int count) {
+    for(int i = 0; i < count; i++) {
+      this.queue.remove(this.queue.size() - 1);
+    }
+  }
+
   public T get(final int index) {
     return this.queue.get(index);
   }

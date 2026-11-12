@@ -261,6 +261,9 @@ public class RenderEngine {
   ShaderOptionsBattleTmd battleTmdShaderOptions;
   private final FrameBuffer[] renderBuffers = new FrameBuffer[RENDER_BUFFER_COUNT];
   private final Texture[] renderTextures = new Texture[RENDER_BUFFER_COUNT];
+  /** Copies of each completed frame including ortho content, for {@link #getLastFrame()} */
+  private final FrameBuffer[] captureBuffers = new FrameBuffer[RENDER_BUFFER_COUNT];
+  private final Texture[] captureTextures = new Texture[RENDER_BUFFER_COUNT];
   private Texture depthTexture;
   private int renderBufferIndex;
   /** Set when resizing the window so that the render buffers will be resized on the next frame */
@@ -485,7 +488,7 @@ public class RenderEngine {
   }
 
   public Texture getLastFrame() {
-    return this.renderTextures[Math.floorMod(this.renderBufferIndex - 1, RENDER_BUFFER_COUNT)];
+    return this.captureTextures[Math.floorMod(this.renderBufferIndex - 1, RENDER_BUFFER_COUNT)];
   }
 
   /** Submit a task to be run at the start of the next frame */
@@ -517,6 +520,8 @@ public class RenderEngine {
     ShaderManager.addShader(COPY_SHADER);
     final Shader<ShaderOptionsScreen> screenShader = ShaderManager.addShader(SCREEN_SHADER);
     final ShaderOptionsScreen screenShaderOptions = screenShader.makeOptions();
+    final Shader<CopyShaderOptions> copyShader = ShaderManager.getShader(COPY_SHADER);
+    final CopyShaderOptions copyShaderOptions = copyShader.makeOptions();
     this.standardShader = ShaderManager.addShader(STANDARD_SHADER);
     this.standardShaderOptions = this.standardShader.makeOptions();
     this.tmdShader = ShaderManager.addShader(TMD_SHADER);
@@ -816,13 +821,16 @@ public class RenderEngine {
         // If we don't unbind the framebuffer textures, window resizing will crash since it has to resize the framebuffer
         this.api.unbindTexture();
 
-        // Ortho content routed to the native overlay renders on top of the
-        // composited frame at display resolution instead of the internal one
+        // Ortho content renders post-composite at display resolution so that
+        // it's not softened by the resolution scaler or post shader. All ortho
+        // pools are merged into a single z-sorted, blended draw order — if UI
+        // rendered into the internal buffer while text drew on top, covering
+        // windows couldn't occlude or dim text
+        final int borrowedOrtho = this.nativeOrthoBatch.orthoPool.merge(this.mainBatch.orthoPool);
+
         if(!this.nativeOrthoBatch.orthoPool.isEmpty()) {
-          if(this.nativeOrthoBatch.needsSorting) {
-            this.sortOrthoPool(this.nativeOrthoBatch.orthoPool);
-            this.nativeOrthoBatch.needsSorting = false;
-          }
+          this.sortOrthoPool(this.nativeOrthoBatch.orthoPool);
+          this.nativeOrthoBatch.needsSorting = false;
 
           this.nativeOrthoBatch.updateProjections();
 
@@ -857,6 +865,38 @@ public class RenderEngine {
           this.api.disableDepthTest();
           this.api.translucency(null);
         }
+
+        // Composite this frame — including ortho — into the capture buffer so
+        // that getLastFrame() matches what was on screen. Screen transition
+        // and capture effects sample it on the following frame
+        this.captureBuffers[this.renderBufferIndex].bind();
+        this.api.viewport(0, 0, this.renderWidth, this.renderHeight);
+
+        copyShader.use();
+        copyShaderOptions.apply();
+        this.renderTextures[this.renderBufferIndex].use();
+        postQuad.draw();
+
+        if(!this.nativeOrthoBatch.orthoPool.isEmpty()) {
+          this.api.initBatch(this.nativeOrthoBatch);
+          // Ortho renders into the same viewport pre() picked for the frame —
+          // centred and narrowed in FORCED_4_3, full buffer otherwise
+          if(this.mainBatch.renderMode == EngineState.RenderMode.LEGACY && CONFIG.getConfig(LEGACY_WIDESCREEN_MODE_CONFIG.get()) == SubmapWidescreenMode.FORCED_4_3) {
+            final float expectedAspect = (float)this.mainBatch.nativeWidth / this.mainBatch.nativeHeight;
+            final int expectedWidth = Math.round(this.renderHeight * expectedAspect);
+            this.api.viewport((this.renderWidth - expectedWidth) / 2, 0, expectedWidth, this.renderHeight);
+          }
+
+          this.setProjectionMode(this.nativeOrthoBatch, ProjectionMode._2D);
+          this.renderPool(this.nativeOrthoBatch.orthoPool, false);
+          this.renderPoolTranslucent(this.nativeOrthoBatch.orthoPool);
+
+          this.api.disableDepthTest();
+          this.api.translucency(null);
+        }
+
+        this.api.unbindTexture();
+        this.nativeOrthoBatch.orthoPool.unmerge(borrowedOrtho);
       }
 
       // If we're paused, don't reset the pool so that we keep rendering the same scene over and over again
@@ -953,7 +993,11 @@ public class RenderEngine {
 
     this.api.wireframe(false);
     this.setProjectionMode(batch, ProjectionMode._2D);
-    this.renderPool(batch.orthoPool, false);
+    // mainBatch's ortho content renders post-composite in the overlay pass so
+    // that UI and text share a single z-sorted draw order at display resolution
+    if(batch != this.mainBatch) {
+      this.renderPool(batch.orthoPool, false);
+    }
 
     this.api.wireframe(this.wireframeMode);
     this.setProjectionMode(batch, ProjectionMode._3D);
@@ -961,7 +1005,9 @@ public class RenderEngine {
 
     this.api.wireframe(false);
     this.setProjectionMode(batch, ProjectionMode._2D);
-    this.renderPoolTranslucent(batch.orthoPool);
+    if(batch != this.mainBatch) {
+      this.renderPoolTranslucent(batch.orthoPool);
+    }
   }
 
   private void renderPool(final QueuePool<QueuedModel<?, ?>> pool, final boolean backFaceCulling) {
@@ -1375,6 +1421,10 @@ public class RenderEngine {
         this.renderTextures[i].delete();
       }
 
+      if(this.captureTextures[i] != null) {
+        this.captureTextures[i].delete();
+      }
+
       this.renderTextures[i] = Texture.create("Render buffer " + i, builder -> {
         builder.size(this.renderWidth, this.renderHeight);
         builder.internalFormat(TextureInternalFormat.RGBA_8);
@@ -1383,6 +1433,15 @@ public class RenderEngine {
         builder.minFilter(true);
       });
       this.renderTextures[i].persistent = true;
+
+      this.captureTextures[i] = Texture.create("Capture buffer " + i, builder -> {
+        builder.size(this.renderWidth, this.renderHeight);
+        builder.internalFormat(TextureInternalFormat.RGBA_8);
+        builder.dataFormat(TextureDataFormat.RGBA);
+        builder.dataType(TextureDataType.UBYTE);
+        builder.minFilter(true);
+      });
+      this.captureTextures[i].persistent = true;
     }
 
     if(this.depthTexture != null) {
@@ -1403,9 +1462,17 @@ public class RenderEngine {
         this.renderBuffers[i].delete();
       }
 
+      if(this.captureBuffers[i] != null) {
+        this.captureBuffers[i].delete();
+      }
+
       final int finalI = i;
       this.renderBuffers[i] = FrameBuffer.create("Render buffer " + i, builder -> {
         builder.attachment(FrameBufferAttachmentType.COLOUR, this.renderTextures[finalI]);
+        builder.attachment(FrameBufferAttachmentType.DEPTH, this.depthTexture);
+      });
+      this.captureBuffers[i] = FrameBuffer.create("Capture buffer " + i, builder -> {
+        builder.attachment(FrameBufferAttachmentType.COLOUR, this.captureTextures[finalI]);
         builder.attachment(FrameBufferAttachmentType.DEPTH, this.depthTexture);
       });
     }
