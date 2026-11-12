@@ -257,6 +257,52 @@ def sharedLiteralTransforms = [
     // String.repeat is Java 11 — absent from ART before API 33.
     '''LOGGER.error("  %s", "~".repeat(split[i].length()));''':
     '''LOGGER.error("  %s", legend.game.android.JdkCompat.strRepeat("~", split[i].length()));''',
+    // java.lang.StackWalker was added to ART in API 34 — use the JdkCompat
+    // caller-frame substitute (see DebugHelper transform below).
+    'StackWalker.StackFrame frame = DebugHelper.getCallerFrame();':
+    'legend.game.android.JdkCompat.CallerFrame frame = DebugHelper.getCallerFrame();',
+  ],
+  'legend/core/DebugHelper.java': [
+    // java.lang.StackWalker was added to ART in API 34 — walk the thread
+    // stack instead, keeping upstream's exclusion set (crash log:
+    // NoClassDefFoundError on API 33 devices during menu sound preload).
+    '''  public static StackWalker.StackFrame getCallerFrame() {
+    return StackWalker
+      .getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE)
+      .walk(frames -> frames
+        .filter(frame ->
+          frame.getDeclaringClass() != DebugHelper.class &&
+          frame.getDeclaringClass() != DrgnFiles.class &&
+          frame.getDeclaringClass() != Loader.class
+        )
+        .findFirst()
+      )
+      .get();
+  }''':
+    '''  public static legend.game.android.JdkCompat.CallerFrame getCallerFrame() {
+    return legend.game.android.JdkCompat.callerFrame(
+      "legend.core.DebugHelper", "legend.game.DrgnFiles", "legend.game.unpacker.Loader");
+  }''',
+  ],
+  'legend/game/DrgnFiles.java': [
+    'StackWalker.StackFrame frame = DebugHelper.getCallerFrame();':
+    'legend.game.android.JdkCompat.CallerFrame frame = DebugHelper.getCallerFrame();',
+  ],
+  'legend/game/unpacker/Loader.java': [
+    'StackWalker.StackFrame frame = DebugHelper.getCallerFrame();':
+    'legend.game.android.JdkCompat.CallerFrame frame = DebugHelper.getCallerFrame();',
+  ],
+  'legend/game/Graphics.java': [
+    'StackWalker.StackFrame frame = DebugHelper.getCallerFrame();':
+    'legend.game.android.JdkCompat.CallerFrame frame = DebugHelper.getCallerFrame();',
+  ],
+  'legend/game/combat/SEffe.java': [
+    'StackWalker.StackFrame caller = DebugHelper.getCallerFrame();':
+    'legend.game.android.JdkCompat.CallerFrame caller = DebugHelper.getCallerFrame();',
+  ],
+  'legend/game/saves/ConfigCollection.java': [
+    'final Class<?> caller = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE).getCallerClass();':
+    'final Class<?> caller = legend.game.android.JdkCompat.callerClass();',
   ],
   'legend/core/renderer/opengles/GlesMesh.java': [
     // Adreno drivers emit a HIGH-severity debug message ("unable to generate a

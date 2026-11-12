@@ -735,4 +735,83 @@ public final class JdkCompat {
       }
     };
   }
+
+  /**
+   * {@code java.lang.StackWalker.StackFrame} substitute — StackWalker was only
+   * added to Android in API 34, so shared-source call sites are rewritten to
+   * this type (see the DebugHelper/ConfigCollection transforms).
+   */
+  public static final class CallerFrame {
+    private final StackTraceElement element;
+
+    private CallerFrame(final StackTraceElement element) {
+      this.element = element;
+    }
+
+    public String getClassName() {
+      return this.element.getClassName();
+    }
+
+    public String getMethodName() {
+      return this.element.getMethodName();
+    }
+
+    public String getFileName() {
+      return this.element.getFileName();
+    }
+
+    public int getLineNumber() {
+      return this.element.getLineNumber();
+    }
+  }
+
+  private static boolean isRuntimeFrame(final String className) {
+    return className.equals(JdkCompat.class.getName())
+      || className.startsWith("java.lang.")
+      || className.startsWith("dalvik.system.")
+      || className.startsWith("libcore.")
+      || className.startsWith("com.android.");
+  }
+
+  /**
+   * {@code DebugHelper.getCallerFrame()}: first stack frame that isn't a
+   * runtime frame and isn't in {@code excludedClasses} — same exclusions
+   * upstream's StackWalker filter applies.
+   */
+  public static CallerFrame callerFrame(final String... excludedClasses) {
+    final java.util.List<String> excluded = java.util.Arrays.asList(excludedClasses);
+    for(final StackTraceElement element : Thread.currentThread().getStackTrace()) {
+      final String className = element.getClassName();
+      if(!isRuntimeFrame(className) && !excluded.contains(className)) {
+        return new CallerFrame(element);
+      }
+    }
+    return new CallerFrame(new StackTraceElement("", "", null, -1));
+  }
+
+  /**
+   * {@code StackWalker.getInstance(RETAIN_CLASS_REFERENCE).getCallerClass()}:
+   * the class of the frame above the method that called this — i.e. the
+   * caller's caller, matching StackWalker's semantics for lockConfig.
+   */
+  public static Class<?> callerClass() {
+    boolean foundHelperCaller = false;
+    for(final StackTraceElement element : Thread.currentThread().getStackTrace()) {
+      final String className = element.getClassName();
+      if(isRuntimeFrame(className)) {
+        continue;
+      }
+
+      if(!foundHelperCaller) {
+        foundHelperCaller = true;
+        continue;
+      }
+
+      try {
+        return Class.forName(className);
+      } catch(final ClassNotFoundException ignored) {
+      }
+    }
+    return null;
+  }
 }
