@@ -51,7 +51,10 @@ public final class JarPatcher {
           data = stream.readAllBytes();
         }
 
-        if(entry.getName().endsWith(".class")) {
+        // JdkReflect/JdkCompat implement the very APIs being redirected;
+        // rewriting their calls routes each helper through itself and
+        // recurses forever.
+        if(entry.getName().endsWith(".class") && !entry.getName().startsWith("legend/game/android/JdkReflect") && !entry.getName().startsWith("legend/game/android/JdkCompat")) {
           final byte[] rewritten = rewrite(data);
           if(rewritten != data) {
             patched++;
