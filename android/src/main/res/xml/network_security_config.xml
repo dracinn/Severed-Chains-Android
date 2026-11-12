@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The crash-relay worker's *.workers.dev cert chains to Let's Encrypt's
+     newer ECDSA roots (Root YE / ISRG Root X2), which aren't in the Android
+     trust store before ~15. System CAs plus the two ISRG roots let the POST
+     validate on older devices. Scoped to the relay host only. -->
+<network-security-config>
+  <domain-config>
+    <domain includeSubdomains="false">sc-crash-relay.dracinn.workers.dev</domain>
+    <trust-anchors>
+      <certificates src="system" />
+      <certificates src="@raw/isrg_root_x1" />
+      <certificates src="@raw/isrg_root_x2" />
+    </trust-anchors>
+  </domain-config>
+</network-security-config>

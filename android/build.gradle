@@ -58,7 +58,7 @@ android {
     // gradle.properties for builds that ship the feature.
     manifestPlaceholders = [
       crashRelayUrl: project.findProperty('crashRelayUrl') ?: '',
-      crashRelayKey: project.findProperty('crashRelayKey') ?: 'sc-crash-relay',
+      crashRelayKey: project.findProperty('crashRelayKey') ?: '',
     ]
 
     ndk {

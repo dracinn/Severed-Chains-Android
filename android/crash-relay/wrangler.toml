@@ -7,3 +7,4 @@ GH_REPO = "dracinn/Severed-Chains-Android"
 # Secrets (not committed):
 #   wrangler secret put GH_TOKEN   - fine-grained PAT, repo Issues: Read+Write
 #   wrangler secret put RELAY_KEY  - must match the app's crashRelayKey
+workers_dev = true

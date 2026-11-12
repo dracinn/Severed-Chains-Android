@@ -104,7 +104,9 @@ jobs:
         else
           ver="$(git tag -l 'v*' --sort=-v:refname | head -1 | sed 's/^v//' | awk -F. '{print $1"."$2"."$3+1}')"
         fi
-        ANDROID_VERSION_NAME="$ver" ./gradlew :android:assembleRelease
+        ANDROID_VERSION_NAME="$ver" ./gradlew :android:assembleRelease \
+          -PcrashRelayUrl="${{ secrets.CRASH_RELAY_URL }}" \
+          -PcrashRelayKey="${{ secrets.CRASH_RELAY_KEY }}"
 
     - name: Upload signed APK
       uses: actions/upload-artifact@v5
