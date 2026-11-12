@@ -248,6 +248,7 @@ public class RenderEngine {
       final ShaderUniformFloat bloomThreshold = shader.uniformFloat("bloom_threshold");
       final ShaderUniformFloat bloomRadius = shader.uniformFloat("bloom_radius");
       final ShaderUniformVec4 turnOrderBounds = shader.uniformVec4("turn_order_bounds");
+      shader.uniformInt("sceneDepth").set(1);
       return () -> new ShaderOptionsScreen(enableCrt, time, scanlinesOpacity, scanlinesWidth, grilleOpacity, resolution, pixelate, roll, rollSpeed, rollSize, rollVariation, distortIntensity, noiseOpacity, noiseSpeed, staticNoiseIntensity, aberration, brightness, discolour, warpAmount, vignetteIntensity, vignetteOpacity, bloomIntensity, bloomThreshold, bloomRadius, turnOrderBounds);
     }
   );
@@ -719,8 +720,10 @@ public class RenderEngine {
 
         this.api.wireframe(false);
 
-        // set render states
-        this.api.disableDepthTest();
+        // set render states — the post blit writes the scene depth buffer to
+        // the window framebuffer via gl_FragDepth so the ortho overlay pass can
+        // depth-test against it, which requires depth testing to be on
+        this.api.enableDepthTest(DepthComparator.ALWAYS);
         this.api.translucency(null);
 
         // bind backbuffer
@@ -816,6 +819,7 @@ public class RenderEngine {
         // draw final screen quad
         this.api.viewport(0, 0, this.window.getWidth(), this.window.getHeight());
         this.renderTextures[this.renderBufferIndex].use();
+        this.depthTexture.use(1);
         postQuad.draw();
 
         // If we don't unbind the framebuffer textures, window resizing will crash since it has to resize the framebuffer
@@ -870,6 +874,9 @@ public class RenderEngine {
         // that getLastFrame() matches what was on screen. Screen transition
         // and capture effects sample it on the following frame
         this.captureBuffers[this.renderBufferIndex].bind();
+        // Depth test stays off for the blit — writing depth here would clobber
+        // the scene depth the ortho pass below tests against
+        this.api.disableDepthTest();
         this.api.viewport(0, 0, this.renderWidth, this.renderHeight);
 
         copyShader.use();

@@ -8,6 +8,8 @@ layout(location = 0) out vec4 frag;
 
 // screen image
 uniform sampler2D screen;
+// scene depth, propagated so post-composite ortho content can depth-test
+uniform sampler2D sceneDepth;
 
 uniform bool enableCrt;
 
@@ -133,6 +135,7 @@ float vignette(vec2 uv) {
 }
 
 void main() {
+  gl_FragDepth = texture(sceneDepth, vertUv).r;
   frag = vec4(texture(screen, vertUv).rgb, 1.0f);
 
   if(!enableCrt) {
