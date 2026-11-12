@@ -27,6 +27,7 @@ import java.util.jar.JarOutputStream;
  *   Locale.of(lang[, country])       -> JdkCompat.localeOf(...)
  *   StringBuilder.repeat(...)        -> JdkCompat.sbRepeat(sb, ...)
  *   String.formatted(args)           -> String.format(str, args)
+ *   XBuffer.get(i) / put(i, ...)     -> JdkCompat.get/put(buf, i, ...)
  */
 public final class JarPatcher {
   private JarPatcher() { }
@@ -132,6 +133,21 @@ public final class JarPatcher {
                 changed[0] = true;
                 return;
               }
+            }
+
+            // ART (Android < 14) lacks the absolute indexed get/put
+            // overloads on the typed nio buffers (declared on the concrete
+            // classes, not Buffer, so they can't resolve upward). Route each
+            // through a JdkCompat twin; receiver becomes the first arg.
+            //   XBuffer.get(i)          -> JdkCompat.get(buf, i)
+            //   XBuffer.put(i, v|a|s..) -> JdkCompat.put(buf, i, ...)
+            // "(I" also matches relative IntBuffer.put(int) - "(I)L..." -
+            // so require a second argument type after the index.
+            if(opcode == Opcodes.INVOKEVIRTUAL && owner.startsWith("java/nio/") && owner.endsWith("Buffer") && !owner.equals("java/nio/Buffer")
+                && ((name.equals("get") && descriptor.startsWith("(I)")) || (name.equals("put") && descriptor.startsWith("(I") && descriptor.charAt(2) != ')'))) {
+              super.visitMethodInsn(Opcodes.INVOKESTATIC, "legend/game/android/JdkCompat", name, "(L" + owner + ";" + descriptor.substring(1), false);
+              changed[0] = true;
+              return;
             }
 
             // ART (Android < 14) lacks String.formatted (JDK 15). String is

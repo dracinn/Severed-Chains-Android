@@ -12,7 +12,12 @@ import java.io.RandomAccessFile;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.CharBuffer;
+import java.nio.DoubleBuffer;
+import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.nio.LongBuffer;
+import java.nio.ShortBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -229,6 +234,278 @@ public final class JdkCompat {
     return dup.put(src, offset, length);
   }
 
+  // Absolute indexed single-element and bulk get/put on the typed buffers.
+  // These overloads were added to ART's core-oj in API 34; on older releases
+  // the virtual calls fail to resolve. duplicate()+position() keeps the
+  // receiver's position/limit/mark untouched, matching JDK semantics; the
+  // helpers return the receiver itself (not the duplicate) so chaining
+  // behaves exactly like the JDK methods.
+
+  public static byte get(final ByteBuffer buffer, final int index) {
+    final ByteBuffer dup = buffer.duplicate();
+    dup.position(index);
+    return dup.get();
+  }
+
+  public static ByteBuffer put(final ByteBuffer buffer, final int index, final byte value) {
+    final ByteBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(value);
+    return buffer;
+  }
+
+  public static ByteBuffer put(final ByteBuffer buffer, final int index, final byte[] src) {
+    return put(buffer, index, src, 0, src.length);
+  }
+
+  public static ByteBuffer put(final ByteBuffer buffer, final int index, final ByteBuffer src) {
+    final ByteBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(src);
+    return buffer;
+  }
+
+  public static short get(final ShortBuffer buffer, final int index) {
+    final ShortBuffer dup = buffer.duplicate();
+    dup.position(index);
+    return dup.get();
+  }
+
+  public static ShortBuffer put(final ShortBuffer buffer, final int index, final short value) {
+    final ShortBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(value);
+    return buffer;
+  }
+
+  public static ShortBuffer put(final ShortBuffer buffer, final int index, final short[] src) {
+    return put(buffer, index, src, 0, src.length);
+  }
+
+  public static ShortBuffer put(final ShortBuffer buffer, final int index, final short[] src, final int offset, final int length) {
+    final ShortBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(src, offset, length);
+    return buffer;
+  }
+
+  public static ShortBuffer put(final ShortBuffer buffer, final int index, final ShortBuffer src) {
+    final ShortBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(src);
+    return buffer;
+  }
+
+  public static ShortBuffer get(final ShortBuffer buffer, final int index, final short[] dst) {
+    return get(buffer, index, dst, 0, dst.length);
+  }
+
+  public static ShortBuffer get(final ShortBuffer buffer, final int index, final short[] dst, final int offset, final int length) {
+    final ShortBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.get(dst, offset, length);
+    return buffer;
+  }
+
+  public static int get(final IntBuffer buffer, final int index) {
+    final IntBuffer dup = buffer.duplicate();
+    dup.position(index);
+    return dup.get();
+  }
+
+  public static IntBuffer put(final IntBuffer buffer, final int index, final int value) {
+    final IntBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(value);
+    return buffer;
+  }
+
+  public static IntBuffer put(final IntBuffer buffer, final int index, final IntBuffer src) {
+    final IntBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(src);
+    return buffer;
+  }
+
+  public static IntBuffer get(final IntBuffer buffer, final int index, final int[] dst) {
+    return get(buffer, index, dst, 0, dst.length);
+  }
+
+  public static IntBuffer get(final IntBuffer buffer, final int index, final int[] dst, final int offset, final int length) {
+    final IntBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.get(dst, offset, length);
+    return buffer;
+  }
+
+  public static long get(final LongBuffer buffer, final int index) {
+    final LongBuffer dup = buffer.duplicate();
+    dup.position(index);
+    return dup.get();
+  }
+
+  public static LongBuffer put(final LongBuffer buffer, final int index, final long value) {
+    final LongBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(value);
+    return buffer;
+  }
+
+  public static LongBuffer put(final LongBuffer buffer, final int index, final long[] src) {
+    return put(buffer, index, src, 0, src.length);
+  }
+
+  public static LongBuffer put(final LongBuffer buffer, final int index, final long[] src, final int offset, final int length) {
+    final LongBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(src, offset, length);
+    return buffer;
+  }
+
+  public static LongBuffer put(final LongBuffer buffer, final int index, final LongBuffer src) {
+    final LongBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(src);
+    return buffer;
+  }
+
+  public static LongBuffer get(final LongBuffer buffer, final int index, final long[] dst) {
+    return get(buffer, index, dst, 0, dst.length);
+  }
+
+  public static LongBuffer get(final LongBuffer buffer, final int index, final long[] dst, final int offset, final int length) {
+    final LongBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.get(dst, offset, length);
+    return buffer;
+  }
+
+  public static float get(final FloatBuffer buffer, final int index) {
+    final FloatBuffer dup = buffer.duplicate();
+    dup.position(index);
+    return dup.get();
+  }
+
+  public static FloatBuffer put(final FloatBuffer buffer, final int index, final float value) {
+    final FloatBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(value);
+    return buffer;
+  }
+
+  public static FloatBuffer put(final FloatBuffer buffer, final int index, final float[] src) {
+    return put(buffer, index, src, 0, src.length);
+  }
+
+  public static FloatBuffer put(final FloatBuffer buffer, final int index, final float[] src, final int offset, final int length) {
+    final FloatBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(src, offset, length);
+    return buffer;
+  }
+
+  public static FloatBuffer put(final FloatBuffer buffer, final int index, final FloatBuffer src) {
+    final FloatBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(src);
+    return buffer;
+  }
+
+  public static FloatBuffer get(final FloatBuffer buffer, final int index, final float[] dst) {
+    return get(buffer, index, dst, 0, dst.length);
+  }
+
+  public static FloatBuffer get(final FloatBuffer buffer, final int index, final float[] dst, final int offset, final int length) {
+    final FloatBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.get(dst, offset, length);
+    return buffer;
+  }
+
+  public static double get(final DoubleBuffer buffer, final int index) {
+    final DoubleBuffer dup = buffer.duplicate();
+    dup.position(index);
+    return dup.get();
+  }
+
+  public static DoubleBuffer put(final DoubleBuffer buffer, final int index, final double value) {
+    final DoubleBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(value);
+    return buffer;
+  }
+
+  public static DoubleBuffer put(final DoubleBuffer buffer, final int index, final double[] src) {
+    return put(buffer, index, src, 0, src.length);
+  }
+
+  public static DoubleBuffer put(final DoubleBuffer buffer, final int index, final double[] src, final int offset, final int length) {
+    final DoubleBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(src, offset, length);
+    return buffer;
+  }
+
+  public static DoubleBuffer put(final DoubleBuffer buffer, final int index, final DoubleBuffer src) {
+    final DoubleBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(src);
+    return buffer;
+  }
+
+  public static DoubleBuffer get(final DoubleBuffer buffer, final int index, final double[] dst) {
+    return get(buffer, index, dst, 0, dst.length);
+  }
+
+  public static DoubleBuffer get(final DoubleBuffer buffer, final int index, final double[] dst, final int offset, final int length) {
+    final DoubleBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.get(dst, offset, length);
+    return buffer;
+  }
+
+  public static char get(final CharBuffer buffer, final int index) {
+    final CharBuffer dup = buffer.duplicate();
+    dup.position(index);
+    return dup.get();
+  }
+
+  public static CharBuffer put(final CharBuffer buffer, final int index, final char value) {
+    final CharBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(value);
+    return buffer;
+  }
+
+  public static CharBuffer put(final CharBuffer buffer, final int index, final char[] src) {
+    return put(buffer, index, src, 0, src.length);
+  }
+
+  public static CharBuffer put(final CharBuffer buffer, final int index, final char[] src, final int offset, final int length) {
+    final CharBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(src, offset, length);
+    return buffer;
+  }
+
+  public static CharBuffer put(final CharBuffer buffer, final int index, final CharBuffer src) {
+    final CharBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.put(src);
+    return buffer;
+  }
+
+  public static CharBuffer get(final CharBuffer buffer, final int index, final char[] dst) {
+    return get(buffer, index, dst, 0, dst.length);
+  }
+
+  public static CharBuffer get(final CharBuffer buffer, final int index, final char[] dst, final int offset, final int length) {
+    final CharBuffer dup = buffer.duplicate();
+    dup.position(index);
+    dup.get(dst, offset, length);
+    return buffer;
+  }
+
   /**
    * Java 21 {@code Executors.newVirtualThreadPerTaskExecutor()}. Android has no
    * virtual threads; a bounded pool is the functional equivalent. An unbounded
@@ -316,7 +593,7 @@ public final class JdkCompat {
 
   public static byte mmapReadByte(final RandomAccessFile file, final int fileOffset) {
     try {
-      return mappedUnpackFile(file).get(fileOffset);
+      return get(mappedUnpackFile(file), fileOffset);
     } catch(final IOException e) {
       throw new RuntimeException(e);
     }
