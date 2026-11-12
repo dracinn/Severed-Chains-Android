@@ -880,6 +880,15 @@ def androidJar = {
   return match ? new File(match, 'android.jar').absolutePath : exact.absolutePath
 }()
 
+// Compile everything with a Java 25 toolchain regardless of the daemon JVM:
+// compileShared needs it for upstream language features, and it keeps AGP's
+// javac tasks off whatever JDK launched Gradle.
+tasks.withType(JavaCompile).configureEach {
+  javaCompiler = javaToolchains.compilerFor {
+    languageVersion = JavaLanguageVersion.of(25)
+  }
+}
+
 tasks.register('compileShared', JavaCompile) {
   dependsOn 'patchStagedSources', 'patchDependencyJars'
   source = fileTree('src/main/java') + fileTree(layout.buildDirectory.dir('shared-sources'))
@@ -1296,6 +1305,10 @@ tasks.register('transpileShaders', JavaExec) {
   outputs.dir layout.buildDirectory.dir('generated/assets/shaders')
   classpath = files(transpilerClasses) + configurations.transpile
   mainClass = 'ShaderTranspiler'
+  // Toolchain-pinned: the flags below are JDK 24+ only
+  javaLauncher = javaToolchains.launcherFor {
+    languageVersion = JavaLanguageVersion.of(25)
+  }
   // JDK 25 warns on LWJGL's System::load native access and sun.misc.Unsafe
   // usage; both become hard errors in a later JDK.
   jvmArgs '--enable-native-access=ALL-UNNAMED', '--sun-misc-unsafe-memory-access=allow'
