@@ -44,12 +44,12 @@ def buildVersionCode = { ->
 
 android {
   namespace = 'legend.game.android'
-  compileSdk = 34
+  compileSdk = 37
 
   defaultConfig {
     applicationId = 'com.legendofdragoon.severedchains'
     minSdk = 26
-    targetSdk = 34
+    targetSdk = 37
     versionCode = buildVersionCode
     versionName = buildVersionName
 
@@ -866,7 +866,19 @@ def sdkDir = {
 
   return System.getenv('ANDROID_HOME') ?: System.getenv('ANDROID_SDK_ROOT') ?: android.sdkDirectory.absolutePath
 }
-def androidJar = "${sdkDir()}/platforms/${android.compileSdkVersion}/android.jar"
+// Platforms install under the minor-versioned name (android-37.0) while
+// compileSdkVersion reports the integer ('android-37'); resolve whichever
+// directory actually exists for the requested level.
+def androidJar = {
+  final File platformsDir = new File(sdkDir(), 'platforms')
+  final File exact = new File(platformsDir, "${android.compileSdkVersion}/android.jar")
+  if(exact.exists()) {
+    return exact.absolutePath
+  }
+  final String base = android.compileSdkVersion - 'android-'
+  final File match = platformsDir.listFiles()?.find { it.name ==~ /android-${base}\.\d+/ }
+  return match ? new File(match, 'android.jar').absolutePath : exact.absolutePath
+}()
 
 tasks.register('compileShared', JavaCompile) {
   dependsOn 'patchStagedSources', 'patchDependencyJars'
