@@ -53,6 +53,14 @@ android {
     versionCode = buildVersionCode
     versionName = buildVersionName
 
+    // Crash-relay endpoint (see CrashReporter + android/crash-relay/). Empty
+    // URL disables uploads; set via -PcrashRelayUrl/-PcrashRelayKey or
+    // gradle.properties for builds that ship the feature.
+    manifestPlaceholders = [
+      crashRelayUrl: project.findProperty('crashRelayUrl') ?: '',
+      crashRelayKey: project.findProperty('crashRelayKey') ?: 'sc-crash-relay',
+    ]
+
     ndk {
       abiFilters 'arm64-v8a', 'x86_64'
     }

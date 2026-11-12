@@ -25,16 +25,20 @@ import org.apache.logging.log4j.core.config.NullConfiguration;
 import org.apache.logging.log4j.core.layout.PatternLayout;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.RandomAccessFile;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
@@ -151,8 +155,95 @@ public final class GameLog {
     return new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), LOG_DIR);
   }
 
+  /** A crash-<ts>.log that hasn't been uploaded; sent ones carry a .sent suffix. */
+  public static final class PendingCrash {
+    public final String name;
+    final Uri uri;   // non-null on API 29+
+    final File file; // non-null below 29
+
+    private PendingCrash(final String name, final Uri uri, final File file) {
+      this.name = name;
+      this.uri = uri;
+      this.file = file;
+    }
+  }
+
+  /** Unsent crash-<ts>.log files in the shared logs dir, oldest first. */
+  public static List<PendingCrash> pendingCrashes() {
+    final List<PendingCrash> out = new ArrayList<>();
+    if(appContext == null) {
+      return out;
+    }
+    if(Build.VERSION.SDK_INT >= 29) {
+      final ContentResolver res = appContext.getContentResolver();
+      final Uri files = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+      try(final Cursor c = res.query(files,
+        new String[] {MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME},
+        MediaStore.MediaColumns.RELATIVE_PATH + "=? AND " + MediaStore.MediaColumns.DISPLAY_NAME + " LIKE ?",
+        new String[] {REL_PATH, "crash-%.log"}, MediaStore.MediaColumns.DATE_MODIFIED)) {
+        if(c == null) {
+          return out;
+        }
+        while(c.moveToNext()) {
+          out.add(new PendingCrash(c.getString(1), Uri.withAppendedPath(files, String.valueOf(c.getLong(0))), null));
+        }
+      } catch(final RuntimeException e) {
+        Log.e(TAG, "Failed to list crash logs", e);
+      }
+    } else {
+      final File[] files = legacyDir().listFiles(f -> f.isFile() && f.getName().startsWith("crash-") && f.getName().endsWith(".log"));
+      if(files == null) {
+        return out;
+      }
+      Arrays.sort(files, (a, b) -> Long.compare(a.lastModified(), b.lastModified()));
+      for(final File f : files) {
+        out.add(new PendingCrash(f.getName(), null, f));
+      }
+    }
+    return out;
+  }
+
+  /** Reads a pending crash log's text (bounded by the log size cap). */
+  public static String readPending(final PendingCrash crash) throws IOException {
+    final InputStream in = crash.uri != null
+      ? appContext.getContentResolver().openInputStream(crash.uri)
+      : new FileInputStream(crash.file);
+    if(in == null) {
+      throw new IOException("openInputStream returned null for " + crash.name);
+    }
+    try(in) {
+      final java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
+      final byte[] tmp = new byte[8192];
+      int n;
+      while((n = in.read(tmp)) != -1) {
+        buf.write(tmp, 0, n);
+      }
+      return buf.toString(StandardCharsets.UTF_8.name());
+    }
+  }
+
+  /** Renames a crash log to <name>.sent so it isn't re-uploaded. */
+  public static void markSent(final PendingCrash crash) {
+    try {
+      if(crash.uri != null) {
+        final ContentValues values = new ContentValues();
+        values.put(MediaStore.MediaColumns.DISPLAY_NAME, crash.name + ".sent");
+        appContext.getContentResolver().update(crash.uri, values, null, null);
+      } else {
+        crash.file.renameTo(new File(crash.file.getParentFile(), crash.name + ".sent"));
+      }
+    } catch(final RuntimeException e) {
+      Log.w(TAG, "Failed to mark crash log sent: " + crash.name, e);
+    }
+  }
+
   private static String timestamp() {
     return new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
+  }
+
+  /** versionName (versionCode), e.g. "0.1.34 (134)" - used in log headers and crash reports. */
+  public static String appVersion() {
+    return versionName();
   }
 
   private static String versionName() {

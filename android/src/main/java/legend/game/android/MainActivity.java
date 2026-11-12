@@ -102,6 +102,7 @@ public final class MainActivity extends Activity {
     }
     GameLog.init(this);
     GameLog.installCrashHandler();
+    CrashReporter.init(this);
     // Escalates the persisted GL fallback level if the previous run died
     // during GL init (native driver crashes never reach the Java handler).
     GlesCompat.init(this);

@@ -1,0 +1,9 @@
+name = "sc-crash-relay"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+GH_REPO = "dracinn/Severed-Chains-Android"
+# Secrets (not committed):
+#   wrangler secret put GH_TOKEN   - fine-grained PAT, repo Issues: Read+Write
+#   wrangler secret put RELAY_KEY  - must match the app's crashRelayKey
