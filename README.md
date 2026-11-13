@@ -15,9 +15,14 @@ Even though it is not an emulator, Severed Chains cannot be played without the u
 
 ## Getting the game
 
+**Requires** Android 8.0+ on arm64 or x86_64 (no 32-bit support) and enough free storage for your disc images.
+
 1. Download the latest `android-release.apk` from the [Releases page](https://github.com/dracinn/Severed-Chains-Android/releases) and install it.
 2. On first launch, the app walks you through adding your Legend of Dragoon disc images (ISOs/BINs).
 3. Pick a campaign and play — saves, mods, and settings carry between runs.
+
+> [!NOTE]
+> **Upgrading from v0.1.34 or older:** the signing key was rotated in v0.1.35, so Android won't update in place — uninstall the old build first. Everything under `Documents/Severed Chains/` (saves, ISOs, logs) survives the uninstall.
 
 ## What's different in this port
 
@@ -68,6 +73,12 @@ If it still won't start:
 - Try the **Compatibility renderer** toggle on the setup screen — it switches to the GLES 3.1 path (no geometry shader) on next launch, which works around GPU drivers that mishandle them. Already past setup? Re-open it with `adb shell am start -n com.legendofdragoon.severedchains/legend.game.android.MainActivity --ez force_setup true`, or test the mode directly with `--ez force_es31 true`.
 - Try the **ANGLE** graphics driver: enable Developer Options, then *Developer options → Preferred graphics driver → select Severed Chains → ANGLE*. This runs OpenGL on top of Vulkan and often works around broken vendor drivers.
 - Report the problem with the logs in `Documents/Severed Chains/logs/` — crash and debug logs there include your device model, GPU, and driver versions, which is what's needed to support new hardware. Debug APKs on the Releases page record the full engine log.
+
+## Crash reports
+
+If the game crashes, the next launch offers to send the crash log as a GitHub issue — **Always send** to do it automatically from then on, **Send once**, or **Never send**. Reports go through a small relay that deduplicates by crash signature, so repeats become comments on the existing issue instead of new ones. They include your device model, Android version, and the crash log — never saves or personal files.
+
+Logs stay on your device under `Documents/Severed Chains/logs/` either way and can always be shared manually (e.g. on Discord) if the upload fails or you'd rather not send. No Google Play Services required, so it works on handhelds like Retroid and Odin too.
 
 ## Controls
 
