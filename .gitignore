@@ -64,6 +64,9 @@ local.properties
 /android/.externalNativeBuild/
 android-release.jks
 
+# macOS
+/macos/build/
+
 # IDE build output (Eclipse / VS Code Java)
 /bin/
 .wrangler/

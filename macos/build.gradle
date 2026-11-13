@@ -1,0 +1,748 @@
+// macOS in-tree build: stages the shared upstream sources, applies
+// literal transforms for macOS-specific behaviour, compiles them together
+// with glue under macos/src/main/java, and packages a signed .app via
+// jpackage. Mirrors the android/ subproject so upstream src/main/java
+// stays untouched.
+
+plugins {
+  id 'java'
+}
+
+java {
+  sourceCompatibility = targetCompatibility = JavaVersion.VERSION_25
+}
+
+def sharedSourceRoots = [
+  'src/main/java',
+  'third_party/sc-dragoon-modifier/src/main/java',
+  'third_party/Additional-Additions/src/main/java',
+  'third_party/icon-turn-order/src/main/java',
+  'third_party/lloyd_mod/src/main/java',
+  'own_mods/stardust_indicator/src/main/java',
+  'own_mods/savepoint_heal/src/main/java',
+]
+def sharedResourceRoots = sharedSourceRoots.collect { it.replace('/java', '/resources') }
+
+// ------------------------------------------------------------------
+// Staged-source transforms. Keys are paths relative to the staged root;
+// a literal that stops matching fails the build so upstream changes are
+// never silently dropped. Do not duplicate file keys — entries overwrite.
+// ------------------------------------------------------------------
+// App version: -PmacAppVersion=x.y.z overrides; default derives from the git
+// tag. macDisplayVersion is what the game shows (matches the Android
+// versionName stamping); macAppVersion feeds jpackage's --app-version, which
+// rejects a zero or negative major, so upstream 0.x.y tags map to 1.x.y for
+// bundle metadata only.
+def macTagVersion = providers.exec {
+  commandLine 'git', 'describe', '--tags', '--abbrev=0'
+  workingDir rootDir
+  ignoreExitValue = true
+}.standardOutput.asText.map { v -> v.trim() - ~/^v/ }
+def macDisplayVersion = providers.gradleProperty('macAppVersion').orElse(macTagVersion.map { it.isEmpty() ? '1.0.0' : it })
+def macAppVersion = providers.gradleProperty('macAppVersion').orElse(macTagVersion.map { v ->
+  def m = (v =~ /^(\d+)\.(\d+)(\.(\d+))?/)
+  if(!m.find()) {
+    return '1.0.0'
+  }
+  def major = m.group(1).toInteger()
+  def minor = m.group(2).toInteger()
+  def patch = m.group(4) ? m.group(4).toInteger() : 0
+  "${major == 0 ? 1 : major}.${minor}.${patch}"
+})
+
+def sharedLiteralTransforms = [
+  'legend/core/platform/SdlWindow.java': [
+    '  private final long window;\n  private final long context;\n\n  private final RenderApi renderApi;':
+      '  private final long window;\n  private final long context;\n  private final legend.game.macos.AngleContext angle;\n\n  private final RenderApi renderApi;',
+    '''    this.createOpenGlWindow(title, width, height, windowRef, contextRef);
+
+    if(windowRef[0] != NULL) {
+      this.window = windowRef[0];
+      this.context = contextRef[0];
+      this.renderApi = new GlApi();
+    } else {
+      this.createOpenGlesWindow(title, width, height, windowRef, contextRef);
+
+      if(windowRef[0] != NULL) {
+        this.window = windowRef[0];
+        this.context = contextRef[0];
+        this.renderApi = new GlesApi();
+      } else {
+        throw new RuntimeException("This device does not support OpenGL 3.3 or OpenGLES 3.2. Severed Chains requires at least one of those in order to run.");
+      }
+    }''':
+      '''    this.angle = legend.game.macos.AngleContext.tryCreate(title, width, height);
+
+    if(this.angle != null) {
+      this.window = this.angle.window();
+      this.context = NULL;
+      this.renderApi = new GlesApi();
+    } else {
+      this.createOpenGlWindow(title, width, height, windowRef, contextRef);
+
+      if(windowRef[0] != NULL) {
+        this.window = windowRef[0];
+        this.context = contextRef[0];
+        this.renderApi = new GlApi();
+      } else {
+        this.createOpenGlesWindow(title, width, height, windowRef, contextRef);
+
+        if(windowRef[0] != NULL) {
+          this.window = windowRef[0];
+          this.context = contextRef[0];
+          this.renderApi = new GlesApi();
+        } else {
+          throw new RuntimeException("This device does not support OpenGL 3.3 or OpenGLES 3.2. Severed Chains requires at least one of those in order to run.");
+        }
+      }
+    }''',
+    '    SDL_GL_SetSwapInterval(0);':
+      '    if(this.angle == null) {\n      SDL_GL_SetSwapInterval(0);\n    }',
+    '    SDL_GL_DestroyContext(this.context);\n    SDL_DestroyWindow(this.window);':
+      '    if(this.angle != null) {\n      this.angle.destroy();\n    } else {\n      SDL_GL_DestroyContext(this.context);\n      SDL_DestroyWindow(this.window);\n    }',
+    '  private void tick() {\n    SDL_GL_SwapWindow(this.window);':
+      '  private void tick() {\n    if(this.angle != null) {\n      this.angle.swap();\n    } else {\n      SDL_GL_SwapWindow(this.window);\n    }',
+  ],
+  'legend/core/Config.java': [
+    // Mirrors the in-game Graphics > Renderer choice into config.conf so
+    // AngleContext can read it at window creation, before registries load.
+    '  public static void setLastConfigPreset(final String preset) {':
+      '  public static void setRendererBackend(final String backend) {\n    properties.setProperty("renderer_backend", backend);\n  }\n\n  public static void setLastConfigPreset(final String preset) {',
+  ],
+  'legend/game/modding/coremod/CoreMod.java': [
+    // In-game renderer switcher (Graphics > Renderer) — macOS only.
+    '  public static final RegistryDelegate<MonitorConfigEntry> MONITOR_CONFIG = CONFIG_REGISTRAR.register("monitor", MonitorConfigEntry::new);':
+      '  public static final RegistryDelegate<MonitorConfigEntry> MONITOR_CONFIG = CONFIG_REGISTRAR.register("monitor", MonitorConfigEntry::new);\n  public static final RegistryDelegate<legend.game.macos.RendererConfigEntry> RENDERER_BACKEND_CONFIG = CONFIG_REGISTRAR.register("renderer_backend", legend.game.macos.RendererConfigEntry::new);',
+  ],
+  'legend/game/Main.java': [
+    // The engine's crash handler catches the exception and exits before the
+    // uncaught handler sees it, so write the shared crash log here too.
+    // After shutdown so debug.log is flushed for the tail. Mirrors Android.
+    'LogManager.shutdown();':
+      'LogManager.shutdown();\n      legend.game.macos.GameLog.writeCrashLog(e);',
+    // Upstream drops a copy of debug.log next to the game; redirect into the
+    // shared logs dir so nothing writes inside the signed bundle.
+    'Path.of("CRASHLOG-" + dt + ".log")':
+      'legend.game.macos.GameLog.logDir().resolve("CRASHLOG-" + dt + ".log")',
+  ],
+  'legend/core/renderer/opengles/GlesTexture.java': [
+    // ANGLE-Vulkan's strict validation rejects the legacy unsized
+    // GL_DEPTH_COMPONENT + GL_FLOAT combo; spell the intended 32F format.
+    'import static org.lwjgl.opengles.GLES20.GL_DEPTH_COMPONENT;':
+      'import static org.lwjgl.opengles.GLES20.GL_DEPTH_COMPONENT;\nimport static org.lwjgl.opengles.GLES30.GL_DEPTH_COMPONENT32F;',
+    '      case R_32_UINT -> GL_R32UI;\n      case DEPTH_COMPONENT -> GL_DEPTH_COMPONENT;':
+      '      case R_32_UINT -> GL_R32UI;\n      case DEPTH_COMPONENT -> dataType == TextureDataType.FLOAT ? GL_DEPTH_COMPONENT32F : GL_DEPTH_COMPONENT;',
+  ],
+  'legend/core/renderer/opengl/GlShader.java': [
+    // Persist linked programs via glProgramBinary (ShaderBinaryCache) so
+    // later boots can skip stage compile + link entirely — mirrors the
+    // Android GLES cache; on desktop GL binaries are core 4.1.
+    '  private int shader = -1;':
+      '  private int shader = -1;\n  private final StringBuilder shaderCacheMaterial = new StringBuilder();',
+    '    LOGGER.info("Recompiling shader %s", this.name);':
+      '''    LOGGER.info("Recompiling shader %s", this.name);
+    this.shaderCacheMaterial.setLength(0);
+    for(final Path cacheFile : this.stages.keySet()) {
+      this.shaderCacheMaterial.append(Files.readString(cacheFile));
+    }
+    final int cachedProgram = legend.game.macos.ShaderBinaryCache.tryLoad(this.name, this.shaderCacheMaterial.toString());
+    if(cachedProgram != 0) {
+      if(this.shader != -1) {
+        this.delete();
+      }
+      this.shader = cachedProgram;
+      this.options = this.optionsSupplier.apply(this);
+      return;
+    }''',
+    '    glLinkProgram(shader);':
+      '    org.lwjgl.opengl.GL41C.glProgramParameteri(shader, org.lwjgl.opengl.GL41C.GL_PROGRAM_BINARY_RETRIEVABLE_HINT, 1);\n    glLinkProgram(shader);',
+    '    if(glGetProgrami(shader, GL_LINK_STATUS) == 0) {\n      LOGGER.error("Program link error: %s", glGetProgramInfoLog(shader));\n    }':
+      '    if(glGetProgrami(shader, GL_LINK_STATUS) == 0) {\n      LOGGER.error("Program link error: %s", glGetProgramInfoLog(shader));\n    } else {\n      legend.game.macos.ShaderBinaryCache.store(this.name, this.shaderCacheMaterial.toString(), shader);\n    }',
+  ],
+  'legend/core/renderer/opengles/GlesApi.java': [
+    // ANGLE-on-Metal/Vulkan has no geometry shader stage
+    // (gl_MaxGeometryOutputVertices == 0) — detect it so the TMD pipeline
+    // can fall back to its vertex-shader emulation path.
+    '  private boolean debugEnabled;':
+      '  private boolean debugEnabled;\n  private boolean geometryShaders;',
+    '''    LOGGER.info("Device manufacturer: %s", glGetString(GL_VENDOR));''':
+      '''    LOGGER.info("Device manufacturer: %s", glGetString(GL_VENDOR));
+
+    final int[] maxGsVerts = new int[1];
+    glGetIntegerv(org.lwjgl.opengles.GLES32.GL_MAX_GEOMETRY_OUTPUT_VERTICES, maxGsVerts);
+    this.geometryShaders = maxGsVerts[0] > 0;
+    LOGGER.info("Geometry shaders: %s", this.geometryShaders);''',
+    '  public boolean debugEnabled() {\n    return this.debugEnabled;\n  }':
+      '  public boolean debugEnabled() {\n    return this.debugEnabled;\n  }\n\n  public boolean geometryShaders() {\n    return this.geometryShaders;\n  }',
+    '    return new GlesShader<>(name, vert, geom, frag, options);':
+      '''    if(!this.geometryShaders) {
+      // No geometry stage: compile the _es variant which feeds the fragment
+      // stage directly and emulates tmd.gsh in the vertex shader.
+      return new GlesShader<>(name, vert.resolveSibling(vert.getFileName().toString().replace(".vsh", "_es.vsh")), frag, options);
+    }
+
+    return new GlesShader<>(name, vert, geom, frag, options);''',
+  ],
+  'legend/game/tmd/TmdObjLoader.java': [
+    // Geometry-shader-free backends (ANGLE on Metal/Vulkan) carry the face's
+    // sibling model-space positions inside each vertex record so the vertex
+    // shader can do the cull + flat-depth work tmd.gsh normally performs.
+    '  public static final int VERTEX_SIZE = POS_SIZE + NORM_SIZE + UV_SIZE + TPAGE_SIZE + CLUT_SIZE + COLOUR_SIZE + FLAGS_SIZE;':
+      '''  public static final int VERTEX_SIZE = POS_SIZE + NORM_SIZE + UV_SIZE + TPAGE_SIZE + CLUT_SIZE + COLOUR_SIZE + FLAGS_SIZE;
+  private static final int SIB_POS_SIZE = 3;
+  private static final int SIB_COUNT = 3;
+
+  private static boolean geometryShaders() {
+    return !(RENDERER.api() instanceof legend.core.renderer.opengles.GlesApi gles) || gles.geometryShaders();
+  }
+
+  private static int vertexStride() {
+    return VERTEX_SIZE + (geometryShaders() ? 0 : SIB_COUNT * SIB_POS_SIZE);
+  }''',
+    '      vertexSize += FLAGS_SIZE;':
+      '      vertexSize += FLAGS_SIZE;\n      vertexSize += geometryShaders() ? 0 : SIB_COUNT * SIB_POS_SIZE;',
+    '''        final int adjacent1 = mesh.vertexIndex + 3;
+        final int adjacent2 = mesh.vertexIndex;
+
+        mesh.indices[mesh.indexOffset++] = mesh.vertexIndex + 2;
+        mesh.indices[mesh.indexOffset++] = adjacent1;
+        mesh.indices[mesh.indexOffset++] = mesh.vertexIndex + 1;
+        mesh.indices[mesh.indexOffset++] = adjacent1;
+        mesh.indices[mesh.indexOffset++] = mesh.vertexIndex;
+        mesh.indices[mesh.indexOffset++] = adjacent1;
+
+        if(quad) {
+          mesh.indices[mesh.indexOffset++] = mesh.vertexIndex + 1;
+          mesh.indices[mesh.indexOffset++] = adjacent2;
+          mesh.indices[mesh.indexOffset++] = mesh.vertexIndex + 2;
+          mesh.indices[mesh.indexOffset++] = adjacent2;
+          mesh.indices[mesh.indexOffset++] = mesh.vertexIndex + 3;
+          mesh.indices[mesh.indexOffset++] = adjacent2;
+        }''':
+      '''        if(geometryShaders()) {
+          final int adjacent1 = mesh.vertexIndex + 3;
+          final int adjacent2 = mesh.vertexIndex;
+
+          mesh.indices[mesh.indexOffset++] = mesh.vertexIndex + 2;
+          mesh.indices[mesh.indexOffset++] = adjacent1;
+          mesh.indices[mesh.indexOffset++] = mesh.vertexIndex + 1;
+          mesh.indices[mesh.indexOffset++] = adjacent1;
+          mesh.indices[mesh.indexOffset++] = mesh.vertexIndex;
+          mesh.indices[mesh.indexOffset++] = adjacent1;
+
+          if(quad) {
+            mesh.indices[mesh.indexOffset++] = mesh.vertexIndex + 1;
+            mesh.indices[mesh.indexOffset++] = adjacent2;
+            mesh.indices[mesh.indexOffset++] = mesh.vertexIndex + 2;
+            mesh.indices[mesh.indexOffset++] = adjacent2;
+            mesh.indices[mesh.indexOffset++] = mesh.vertexIndex + 3;
+            mesh.indices[mesh.indexOffset++] = adjacent2;
+          }
+        } else {
+          // Plain triangles — sibling positions ride in vertex attribs.
+          mesh.indices[mesh.indexOffset++] = mesh.vertexIndex + 2;
+          mesh.indices[mesh.indexOffset++] = mesh.vertexIndex + 1;
+          mesh.indices[mesh.indexOffset++] = mesh.vertexIndex;
+
+          if(quad) {
+            mesh.indices[mesh.indexOffset++] = mesh.vertexIndex + 1;
+            mesh.indices[mesh.indexOffset++] = mesh.vertexIndex + 2;
+            mesh.indices[mesh.indexOffset++] = mesh.vertexIndex + 3;
+          }
+        }''',
+    '          mesh.vertices[mesh.vertexOffset++] = flags;':
+      '''          mesh.vertices[mesh.vertexOffset++] = flags;
+
+          if(!geometryShaders()) {
+            int sibCount = 0;
+
+            for(final Vertex sibling : poly.vertices) {
+              if(sibling != vertex) {
+                final Vector3f sibPos = objTable.vert_top_00[sibling.vertexIndex];
+                mesh.vertices[mesh.vertexOffset++] = sibPos.x;
+                mesh.vertices[mesh.vertexOffset++] = sibPos.y;
+                mesh.vertices[mesh.vertexOffset++] = sibPos.z;
+                sibCount++;
+              }
+            }
+
+            mesh.vertexOffset += (SIB_COUNT - sibCount) * SIB_POS_SIZE;
+          }''',
+    '    final Mesh mesh = RENDERER.api().makeMesh(name, VertexOrder.TRIANGLES_ADJACENCY, tmdMesh.vertices, tmdMesh.indices,':
+      '    final Mesh mesh = RENDERER.api().makeMesh(name, geometryShaders() ? VertexOrder.TRIANGLES_ADJACENCY : VertexOrder.TRIANGLES, tmdMesh.vertices, Arrays.copyOf(tmdMesh.indices, tmdMesh.indexOffset),',
+    ', VERTEX_SIZE);':
+      ', vertexStride());',
+    '''    mesh.attribute(meshIndex, meshOffset, FLAGS_SIZE, vertexStride());
+    return mesh;''':
+      '''    mesh.attribute(meshIndex, meshOffset, FLAGS_SIZE, vertexStride());
+    meshIndex++;
+    meshOffset += FLAGS_SIZE;
+
+    if(!geometryShaders()) {
+      mesh.attribute(meshIndex, meshOffset, SIB_POS_SIZE, vertexStride());
+      meshIndex++;
+      meshOffset += SIB_POS_SIZE;
+      mesh.attribute(meshIndex, meshOffset, SIB_POS_SIZE, vertexStride());
+      meshIndex++;
+      meshOffset += SIB_POS_SIZE;
+      mesh.attribute(meshIndex, meshOffset, SIB_POS_SIZE, vertexStride());
+    }
+
+    return mesh;''',
+  ],
+  'legend/core/renderer/RenderEngine.java': [
+    // Driver pipeline finalization is deferred to first draw; draw every
+    // program once here so scene transitions don't hitch on first use.
+    '    this.battleTmdShaderOptions = this.battleTmdShader.makeOptions();':
+      '    this.battleTmdShaderOptions = this.battleTmdShader.makeOptions();\n    legend.game.macos.ShaderWarmup.warmup();',
+    // Slow-frame + p50/p95/max logging for in-game perf hunting (PerfLog)
+    '        final long frameTime = System.nanoTime() - this.lastFrame;':
+      '        final long frameTime = System.nanoTime() - this.lastFrame;\n        legend.game.macos.PerfLog.frame(frameTime);',
+    // Show the active renderer (OpenGL / Vulkan / Metal) in the titlebar.
+    'scale: %.2f res: %dx%d".formatted(Version.FULL_VERSION, this.currentFps, fpsLimit, RENDERER.getRenderHeight() / 240.0f, this.getNativeWidth(), this.getNativeHeight()));':
+      'scale: %.2f res: %dx%d [%s]".formatted(Version.FULL_VERSION, this.currentFps, fpsLimit, RENDERER.getRenderHeight() / 240.0f, this.getNativeWidth(), this.getNativeHeight(), legend.game.macos.AngleContext.rendererName()));',
+  ],
+  'legend/core/Version.java': [
+    // Display the app version instead of the CI channel tag on the title
+    // screen — mirrors the Android version stamp.
+    '''public static final String FULL_VERSION = VERSION + '-' + BUILD + '-' + CHANNEL;''':
+      """public static final String FULL_VERSION = VERSION + '-' + "${macDisplayVersion.get()}";""",
+  ],
+]
+
+def stagedUnpatched = layout.buildDirectory.dir('shared-sources-unpatched')
+def stagedSources = layout.buildDirectory.dir('shared-sources')
+
+tasks.register('stageSharedSources', Sync) {
+  sharedSourceRoots.each { from rootProject.layout.projectDirectory.dir(it) }
+  into stagedUnpatched
+}
+
+tasks.register('patchSharedSources', Sync) {
+  dependsOn 'stageSharedSources'
+  from stagedUnpatched
+  into stagedSources
+  doLast {
+    final File root = stagedSources.get().asFile
+
+    final Collection<String> unstaged = sharedLiteralTransforms.keySet().findAll { !new File(root, it).isFile() }
+    if(!unstaged.isEmpty()) {
+      throw new GradleException("sharedLiteralTransforms names files that aren't staged: ${unstaged}")
+    }
+
+    root.eachFileRecurse { f ->
+      if(!f.isFile() || !f.name.endsWith('.java')) {
+        return
+      }
+
+      final String rel = root.toPath().relativize(f.toPath()).toString()
+      String text = f.getText('UTF-8')
+      final String original = text
+
+      sharedLiteralTransforms[rel]?.each { literal, replacement ->
+        if(text.contains(replacement)) {
+          return // already transformed by a previous run
+        }
+        if(!text.contains(literal)) {
+          throw new GradleException("Staged-source transform missed ${rel}: '${literal.take(80)}' (upstream changed; update sharedLiteralTransforms)")
+        }
+        text = text.replace(literal, replacement)
+      }
+
+      if(text != original) {
+        f.setText(text, 'UTF-8')
+      }
+    }
+  }
+}
+
+sourceSets {
+  main {
+    java.srcDirs = []
+    java.srcDir stagedSources
+    java.srcDir 'src/main/java'
+    resources.srcDirs = sharedResourceRoots.collect { rootProject.layout.projectDirectory.dir(it).asFile }
+  }
+}
+
+dependencies {
+  // Same dependency set as the upstream jar — reuse the assembled
+  // dependency dir rather than resolving a second time.
+  compileOnly fileTree(rootProject.layout.buildDirectory.dir('libs/libs')) { include '*.jar' }
+}
+
+compileJava {
+  dependsOn 'patchSharedSources', ':copyLibs'
+}
+
+processResources {
+  // Graphics > Renderer labels — the entry only exists on macOS so the
+  // strings are staged here rather than in the shared lang file.
+  filesMatching('lod_core/lang/en.lang') { fcd ->
+    fcd.filter { line ->
+      if(line == 'lod_core.config.monitor.label=Monitor') {
+        return line + '\n' + '''lod_core.config.renderer_backend.label=Renderer
+lod_core.config.renderer_backend.help=Graphics backend. The Vulkan (ANGLE) backend is experimental and requires a game restart to take effect.
+lod_core.config.renderer_backend.AUTO=Auto
+lod_core.config.renderer_backend.SYSTEM_GL=System OpenGL
+lod_core.config.renderer_backend.ANGLE_VULKAN=Vulkan (experimental)'''
+      }
+      return line
+    }
+  }
+  doLast {
+    if(!new File(destinationDir, 'lod_core/lang/en.lang').text.contains('renderer_backend.ANGLE_VULKAN')) {
+      throw new GradleException('renderer_backend lang keys missing from lod_core/lang/en.lang; update the processResources transform')
+    }
+  }
+}
+
+jar {
+  archiveFileName.set('lod-game-snapshot.jar')
+}
+
+// ------------------------------------------------------------------
+// .app bundle (jpackage) + signing
+// ------------------------------------------------------------------
+// Stages the dist layout (macos jar + libs/ + game data) as Contents/app,
+// embeds a full JDK 25 runtime, and produces a signed
+// macos/build/dist/Severed Chains.app. BundleMain (the main class) links
+// isos/saves/mods/files/config into ~/Documents/Severed Chains and, when
+// the bundled ANGLE libs are present, AngleContext renders GLES-over-Metal.
+//
+// JDK override:    -PjpackageHome=<jdk home> or $JPACKAGE_HOME.
+// App version:     -PmacAppVersion=x.y.z
+// ANGLE libs:      -PangleLibsDir=<dir> (default: Android emulator's
+//                  gles_angle; skipped if missing → plain OpenGL build)
+// Signing:         -PmacSignIdentity=<identity> (default: Developer ID
+//                  Application cert in keychain; skipped if absent)
+
+def macJdkHome = providers.gradleProperty('jpackageHome')
+  .orElse(providers.environmentVariable('JPACKAGE_HOME'))
+  .orElse('/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home')
+def macSignIdentity = providers.gradleProperty('macSignIdentity')
+  .orElse('Developer ID Application: William Harrison (25TXA8VF4A)')
+def angleLibsDir = providers.gradleProperty('angleLibsDir')
+  .orElse(providers.provider {
+    // Prefer the source-built ANGLE; fall back to the emulator's copy.
+    ['/Volumes/Storage/angle-build/out/Release',
+     "${System.getProperty('user.home')}/Library/Android/sdk/emulator/lib64/gles_angle",
+     System.getenv('ANDROID_SDK_ROOT') ? "${System.getenv('ANDROID_SDK_ROOT')}/emulator/lib64/gles_angle" : null,
+     System.getenv('ANDROID_HOME') ? "${System.getenv('ANDROID_HOME')}/emulator/lib64/gles_angle" : null,
+    ].find { it != null && file("$it/libGLESv2.dylib").isFile() }
+  })
+
+// Upstream log4j2.xml, rewritten for the bundle — mirrors the Android rewrite:
+// debug.log goes to the external data dir via ${sys:legend.baseDir} (GameLog
+// sets it), and the console appender only passes warnings and errors. The
+// full log stays in debug.log, whose tail GameLog appends to crash logs.
+def log4jConsoleFilter = '<ThresholdFilter level="warn" onMatch="NEUTRAL" onMismatch="DENY"/>'
+def rewriteLog4jLine = { String line ->
+  line
+    .replace('fileName="debug.log"', 'fileName="${sys:legend.baseDir}/debug.log"')
+    .replace('<Console name="console" target="SYSTEM_OUT">', '<Console name="console" target="SYSTEM_OUT">' + log4jConsoleFilter)
+}
+def checkLog4jConfig = { File config ->
+  if(!config.text.contains('${sys:legend.baseDir}/debug.log')) {
+    throw new GradleException('log4j2.xml no longer contains fileName="debug.log"; update the macOS rewrite')
+  }
+  if(!config.text.contains(log4jConsoleFilter)) {
+    throw new GradleException('log4j2.xml no longer contains the "console" appender; update the macOS rewrite')
+  }
+}
+def macAppInput = layout.buildDirectory.dir('macapp/input')
+def macAppIcon = layout.buildDirectory.file('macapp/SeveredChains.icns')
+def macEntitlements = layout.buildDirectory.file('macapp/entitlements.plist')
+def macDistDir = layout.buildDirectory.dir('dist')
+
+tasks.register('appInput', Copy) {
+  dependsOn 'jar', ':copyLibs'
+  doFirst {
+    // A read-only staged file (brew ships libMoltenVK.dylib mode-444) breaks
+    // the copy; drop it so the copy recreates it fresh.
+    final File stale = file("${macAppInput.get().asFile}/angle/libMoltenVK.dylib")
+    if(stale.isFile() && !stale.canWrite()) {
+      stale.delete()
+    }
+  }
+  into macAppInput
+
+  // Everything from the upstream dist except the vanilla jar — the main
+  // jar is this project's transformed build.
+  from(rootProject.layout.buildDirectory.dir('libs')) {
+    include '*.jar', 'log4j2-updater.xml'
+    exclude 'lod-game-snapshot.jar'
+  }
+  from(layout.buildDirectory.dir('libs')) { include 'lod-game-snapshot.jar' }
+  into('libs') { from(rootProject.layout.buildDirectory.dir('libs/libs')) }
+  into('gfx') { from rootProject.layout.projectDirectory.dir('gfx') }
+  into('patches') { from rootProject.layout.projectDirectory.dir('patches') }
+  into('lang') {
+    from rootProject.layout.projectDirectory.dir('lang')
+    filesMatching('unpacker.en.lang') {
+      filter { line ->
+        if(line.startsWith('unpacker.made_by_humans=')) {
+          return 'unpacker.made_by_humans=macOS port\\nbuilt with Devin'
+        }
+        return line
+      }
+    }
+  }
+  // Built-in mod assets (stat tables, portraits) read via Path.of("mods/...").
+  // Contents/app/mods is symlinked to the user mods dir by BundleMain, so the
+  // assets stage under builtin-mods/ and BundleMain merge-copies them into
+  // ~/Documents/Severed Chains/mods at launch (mirrors the Android assets).
+  into('builtin-mods') {
+    from(rootProject.layout.projectDirectory.dir('third_party/sc-dragoon-modifier/mods'))
+    from(rootProject.layout.projectDirectory.dir('third_party/icon-turn-order/mods'))
+    from(rootProject.layout.projectDirectory.dir('third_party/lloyd_mod/mods'))
+    from(rootProject.layout.projectDirectory.dir('own_mods/stardust_indicator/mods'))
+  }
+  from(rootProject.layout.projectDirectory) {
+    include 'log4j2.xml', 'gamecontrollerdb.txt', 'launch.conf'
+    filesMatching('log4j2.xml') { f -> f.filter(rewriteLog4jLine) }
+  }
+  doLast {
+    checkLog4jConfig(file("${macAppInput.get().asFile}/log4j2.xml"))
+    if(!file("${macAppInput.get().asFile}/lang/unpacker.en.lang").text.contains('built with Devin')) {
+      throw new GradleException('unpacker.en.lang no longer contains the made_by_humans key; update the staging transform')
+    }
+    // Geometry-shader-free TMD vertex shaders — MoltenVK reports
+    // gl_MaxGeometryOutputVertices == 0 so tmd.gsh can never compile under
+    // ANGLE-on-Metal/Vulkan. GlesApi swaps these in when geometryShaders
+    // is false. The variant feeds the fragment stage directly (VS_OUT
+    // renamed to the FS's GS_OUT) and emulates the geometry stage — cull
+    // the face if any vert is too close to the camera, and average clip z
+    // for PS1-depth faces — using sibling positions in attribs 7-9.
+    ['tmd', 'battle_tmd'].each { base ->
+      final File vshFile = file("${macAppInput.get().asFile}/gfx/shaders/${base}.vsh")
+      String vsh = vshFile.getText('UTF-8')
+      final Map<String, String> edits = [
+        'layout(location = 6) in float inFlags;':
+          'layout(location = 6) in float inFlags;\nlayout(location = 7) in vec3 inSibPos0;\nlayout(location = 8) in vec3 inSibPos1;\nlayout(location = 9) in vec3 inSibPos2;',
+        'out VS_OUT {': 'out GS_OUT {',
+        '  smooth float viewspaceZ;\n': '',
+        'uniform float modelIndex;': 'uniform float modelIndex;\nuniform int usePs1Depth;',
+        '  gl_Position = camera * t.model * pos;\n  vs_out.viewspaceZ = gl_Position.z;':
+          '  mat4 camModel = camera * t.model;\n  gl_Position = camModel * pos;\n  float viewZSelf = gl_Position.z;',
+        '  vs_out.depth = gl_Position.z;\n}':
+          '''  vs_out.depth = gl_Position.z;
+
+  // Emulated tmd.gsh — no geometry stage on this backend. The sibling
+  // model-space positions in attribs 7-9 make the face cull and the
+  // PS1-depth averaging (which need all of the face's verts) possible.
+  int faceVertCount = (vs_out.vertFlags & 0x10) != 0 ? 4 : 3;
+  float nearZ = viewZSelf;
+  float clipSum = vs_out.depth;
+
+  for(int i = 0; i < faceVertCount - 1; i++) {
+    vec3 sibPos = i == 0 ? inSibPos0 : i == 1 ? inSibPos1 : inSibPos2;
+    vec4 sib = camModel * vec4(sibPos, 1.0f);
+    nearZ = min(nearZ, sib.z);
+
+    if(projectionMode == 1) {
+      float z = clamp(sib.z, 0.0, 65536.0);
+      if(z != 0.0) {
+        sib.xy *= zfar / z;
+      }
+    }
+
+    if(projectionMode != 2 && t.screenOffset.z != 0.0f) {
+      sib.z += t.screenOffset.z;
+    }
+
+    sib.xy += t.screenOffset.xy;
+    clipSum += (projection * sib).z;
+  }
+
+  if(zfar >= nearZ * 2.0f) {
+    // Whole face culled — emit a clipped position.
+    gl_Position = vec4(0.0f, 0.0f, 2.0f, 1.0f);
+  } else if(usePs1Depth != 0) {
+    gl_Position.z = clipSum / faceVertCount;
+  }
+}''',
+      ]
+      for(final Map.Entry<String, String> e : edits.entrySet()) {
+        if(!vsh.contains(e.key)) {
+          throw new GradleException("_es.vsh generation missed ${base}.vsh: '${e.key.take(80)}' (upstream shader changed; update macos staging)")
+        }
+        vsh = vsh.replace(e.key, e.value)
+      }
+      file("${macAppInput.get().asFile}/gfx/shaders/${base}_es.vsh").text = vsh
+    }
+    // @loader_path rpath so dlopen("libMoltenVK.dylib") in ANGLE's Vulkan
+    // loader resolves the bundled copy next to the ANGLE dylibs.
+    ['libEGL.dylib', 'libGLESv2.dylib', 'libEGL_vulkan_secondaries.dylib', 'libGLESv2_vulkan_secondaries.dylib'].each { lib ->
+      final File f = file("${macAppInput.get().asFile}/angle/${lib}")
+      if(f.isFile() && !['otool', '-l', f.absolutePath].execute().text.contains('@loader_path')) {
+        ['install_name_tool', '-add_rpath', '@loader_path', f.absolutePath].execute().waitForProcessOutput(System.out, System.err)
+      }
+    }
+    // ICD manifest for ANGLE's statically-linked Khronos Vulkan loader;
+    // library_path is relative to this file. BundleMain sets VK_ICD_FILENAMES.
+    final File libMvk = file("${macAppInput.get().asFile}/angle/libMoltenVK.dylib")
+    if(libMvk.isFile()) {
+      // Brew ships the dylib read-only; writable so later builds can overwrite.
+      libMvk.setWritable(true)
+      final File icdDir = file("${macAppInput.get().asFile}/angle/icd")
+      icdDir.mkdirs()
+      file("${icdDir}/MoltenVK_icd.json").text = '''{
+    "file_format_version" : "1.0.0",
+    "ICD": {
+        "library_path": "../libMoltenVK.dylib",
+        "api_version" : "1.4.0",
+        "is_portability_driver" : true
+    }
+}
+'''
+    }
+  }
+
+  def angleDir = file(angleLibsDir.get())
+  if(angleDir.isDirectory()) {
+    into('angle') {
+      // The Vulkan backend lives in the *_vulkan_secondaries dylibs; the main
+      // libGLESv2 dlopens them on demand when the Vulkan platform is chosen.
+      from(angleDir) {
+        include 'libEGL.dylib', 'libGLESv2.dylib',
+          'libEGL_vulkan_secondaries.dylib', 'libGLESv2_vulkan_secondaries.dylib'
+      }
+      // ANGLE's Vulkan path dlopens libMoltenVK.dylib (Vulkan -> Metal layer).
+      def moltenVk = ['/opt/homebrew/lib/libMoltenVK.dylib', '/usr/local/lib/libMoltenVK.dylib']
+        .collect { file(it) }.find { it.isFile() }
+      if(moltenVk != null) {
+        from(moltenVk.parentFile) { include 'libMoltenVK.dylib' }
+      }
+    }
+  } else {
+    logger.warn("ANGLE libs not found at ${angleDir} — building OpenGL-only bundle")
+  }
+}
+
+tasks.register('appIcon', Exec) {
+  def iconset = layout.buildDirectory.dir('macapp/icon.iconset')
+  def iconSrc = rootProject.layout.projectDirectory.file('gfx/textures/icon.png')
+  inputs.file iconSrc
+  outputs.file macAppIcon
+
+  doFirst {
+    delete iconset
+  }
+  commandLine 'bash', '-c', """
+    set -e
+    SRC="${iconSrc.asFile.absolutePath}"
+    DIR="${iconset.get().asFile.absolutePath}"
+    mkdir -p "\$DIR"
+    for spec in "16 icon_16x16.png" "32 icon_16x16@2x.png" "32 icon_32x32.png" "64 icon_32x32@2x.png" "128 icon_128x128.png" "256 icon_128x128@2x.png" "256 icon_256x256.png" "512 icon_256x256@2x.png" "512 icon_512x512.png" "1024 icon_512x512@2x.png"; do
+      set -- \$spec
+      sips -z "\$1" "\$1" "\$SRC" --out "\$DIR/\$2" >/dev/null
+    done
+    iconutil -c icns "\$DIR" -o "${macAppIcon.get().asFile.absolutePath}"
+  """
+}
+
+tasks.register('packageMacApp', Exec) {
+  dependsOn 'appInput', 'appIcon'
+  def mainJar = 'lod-game-snapshot.jar'
+
+  inputs.dir macAppInput
+  inputs.file macAppIcon
+  outputs.dir macDistDir
+
+  doFirst {
+    delete file("${macDistDir.get().asFile}/Severed Chains.app")
+  }
+
+  commandLine macJdkHome.get() + '/bin/jpackage',
+    '--type', 'app-image',
+    '--name', 'Severed Chains',
+    '--app-version', macAppVersion.get(),
+    '--vendor', 'Legend of Dragoon Modding',
+    '--copyright', 'Severed Chains contributors',
+    '--mac-package-identifier', 'org.legendofdragoon.severedchains',
+    '--input', macAppInput.get().asFile.absolutePath,
+    '--icon', macAppIcon.get().asFile.absolutePath,
+    '--main-jar', mainJar,
+    '--main-class', 'legend.game.macos.BundleMain',
+    '--runtime-image', macJdkHome.get(),
+    // Cwd determines where the game reads gfx/ and writes isos/saves/mods —
+    // pin it inside the bundle; BundleMain links the writable paths out to
+    // ~/Documents/Severed Chains before the engine starts.
+    '--java-options', '-Duser.dir=$APPDIR',
+    // Bind LWJGL's GLES module to the bundled ANGLE lib before anything can
+    // resolve the system libGL — must be a JVM property, not runtime config.
+    '--java-options', '-Dorg.lwjgl.opengles.libname=$APPDIR/angle/libGLESv2.dylib',
+    '--java-options', '-XstartOnFirstThread',
+    '--java-options', '-Djoml.fastmath',
+    '--java-options', '-Djoml.sinLookup',
+    '--java-options', '-Djoml.useMathFma',
+    '--java-options', '--add-opens java.base/java.util=ALL-UNNAMED',
+    '--java-options', '--add-exports java.base/jdk.internal.misc=ALL-UNNAMED',
+    '--java-options', '--enable-native-access=ALL-UNNAMED',
+    '--java-options', '-Xmx2G',
+    // Version + crash-relay config for GameLog/CrashReporter (mirrors the
+    // Android manifest meta-data). Empty relay disables uploads.
+    '--java-options', '-Dsc.version=' + macDisplayVersion.get(),
+    '--java-options', '-Dsc.crash_relay_url=' + (project.findProperty('crashRelayUrl') ?: ''),
+    '--java-options', '-Dsc.crash_relay_key=' + (project.findProperty('crashRelayKey') ?: ''),
+    '--dest', macDistDir.get().asFile.absolutePath
+}
+
+tasks.register('patchMacAppPlist', Exec) {
+  dependsOn 'packageMacApp'
+  def app = file("${macDistDir.get().asFile}/Severed Chains.app")
+
+  // jpackage generates a bare Info.plist; TCC needs usage-description keys
+  // or macOS silently denies access to ~/Documents (data dir) and
+  // /Volumes/Storage-style removable volumes (real file storage).
+  commandLine '/bin/sh', '-c', """
+    PLIST='${app.absolutePath}/Contents/Info.plist'
+    PB=/usr/libexec/PlistBuddy
+    "\$PB" -c "Add :NSRemovableVolumesUsageDescription string 'Severed Chains reads game data stored on an external volume.'" "\$PLIST" \
+      || "\$PB" -c "Set :NSRemovableVolumesUsageDescription 'Severed Chains reads game data stored on an external volume.'" "\$PLIST"
+    "\$PB" -c "Add :NSDocumentsFolderUsageDescription string 'Severed Chains stores saves, mods, settings and disc images in your Documents folder.'" "\$PLIST" \
+      || "\$PB" -c "Set :NSDocumentsFolderUsageDescription 'Severed Chains stores saves, mods, settings and disc images in your Documents folder.'" "\$PLIST"
+  """
+}
+
+tasks.register('signMacApp', Exec) {
+  dependsOn 'patchMacAppPlist'
+  def app = file("${macDistDir.get().asFile}/Severed Chains.app")
+
+  // Only run when the identity exists in the keychain (unsigned local
+  // builds still work by skipping this task or passing -PmacSignIdentity).
+  onlyIf {
+    def out = providers.exec {
+      commandLine 'security', 'find-identity', '-v', '-p', 'codesigning'
+      ignoreExitValue = true
+    }
+    def found = out.standardOutput.asText.get().contains(macSignIdentity.get())
+    if(!found) {
+      logger.lifecycle("Signing identity '${macSignIdentity.get()}' not in keychain — bundle stays unsigned")
+    }
+    found
+  }
+
+  doFirst {
+    macEntitlements.get().asFile.text = '''<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>com.apple.security.cs.allow-jit</key><true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
+  <key>com.apple.security.cs.disable-library-validation</key><true/>
+</dict></plist>
+'''
+  }
+
+  commandLine 'codesign', '--deep', '--force', '--timestamp', '--options', 'runtime',
+    '--entitlements', macEntitlements.get().asFile.absolutePath,
+    '--sign', macSignIdentity.get(), app.absolutePath
+}
+
+tasks.register('verifyMacApp', Exec) {
+  dependsOn 'signMacApp'
+  def app = file("${macDistDir.get().asFile}/Severed Chains.app")
+  onlyIf { tasks.named('signMacApp').get().state.executed }
+  commandLine 'codesign', '--verify', '--deep', '--strict', '--verbose=2', app.absolutePath
+}
