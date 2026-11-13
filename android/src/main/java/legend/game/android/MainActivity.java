@@ -103,6 +103,11 @@ public final class MainActivity extends Activity {
     GameLog.init(this);
     GameLog.installCrashHandler();
     CrashReporter.init(this);
+    // Loopback screen-inspection endpoint for debugging/automation —
+    // debuggable builds only, bound to 127.0.0.1 so it can't leave the device.
+    if((this.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+      GameInspector.startServer();
+    }
     // Escalates the persisted GL fallback level if the previous run died
     // during GL init (native driver crashes never reach the Java handler).
     GlesCompat.init(this);
@@ -196,6 +201,8 @@ public final class MainActivity extends Activity {
     this.surfaceView = new SurfaceView(this);
     this.touchControls = new TouchControlsView(this);
     this.perfOverlay = new PerfOverlayView(this);
+    // Virtual a11y nodes mirroring the engine-drawn text (menus/dialogue)
+    GameInspector.attach(this.surfaceView, GameInspector::injectTap);
 
     final ImeTargetView imeView = new ImeTargetView(this);
     AndroidEnv.setImeView(imeView);

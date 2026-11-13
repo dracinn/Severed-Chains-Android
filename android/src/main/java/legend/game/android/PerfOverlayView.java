@@ -57,6 +57,7 @@ public class PerfOverlayView extends View {
 
   public PerfOverlayView(final Context context) {
     super(context);
+    this.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
 
     this.bgPaint.setStyle(Paint.Style.FILL);
     this.bgPaint.setColor(Color.argb(170, 14, 14, 22));

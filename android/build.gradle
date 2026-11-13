@@ -724,6 +724,27 @@ import java.awt.image.BufferedImage;
     // Slow-frame + p50/p95/max logging for in-game perf hunting (PerfLog)
     '        final long frameTime = System.nanoTime() - this.lastFrame;':
     '        final long frameTime = System.nanoTime() - this.lastFrame;\n        legend.game.android.PerfLog.frame(frameTime);',
+    // Publish the frame's captured UI text for GameInspector (a11y nodes on
+    // the surface + the loopback /screen endpoint).
+    '''  private void renderFrame() {
+    // Reset CLUT animations''':
+    '''  private void renderFrame() {
+    legend.game.android.GameInspector.beginFrame();
+    // Reset CLUT animations''',
+  ],
+  'legend/game/Text.java': [
+    // Feed every rendered string to GameInspector so the game surface can
+    // expose virtual accessibility nodes and the debug inspector endpoint can
+    // report what is on screen. renderText covers menus/HUD text...
+    '''  public static void renderText(final Font font, final String text, final float originX, final float originY, final FontOptions options, @Nullable final QueueCallback queueCallback) {
+    font.init();''':
+    '''  public static void renderText(final Font font, final String text, final float originX, final float originY, final FontOptions options, @Nullable final QueueCallback queueCallback) {
+    font.init();
+    legend.game.android.GameInspector.text(text, originX, originY);''',
+    // ...and renderTextboxText covers dialogue boxes (decoded once per box).
+    '  public static void renderTextboxText(final TextboxText84 textboxText) {':
+    '''  public static void renderTextboxText(final TextboxText84 textboxText) {
+    legend.game.android.GameInspector.textbox(textboxText);''',
   ],
   'legend/core/Version.java': [
     // Display the app version instead of the CI channel tag on the title

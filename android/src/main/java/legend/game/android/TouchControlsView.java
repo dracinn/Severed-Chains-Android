@@ -6,11 +6,16 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RadialGradient;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Shader;
+import android.os.Bundle;
+import android.os.SystemClock;
 import android.util.SparseArray;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityNodeProvider;
 import legend.core.platform.AndroidInput;
 import legend.core.platform.input.InputAxis;
 import legend.core.platform.input.InputButton;
@@ -220,6 +225,8 @@ public class TouchControlsView extends View {
 
   public TouchControlsView(final Context context) {
     super(context);
+    this.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
+    this.setContentDescription("Touch controls");
     this.discPaint.setStyle(Paint.Style.FILL);
     this.rimPaint.setStyle(Paint.Style.STROKE);
     this.rimPaint.setColor(GOLD);
@@ -906,6 +913,179 @@ public class TouchControlsView extends View {
     } else if(token instanceof final InputAxis axis) {
       AndroidInput.gamepadAxis(AndroidInput.TOUCH_DEVICE_ID, axis, down ? 1.0f : 0.0f);
     }
+  }
+
+  /* ---- Accessibility --------------------------------------------------
+   * The controls are drawn directly on canvas, so the system sees this as
+   * one opaque view. Virtual nodes expose each control with its real bounds
+   * and a name — required for TalkBack/switch access, and it makes the UI
+   * introspectable for automation (uiautomator reports every control's
+   * rect). Purely additive: nothing about layout or drawing changes. ---- */
+
+  /** Node ids: pressable controls, d-pad directions, then the drag surfaces
+   *  (stick zone, cluster grips). Recomputed per query so a moved/resized
+   *  control always reports its current rect. */
+  private int nodeCount() {
+    int n = this.controls.size() + this.dpadCtrls.size();
+    if(this.moveControl != TouchMoveControl.DPAD) {
+      n++;
+    }
+    if(!this.portrait) {
+      n++;
+    }
+    if(this.dpadAdjustable()) {
+      n++;
+    }
+    return n;
+  }
+
+  private Rect nodeBounds(final int id) {
+    int i = id;
+    if(i < 0) {
+      return null;
+    }
+    if(i < this.controls.size()) {
+      return ctrlBounds(this.controls.get(i));
+    }
+    i -= this.controls.size();
+    if(i < this.dpadCtrls.size()) {
+      return ctrlBounds(this.dpadCtrls.get(i));
+    }
+    i -= this.dpadCtrls.size();
+    if(this.moveControl != TouchMoveControl.DPAD && i-- == 0) {
+      return new Rect(0, (int)this.stickZoneTop, (int)this.stickZoneRight, (int)this.stickZoneBottom);
+    }
+    if(!this.portrait && i-- == 0) {
+      return discRect(this.faceCx, this.faceCy, this.faceHubR);
+    }
+    if(this.dpadAdjustable() && i == 0) {
+      return discRect(this.dpadCx, this.dpadCy, this.dpadHubR);
+    }
+    return null;
+  }
+
+  private String nodeLabel(final int id) {
+    int i = id;
+    if(i < this.controls.size()) {
+      return ctrlLabel(this.controls.get(i));
+    }
+    i -= this.controls.size();
+    if(i < this.dpadCtrls.size()) {
+      return ctrlLabel(this.dpadCtrls.get(i));
+    }
+    i -= this.dpadCtrls.size();
+    if(this.moveControl != TouchMoveControl.DPAD && i-- == 0) {
+      return "Left analog stick";
+    }
+    if(!this.portrait && i-- == 0) {
+      return "Move face buttons";
+    }
+    if(this.dpadAdjustable() && i == 0) {
+      return "Move d-pad";
+    }
+    return null;
+  }
+
+  private static Rect ctrlBounds(final Ctrl c) {
+    if(c.pw > 0) {
+      return new Rect((int)(c.x - c.pw / 2), (int)(c.y - c.ph / 2), (int)(c.x + c.pw / 2), (int)(c.y + c.ph / 2));
+    }
+    return discRect(c.x, c.y, c.r);
+  }
+
+  private static Rect discRect(final float cx, final float cy, final float r) {
+    return new Rect((int)(cx - r), (int)(cy - r), (int)(cx + r), (int)(cy + r));
+  }
+
+  private static String ctrlLabel(final Ctrl c) {
+    if(c.button != null) {
+      return switch(c.button) {
+        case A -> "Cross";
+        case B -> "Circle";
+        case X -> "Square";
+        case Y -> "Triangle";
+        case DPAD_UP -> "D-pad up";
+        case DPAD_DOWN -> "D-pad down";
+        case DPAD_LEFT -> "D-pad left";
+        case DPAD_RIGHT -> "D-pad right";
+        case SELECT -> "Select";
+        case START -> "Start";
+        case LEFT_BUMPER -> "L1";
+        case RIGHT_BUMPER -> "R1";
+        default -> c.button.name();
+      };
+    }
+    if(c.axis == InputAxis.LEFT_TRIGGER) {
+      return "L2";
+    }
+    if(c.axis == InputAxis.RIGHT_TRIGGER) {
+      return "R2";
+    }
+    return c.label;
+  }
+
+  /** Feed a brief tap at view coords through the normal touch path. */
+  private void tapAt(final float x, final float y) {
+    final long now = SystemClock.uptimeMillis();
+    final MotionEvent down = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, x, y, 0);
+    this.handleTouch(down);
+    down.recycle();
+    this.postDelayed(() -> {
+      final MotionEvent up = MotionEvent.obtain(now, now + 60, MotionEvent.ACTION_UP, x, y, 0);
+      this.handleTouch(up);
+      up.recycle();
+    }, 60);
+  }
+
+  private final AccessibilityNodeProvider nodeProvider = new AccessibilityNodeProvider() {
+    @Override
+    public AccessibilityNodeInfo createAccessibilityNodeInfo(final int virtualViewId) {
+      if(virtualViewId == HOST_VIEW_ID) {
+        final AccessibilityNodeInfo info = AccessibilityNodeInfo.obtain();
+        TouchControlsView.this.onInitializeAccessibilityNodeInfo(info);
+        for(int i = 0; i < TouchControlsView.this.nodeCount(); i++) {
+          info.addChild(TouchControlsView.this, i);
+        }
+        return info;
+      }
+
+      final Rect bounds = TouchControlsView.this.nodeBounds(virtualViewId);
+      final String label = TouchControlsView.this.nodeLabel(virtualViewId);
+      if(bounds == null || label == null) {
+        return null;
+      }
+
+      final AccessibilityNodeInfo info = AccessibilityNodeInfo.obtain();
+      info.setSource(TouchControlsView.this, virtualViewId);
+      info.setParent(TouchControlsView.this);
+      info.setPackageName(TouchControlsView.this.getContext().getPackageName());
+      info.setClassName("android.widget.Button");
+      info.setContentDescription(label);
+      info.setBoundsInParent(bounds);
+      info.setVisibleToUser(true);
+      info.setEnabled(true);
+      info.setFocusable(true);
+      info.setClickable(true);
+      info.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_CLICK);
+      return info;
+    }
+
+    @Override
+    public boolean performAction(final int virtualViewId, final int action, final Bundle arguments) {
+      if(action == AccessibilityNodeInfo.AccessibilityAction.ACTION_CLICK.getId()) {
+        final Rect bounds = TouchControlsView.this.nodeBounds(virtualViewId);
+        if(bounds != null) {
+          TouchControlsView.this.tapAt(bounds.centerX(), bounds.centerY());
+          return true;
+        }
+      }
+      return false;
+    }
+  };
+
+  @Override
+  public AccessibilityNodeProvider getAccessibilityNodeProvider() {
+    return this.nodeProvider;
   }
 
   private boolean inStickZone(final float x, final float y) {
