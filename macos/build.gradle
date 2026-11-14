@@ -916,7 +916,9 @@ tasks.register('packageMacDmg', Exec) {
     def stageDir = stage.get().asFile
     delete stageDir, dmg.get().asFile
     copy {
-      from app
+      // 'from app' would copy Contents/ loose; include keeps the .app dir.
+      from app.parentFile
+      include 'Severed Chains.app/**'
       into stageDir
     }
     java.nio.file.Files.createSymbolicLink(
