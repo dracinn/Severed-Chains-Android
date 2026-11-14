@@ -58,6 +58,11 @@ jobs:
         SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
       run: |
         ARGS="-PjpackageHome=$JAVA_HOME"
+        # The runner's bundled ANGLE (if found) is arm64 — force a plain
+        # OpenGL bundle on Intel rather than shipping wrong-arch dylibs.
+        if [ "${{ matrix.arch }}" = x86_64 ]; then
+          ARGS="$ARGS -PangleLibsDir=/nonexistent"
+        fi
         if [ "${{ matrix.channel }}" = release ] && [ -n "$SIGN_IDENTITY" ]; then
           ARGS="$ARGS -PmacSignIdentity=$SIGN_IDENTITY"
         fi
