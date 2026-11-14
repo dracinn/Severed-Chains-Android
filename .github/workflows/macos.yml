@@ -102,6 +102,9 @@ jobs:
         if-no-files-found: error
 
     - name: Upload to Google Drive
+      # Best-effort: the rclone remote uses the shared Google client_id,
+      # which is slated for retirement — don't let Drive breakage fail CI.
+      continue-on-error: true
       if: env.RCLONE_CONF != ''
       env:
         RCLONE_CONF: ${{ secrets.GDRIVE_RCLONE_CONFIG }}
