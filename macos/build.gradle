@@ -102,6 +102,12 @@ def sharedLiteralTransforms = [
       '    if(this.angle != null) {\n      this.angle.destroy();\n    } else {\n      SDL_GL_DestroyContext(this.context);\n      SDL_DestroyWindow(this.window);\n    }',
     '  private void tick() {\n    SDL_GL_SwapWindow(this.window);':
       '  private void tick() {\n    if(this.angle != null) {\n      this.angle.swap();\n    } else {\n      SDL_GL_SwapWindow(this.window);\n    }',
+    // stbi_load emits RGBA byte order, but ARGB8888 is B,G,R,A bytes on
+    // little-endian — upstream's grey icon hides the R/B swap.
+    'import static org.lwjgl.sdl.SDLPixels.SDL_PIXELFORMAT_ARGB8888;':
+      'import static org.lwjgl.sdl.SDLPixels.SDL_PIXELFORMAT_RGBA32;',
+    'SDL_PIXELFORMAT_ARGB8888, data':
+      'SDL_PIXELFORMAT_RGBA32, data',
   ],
   'legend/core/Config.java': [
     // Mirrors the in-game Graphics > Renderer choice into config.conf so
@@ -121,9 +127,75 @@ def sharedLiteralTransforms = [
     'LogManager.shutdown();':
       'LogManager.shutdown();\n      legend.game.macos.GameLog.writeCrashLog(e);',
     // Upstream drops a copy of debug.log next to the game; redirect into the
-    // shared logs dir so nothing writes inside the signed bundle.
-    'Path.of("CRASHLOG-" + dt + ".log")':
-      'legend.game.macos.GameLog.logDir().resolve("CRASHLOG-" + dt + ".log")',
+    // shared logs dir so nothing writes inside the signed bundle. The source
+    // debug.log itself lives in logs/ (GameLog), not the cwd.
+    'Files.copy(Path.of("debug.log"), Path.of("CRASHLOG-" + dt + ".log"), StandardCopyOption.REPLACE_EXISTING);':
+      'Files.copy(legend.game.macos.GameLog.logDir().resolve("debug.log"), legend.game.macos.GameLog.logDir().resolve("CRASHLOG-" + dt + ".log"), StandardCopyOption.REPLACE_EXISTING);',
+    // cwd is the data dir (BundleMain chdirs there); toAbsolutePath would
+    // resolve "." against the boot-time cwd instead.
+    'Path.of(".").toAbsolutePath().normalize()':
+      'legend.game.macos.BundleMain.dataDir()',
+  ],
+  'legend/core/SelfUpdater.java': [
+    // Same as Main: resolve the game dir via the data dir, not the boot cwd.
+    'Path.of(".").toAbsolutePath().normalize()':
+      'legend.game.macos.BundleMain.dataDir()',
+  ],
+  'legend/game/fmv/VideoPlayer.java': [
+    // javacv absolutizes the File internally against the boot-time cwd —
+    // hand it an absolute path under the data dir.
+    'new FFmpegFrameGrabber(video.toFile())':
+      'new FFmpegFrameGrabber(legend.game.macos.BundleMain.dataDir().resolve(video).toFile())',
+  ],
+  'legend/game/saves/ConfigPresetManager.java': [
+    // toAbsolutePath resolves against the boot-time cwd, so createTempFile
+    // would try to write under "/" — resolve against the data dir.
+    'Files.createDirectories(path.toAbsolutePath().getParent());\n    final Path temporaryFile = Files.createTempFile(path.toAbsolutePath().getParent(), "preset-", ".tmp");':
+      'final Path presetDir = legend.game.macos.BundleMain.dataDir().resolve(path).getParent();\n    Files.createDirectories(presetDir);\n    final Path temporaryFile = Files.createTempFile(presetDir, "preset-", ".tmp");',
+  ],
+  'legend/game/saves/ConfigStorage.java': [
+    // Same absolutization fix as ConfigPresetManager.
+    'Files.createDirectories(file.toAbsolutePath().getParent());':
+      'Files.createDirectories(legend.game.macos.BundleMain.dataDir().resolve(file).getParent());',
+  ],
+  // --- User-facing dirs -------------------------------------------------
+  // The cwd is the internal Application Support dir; the engine's
+  // cwd-relative lookups for user-managed data redirect to
+  // ~/Documents/Severed Chains via BundleMain.docsDir().
+  'legend/core/GameEngine.java': [
+    'Files.createDirectories(Path.of("saves"));':
+      'Files.createDirectories(legend.game.macos.BundleMain.docsDir().resolve("saves"));',
+    // ScriptManager absolutizes include paths internally, so the cwd-relative
+    // ./patches roots must be pre-resolved against the internal dir.
+    'new ScriptManager(List.of(Path.of("./patches/libs"), Path.of("./patches/scripts")), Path.of("./patches"))':
+      'new ScriptManager(List.of(legend.game.macos.BundleMain.dataDir().resolve("patches/libs"), legend.game.macos.BundleMain.dataDir().resolve("patches/scripts")), legend.game.macos.BundleMain.dataDir().resolve("patches"))',
+    'MOD_ACCESS.findMods(Path.of("./mods"), Version.VERSION)':
+      'MOD_ACCESS.findMods(legend.game.macos.BundleMain.docsDir().resolve("mods"), Version.VERSION)',
+    // The branding noslop is a wordmark (~2.9:1); a 16px square would squash it.
+    '    transforms.scaling(16.0f, 16.0f, 1.0f);\n    transforms.transfer.set(301.0f, 221.0f, 29.0f);':
+      '    transforms.scaling(46.0f, 16.0f, 1.0f);\n    transforms.transfer.set(301.0f, 221.0f, 29.0f);',
+    'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
+      'new ScriptPatcher(legend.game.macos.BundleMain.dataDir().resolve("patches"), legend.game.macos.BundleMain.docsDir().resolve("files"), legend.game.macos.BundleMain.docsDir().resolve("files/patches/cache"), legend.game.macos.BundleMain.docsDir().resolve("files/patches/backups"))',
+  ],
+  'legend/game/unpacker/Unpacker.java': [
+    'public static Path ROOT = Path.of(".", "files");':
+      'public static Path ROOT = legend.game.macos.BundleMain.docsDir().resolve("files");',
+    'Files.createDirectories(Path.of("./isos"));':
+      'Files.createDirectories(legend.game.macos.BundleMain.docsDir().resolve("isos"));',
+    'final Path isos = Path.of("isos");':
+      'final Path isos = legend.game.macos.BundleMain.docsDir().resolve("isos");',
+  ],
+  'legend/game/unpacker/scripts/ScriptSearcher.java': [
+    'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
+      'new ScriptPatcher(legend.game.macos.BundleMain.dataDir().resolve("patches"), legend.game.macos.BundleMain.docsDir().resolve("files"), legend.game.macos.BundleMain.docsDir().resolve("files/patches/cache"), legend.game.macos.BundleMain.docsDir().resolve("files/patches/backups"))',
+  ],
+  'legend/game/saves/SaveManager.java': [
+    'private final Path dir = Paths.get("saves");':
+      'private final Path dir = legend.game.macos.BundleMain.docsDir().resolve("saves");',
+  ],
+  'legend/game/debugger/DebuggerController.java': [
+    'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
+      'new ScriptPatcher(legend.game.macos.BundleMain.dataDir().resolve("patches"), legend.game.macos.BundleMain.docsDir().resolve("files"), legend.game.macos.BundleMain.docsDir().resolve("files/patches/cache"), legend.game.macos.BundleMain.docsDir().resolve("files/patches/backups"))',
   ],
   'legend/core/renderer/opengles/GlesTexture.java': [
     // ANGLE-Vulkan's strict validation rejects the legacy unsized
@@ -308,6 +380,27 @@ def sharedLiteralTransforms = [
     '''public static final String FULL_VERSION = VERSION + '-' + BUILD + '-' + CHANNEL;''':
       """public static final String FULL_VERSION = VERSION + '-' + "${macDisplayVersion.get()}";""",
   ],
+  'legend/game/title/Ttle.java': [
+    // The copyright strip ships as a low-res baked TIM; give it the same
+    // native-res font treatment as the rest of the text with its own font
+    // file (generated by :generateCopyrightFont from the OFL
+    // TTF in tools/fontgen) recreating the original typeface.
+    '  private VramTexture[] copyrightPalettes;':
+      '''  private VramTexture[] copyrightPalettes;
+  private static final legend.core.font.Font TITLE_COPYRIGHT_FONT = legend.core.GameEngine.FONTS.get(Path.of("gfx/fonts/copyright/copyright.json"));
+  private static final FontOptions TITLE_COPYRIGHT_FONT_OPTIONS = new FontOptions().colour(TextColour.WHITE).noShadow().size(0.6f).horizontalAlign(HorizontalAlign.CENTRE);
+  private static final String TITLE_COPYRIGHT_TEXT = "Legend of Dragoon is a trademark of Sony Computer Entertainment America Inc.\\n\\u00a9 2000 Sony Computer Entertainment Inc.";''',
+    '''    final Matrix4f transforms = new Matrix4f().translation(RENDERER.getWidescreenOrthoOffsetX(), 0.0f, 200.0f);
+
+    //LAB_800cabb8
+    //LAB_800cabcc
+    //LAB_800cabe8
+    RENDERER
+      .queueOrthoModel(this.copyrightObj, transforms, QueuedModelStandard.class)
+      .monochrome(this.copyrightFadeInAmount)
+      .texture(this.copyrightTex);''':
+      '    renderText(TITLE_COPYRIGHT_FONT, TITLE_COPYRIGHT_TEXT, 184.0f, 221.0f, TITLE_COPYRIGHT_FONT_OPTIONS, (model, shadow) -> model.monochrome(this.copyrightFadeInAmount));',
+  ],
 ]
 
 def stagedUnpatched = layout.buildDirectory.dir('shared-sources-unpatched')
@@ -340,13 +433,24 @@ tasks.register('patchSharedSources', Sync) {
       final String original = text
 
       sharedLiteralTransforms[rel]?.each { literal, replacement ->
-        if(text.contains(replacement)) {
+        // Idempotency first: additive transforms keep the needle inside the
+        // replacement (e.g. Resolution rungs), so check the replacement is
+        // absent before matching the needle, or re-runs double-apply.
+        // An empty replacement (a deletion) is contained in every text, so it
+        // can only be detected as done by its needle being gone.
+        if(replacement.isEmpty() ? !text.contains(literal) && !text.contains(literal.replace('\n', '\r\n')) : text.contains(replacement) || text.contains(replacement.replace('\n', '\r\n'))) {
           return // already transformed by a previous run
         }
-        if(!text.contains(literal)) {
-          throw new GradleException("Staged-source transform missed ${rel}: '${literal.take(80)}' (upstream changed; update sharedLiteralTransforms)")
+        // Upstream files mix LF and CRLF; match either newline style and
+        // preserve the file's own style in the replacement.
+        String needle = literal
+        if(!text.contains(needle)) {
+          needle = literal.replace('\n', '\r\n')
+          if(!text.contains(needle)) {
+            throw new GradleException("Staged-source transform missed ${rel}: '${literal.take(80)}' (upstream changed; update sharedLiteralTransforms)")
+          }
         }
-        text = text.replace(literal, replacement)
+        text = text.replace(needle, needle.contains('\r\n') ? replacement.replace('\n', '\r\n') : replacement)
       }
 
       if(text != original) {
@@ -456,7 +560,7 @@ def macEntitlements = layout.buildDirectory.file('macapp/entitlements.plist')
 def macDistDir = layout.buildDirectory.dir('dist')
 
 tasks.register('appInput', Copy) {
-  dependsOn 'jar', ':copyLibs'
+  dependsOn 'jar', ':copyLibs', ':generateCopyrightFont'
   doFirst {
     // A read-only staged file (brew ships libMoltenVK.dylib mode-444) breaks
     // the copy; drop it so the copy recreates it fresh.
@@ -475,14 +579,29 @@ tasks.register('appInput', Copy) {
   }
   from(layout.buildDirectory.dir('libs')) { include 'lod-game-snapshot.jar' }
   into('libs') { from(rootProject.layout.buildDirectory.dir('libs/libs')) }
-  into('gfx') { from rootProject.layout.projectDirectory.dir('gfx') }
+  into('gfx') {
+    from(rootProject.layout.projectDirectory.dir('gfx')) {
+      exclude 'textures/noslop.png', 'textures/icon.png'
+    }
+    // Generated copyright font atlas (TTF rasterised by :generateCopyrightFont)
+    from rootProject.layout.buildDirectory.dir('generated-gfx')
+    // macOS port branding: upstream's "no slop" badge slot carries the
+    // Devin logo instead (same quad/position as Android's staging), and
+    // upstream's 16px window icon becomes the Dart icon so the runtime
+    // setWindowIcon call matches the bundle icns.
+    from(layout.projectDirectory.dir('branding')) {
+      include 'noslop.png'
+      include 'icon.png'
+      into 'textures'
+    }
+  }
   into('patches') { from rootProject.layout.projectDirectory.dir('patches') }
   into('lang') {
     from rootProject.layout.projectDirectory.dir('lang')
     filesMatching('unpacker.en.lang') {
       filter { line ->
         if(line.startsWith('unpacker.made_by_humans=')) {
-          return 'unpacker.made_by_humans=macOS port\\nbuilt with Devin'
+          return 'unpacker.made_by_humans=macOS port\\nbuilt with'
         }
         return line
       }
@@ -504,7 +623,7 @@ tasks.register('appInput', Copy) {
   }
   doLast {
     checkLog4jConfig(file("${macAppInput.get().asFile}/log4j2.xml"))
-    if(!file("${macAppInput.get().asFile}/lang/unpacker.en.lang").text.contains('built with Devin')) {
+    if(!file("${macAppInput.get().asFile}/lang/unpacker.en.lang").text.contains('built with')) {
       throw new GradleException('unpacker.en.lang no longer contains the made_by_humans key; update the staging transform')
     }
     // Geometry-shader-free TMD vertex shaders — MoltenVK reports
@@ -622,7 +741,7 @@ tasks.register('appInput', Copy) {
 
 tasks.register('appIcon', Exec) {
   def iconset = layout.buildDirectory.dir('macapp/icon.iconset')
-  def iconSrc = rootProject.layout.projectDirectory.file('gfx/textures/icon.png')
+  def iconSrc = layout.projectDirectory.file('branding/icon.png')
   inputs.file iconSrc
   outputs.file macAppIcon
 
@@ -667,9 +786,10 @@ tasks.register('packageMacApp', Exec) {
     '--main-class', 'legend.game.macos.BundleMain',
     '--runtime-image', macJdkHome.get(),
     // Cwd determines where the game reads gfx/ and writes isos/saves/mods —
-    // pin it inside the bundle; BundleMain links the writable paths out to
-    // ~/Documents/Severed Chains before the engine starts.
-    '--java-options', '-Duser.dir=$APPDIR',
+    // BundleMain chdirs into ~/Documents/Severed Chains at startup so no
+    // writable path ever lands inside the signed bundle. (user.dir can't
+    // express a per-user home path and JDK 25 ignores it for resolution
+    // anyway, so there is no -Duser.dir option here.)
     // Bind LWJGL's GLES module to the bundled ANGLE lib before anything can
     // resolve the system libGL — must be a JVM property, not runtime config.
     '--java-options', '-Dorg.lwjgl.opengles.libname=$APPDIR/angle/libGLESv2.dylib',

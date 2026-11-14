@@ -3,34 +3,58 @@ package legend.game.macos;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 
 import legend.game.Main;
 
 /**
- * Entry point for the packaged macOS app bundle. Redirects writable game
- * data into {@code ~/Documents/Severed Chains} via symlinks in the app dir
- * and, when the bundled ANGLE libraries are present, enables the ANGLE
- * (Metal) GLES context in {@link AngleContext} via {@code lod.angle.lib}.
+ * Entry point for the packaged macOS app bundle.
+ *
+ * Two data roots:
+ * <ul>
+ *   <li>{@code ~/Library/Application Support/Severed Chains} — the engine's
+ *   working directory (chdir target). Holds internal state: config.conf/
+ *   config.dcnf, the config/ preset dir, and copies of the bundle's
+ *   read-only assets (gfx/, patches/, lang/, gamecontrollerdb.txt) that the
+ *   engine resolves cwd-relative.</li>
+ *   <li>{@code ~/Documents/Severed Chains} — the user-facing dir. Holds only
+ *   what users manage directly: isos/, mods/, saves/, files/ (the unpacked
+ *   game data) and logs/ (capped to the newest 10 files by GameLog).</li>
+ * </ul>
+ *
+ * The sealed bundle is never written to. When the bundled ANGLE libraries
+ * are present, enables the ANGLE (Metal/Vulkan) GLES context in
+ * {@link AngleContext} via {@code lod.angle.lib}.
  */
 public final class BundleMain {
   private BundleMain() { }
 
   public static void main(final String[] args) throws Throwable {
     final Path appDir = Path.of(BundleMain.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParent();
-    // -Duser.dir only sets the property: NIO resolves relative paths through
-    // it, but java.io (RandomAccessFile, File streams, log4j appenders) opens
-    // raw relative paths against the real cwd — "/" under `open`. chdir so
-    // both agree on the app dir.
-    chdir(appDir);
-    final Path dataDir = Path.of(System.getProperty("user.home"), "Documents", "Severed Chains");
+    final Path home = Path.of(System.getProperty("user.home"));
+    final Path dataDir = home.resolve("Library").resolve("Application Support").resolve("Severed Chains");
+    final Path docsDir = home.resolve("Documents").resolve("Severed Chains");
     Files.createDirectories(dataDir);
+    Files.createDirectories(docsDir);
 
-    for(final String name : new String[] {"saves", "isos", "mods", "files", "config"}) {
-      Files.createDirectories(dataDir.resolve(name));
-      linkDataDir(appDir, dataDir, name);
+    // The engine resolves everything cwd-relative. chdir so java.io, NIO
+    // opens and native code all land in the internal dir; the bundle and the
+    // user-facing Documents dir stay clean.
+    chdir(dataDir);
+    BundleMain.dataDir = dataDir;
+    BundleMain.docsDir = docsDir;
+
+    for(final String name : new String[] {"isos", "mods", "saves", "files", "logs"}) {
+      Files.createDirectories(docsDir.resolve(name));
     }
-    for(final String name : new String[] {"config.dcnf", "config.conf", "debug.log", "unpacker.log"}) {
-      linkDataDir(appDir, dataDir, name);
+
+    migrateLayout(dataDir, docsDir);
+
+    // Read-only assets ride inside the bundle; copy them next to the cwd so
+    // cwd-relative lookups find them. ~9MB, cheap enough to refresh every
+    // launch — same merge-then-overwrite pattern as builtin-mods below.
+    for(final String name : new String[] {"gfx", "patches", "lang", "gamecontrollerdb.txt"}) {
+      copyTree(appDir.resolve(name), dataDir.resolve(name));
     }
 
     // Built-in mod assets ride inside the bundle at builtin-mods/; merge them
@@ -38,15 +62,7 @@ public final class BundleMain {
     // the Android asset extraction.
     final Path builtinMods = appDir.resolve("builtin-mods");
     if(Files.isDirectory(builtinMods)) {
-      try(final java.util.stream.Stream<Path> files = Files.walk(builtinMods)) {
-        for(final Path src : (Iterable<Path>)files::iterator) {
-          if(Files.isRegularFile(src)) {
-            final Path dst = dataDir.resolve("mods").resolve(builtinMods.relativize(src).toString());
-            Files.createDirectories(dst.getParent());
-            Files.copy(src, dst, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-          }
-        }
-      }
+      copyTree(builtinMods, docsDir.resolve("mods"));
     }
 
     // Shared logs + crash reporting — mirrors the Android GameLog/CrashReporter.
@@ -54,7 +70,7 @@ public final class BundleMain {
     // (attachVerboseAppender), or the context boots on the default console
     // config and the XML — with its file appender — never loads.
     System.setProperty("log4j2.configurationFile", appDir.resolve("log4j2.xml").toAbsolutePath().toString());
-    GameLog.init(dataDir);
+    GameLog.init(docsDir);
     GameLog.installCrashHandler();
     GameLog.attachVerboseAppender();
     CrashReporter.init();
@@ -77,21 +93,81 @@ public final class BundleMain {
     Main.main(args);
   }
 
-  /** Symlinks {@code appDir/name} to {@code dataDir/name}, moving existing data across on first run. */
-  private static void linkDataDir(final Path appDir, final Path dataDir, final String name) throws IOException {
-    final Path appPath = appDir.resolve(name);
-    if(Files.isSymbolicLink(appPath)) {
-      return;
-    }
-    if(Files.exists(appPath)) {
-      final Path target = dataDir.resolve(name);
-      if(!Files.exists(target)) {
-        Files.move(appPath, target);
-      } else {
-        return;
+  /** The internal working dir ({@code ~/Library/Application Support/Severed
+   *  Chains}); also the cwd. Used by staged transforms for the few upstream
+   *  call sites that absolutize relative paths — the JDK caches the
+   *  boot-time cwd for toAbsolutePath/getAbsolutePath, so chdir alone leaves
+   *  them pointing at the launch dir. */
+  private static Path dataDir;
+
+  public static Path dataDir() {
+    return dataDir;
+  }
+
+  /** The user-facing data dir ({@code ~/Documents/Severed Chains}): isos,
+   *  mods, saves, files and logs. Staged transforms point the engine's
+   *  cwd-relative lookups for these at {@link #docsDir()}. */
+  private static Path docsDir;
+
+  public static Path docsDir() {
+    return docsDir;
+  }
+
+  /** Moves leftovers from layouts that used Documents as the engine's cwd:
+   *  config state joins the internal dir, stray logs join logs/, and the
+   *  copied-in bundle assets are dropped (they're re-copied into the
+   *  internal dir afterwards). */
+  private static void migrateLayout(final Path dataDir, final Path docsDir) throws IOException {
+    for(final String name : new String[] {"config", "config.conf", "config.dcnf"}) {
+      final Path src = docsDir.resolve(name);
+      final Path dst = dataDir.resolve(name);
+      if(Files.exists(src) && !Files.exists(dst)) {
+        Files.move(src, dst);
       }
     }
-    Files.createSymbolicLink(appPath, dataDir.resolve(name));
+
+    final Path logs = docsDir.resolve("logs");
+    for(final String name : new String[] {"debug.log", "unpacker.log"}) {
+      final Path src = docsDir.resolve(name);
+      if(Files.isRegularFile(src)) {
+        Files.move(src, logs.resolve(name), StandardCopyOption.REPLACE_EXISTING);
+      }
+    }
+
+    for(final String name : new String[] {"gfx", "patches", "lang", "gamecontrollerdb.txt"}) {
+      deleteTree(docsDir.resolve(name));
+    }
+  }
+
+  private static void deleteTree(final Path path) throws IOException {
+    if(!Files.exists(path)) {
+      return;
+    }
+    try(final java.util.stream.Stream<Path> files = Files.walk(path)) {
+      for(final Path file : (Iterable<Path>)files.sorted(java.util.Comparator.reverseOrder())::iterator) {
+        Files.delete(file);
+      }
+    }
+  }
+
+  /** Copies src into dst recursively, overwriting; missing src is a no-op. */
+  private static void copyTree(final Path src, final Path dst) throws IOException {
+    if(Files.isRegularFile(src)) {
+      Files.copy(src, dst, StandardCopyOption.REPLACE_EXISTING);
+      return;
+    }
+    if(!Files.isDirectory(src)) {
+      return;
+    }
+    try(final java.util.stream.Stream<Path> files = Files.walk(src)) {
+      for(final Path file : (Iterable<Path>)files::iterator) {
+        if(Files.isRegularFile(file)) {
+          final Path target = dst.resolve(src.relativize(file).toString());
+          Files.createDirectories(target.getParent());
+          Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+      }
+    }
   }
 
   private static void setEnv(final String name, final String value) throws Throwable {

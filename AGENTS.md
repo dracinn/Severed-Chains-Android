@@ -27,6 +27,7 @@ src/main/resources       upstream resources — PRISTINE
 third_party/*/src        vendored upstream mods (git subtree)
 own_mods/*/src           local mods, same treatment
 gfx/, patches/, lang/    upstream runtime assets staged into builds
+tools/fontgen/           OFL TTF + atlas generator (:generateCopyrightFont → build/generated-gfx, staged into gfx/)
 isos/                    local dev discs ONLY (.gitignore '*')
 
 android/                 Android subproject (reference implementation)
@@ -88,8 +89,11 @@ the missing desktop APIs).
   screen feed + accessibility nodes so automated testing works without
   screenshots; `CrashReporter` relays crash logs; `SetupView` runs the
   first-boot disc setup (SAF picker + internal `isos/` fallback).
-- **Storage**: `Documents/Severed Chains/` holds isos/saves/mods/files/
-  config — survives uninstall. `AndroidEnv` handles legacy-dir migration.
+- **Storage**: `Documents/Severed Chains/` holds only user-facing dirs —
+  `Saves/`, `ISOs/` and `logs/` (newest 10 files). `files/` and config
+  state live in the app-private filesDir via `JdkCompat.base`; there is
+  no user mods dir (bundled mods load via the classpath `legend` scan).
+  `AndroidEnv` handles legacy-dir migration and the public-dir sync.
 - **Signing**: release/debug share the keystore from
   `releaseKeystorePath`/env vars (`SIGNING_*`); `perf` build type exists
   for profiling.
@@ -105,12 +109,22 @@ reusing the shared staging pipeline — no AGP.
 - **Toolchain**: Java 25 (matches upstream). Classpath reuses
   `rootProject build/libs/libs/*.jar` (the same dependency set as the
   upstream jar — `compileOnly` against `:copyLibs`).
-- **Entry point**: `legend.game.macos.BundleMain` — creates
-  `~/Documents/Severed Chains/` and symlinks `isos`, `saves`, `mods`,
-  `files`, `config.conf`, `config.dcnf`, `debug.log`, `unpacker.log` out of
-  `Contents/app` before `legend.game.Main` runs. Writable state lives
-  outside the sealed bundle and survives app replacement; read-only
-  `gfx/`/`patches/`/`lang/` stay inside.
+- **Entry point**: `legend.game.macos.BundleMain` — splits data across two
+  roots. `~/Library/Application Support/Severed Chains` is the internal
+  cwd (chdir target): config.conf/config.dcnf, the config/ preset dir,
+  and the read-only assets (`gfx/`, `patches/`, `lang/`,
+  `gamecontrollerdb.txt`) copied out of `Contents/app` each launch.
+  `~/Documents/Severed Chains` is the user-facing dir and holds only
+  `isos/`, `mods/`, `saves/`, `files/` and `logs/` — reached via staged
+  transforms through `BundleMain.docsDir()`; the sealed bundle is never
+  written to. The JDK caches the boot-time cwd for
+  `toAbsolutePath`/`getAbsolutePath`, so staged transforms also fix the
+  handful of absolutizing call sites (VideoPlayer, ConfigPresetManager,
+  ConfigStorage, Main, SelfUpdater, ScriptManager/ScriptPatcher roots)
+  to resolve via `BundleMain.dataDir()`.
+- **Logs**: `GameLog` writes `debug.log`, per-run `debug-<ts>.log` and
+  `crash-<ts>.log` into `Documents/Severed Chains/logs/` and prunes to
+  the newest 10 files at startup (same cap as Android's GameLog).
 - **Rendering**: `AngleContext` creates an EGL context via JDK FFM on an
   `SDL_Metal_CreateView`/`CAMetalLayer` surface using the bundled
   `Contents/app/angle/libEGL.dylib` + `libGLESv2.dylib`, then validates

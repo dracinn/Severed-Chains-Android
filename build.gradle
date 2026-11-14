@@ -304,3 +304,17 @@ sourceSets {
     }
   }
 }
+
+// Rasterise the bundled OFL TTF (tools/fontgen) into the engine font-atlas
+// format used for the title copyright strip. Platform builds stage the
+// generated gfx/ overlay (see the gfx staging in macos/android build.gradle).
+tasks.register('generateCopyrightFont', Exec) {
+  inputs.dir 'tools/fontgen'
+  final def outDir = layout.buildDirectory.dir('generated-gfx/fonts/copyright')
+  outputs.dir outDir
+  commandLine "${System.getProperty('java.home')}/bin/java",
+    '-Djava.awt.headless=true',
+    'tools/fontgen/FontGen.java',
+    'tools/fontgen/RobotoCondensed-Bold.ttf',
+    outDir.get().asFile.absolutePath
+}

@@ -23,7 +23,6 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Shared logs in ~/Documents/Severed Chains/logs/. Filesystem port of the
@@ -32,11 +31,11 @@ import java.util.concurrent.TimeUnit;
  *
  * Writes crash-<ts>.log on engine crashes and uncaught exceptions (with the
  * tail of the engine's debug.log appended), a verbose debug-<ts>.log mirroring
- * all log4j output at DEBUG level, and prunes files older than 14 days at
- * startup.
+ * all log4j output at DEBUG level, and prunes to the newest
+ * {@link #MAX_LOGS} files at startup.
  */
 public final class GameLog {
-  private static final long MAX_AGE_MS = TimeUnit.DAYS.toMillis(14);
+  private static final int MAX_LOGS = 10;
   /** Lines of the engine's debug.log appended to each crash log. */
   private static final int LOG_TAIL_LINES = 300;
   /** How far back from the end of debug.log to read when looking for them. */
@@ -47,30 +46,58 @@ public final class GameLog {
 
   private GameLog() { }
 
-  /** Call once from BundleMain with the external data dir. */
-  public static void init(final Path dataDir) {
-    logsDir = dataDir.resolve("logs");
-    debugLog = dataDir.resolve("debug.log");
-    System.setProperty("legend.baseDir", dataDir.toAbsolutePath().toString());
+  /** Call once from BundleMain with the user-facing data dir. */
+  public static void init(final Path docsDir) {
+    logsDir = docsDir.resolve("logs");
+    debugLog = logsDir.resolve("debug.log");
+    System.setProperty("legend.baseDir", logsDir.toAbsolutePath().toString());
     try {
       Files.createDirectories(logsDir);
       prune();
+      pruneCrashes();
     } catch(final IOException e) {
       System.err.println("GameLog init failed: " + e);
     }
   }
 
-  /** Deletes log files older than 14 days in the shared logs dir. */
+  /** Keeps only the newest {@link #MAX_LOGS} files in the shared logs dir.
+   *  crash-* logs are exempt — they're capped separately by {@link
+   *  #pruneCrashes} so pending uploads aren't lost to routine pruning. */
   private static void prune() {
-    final long cutoff = System.currentTimeMillis() - MAX_AGE_MS;
-    try(final DirectoryStream<Path> files = Files.newDirectoryStream(logsDir)) {
-      for(final Path f : files) {
-        if(Files.isRegularFile(f) && Files.getLastModifiedTime(f).toMillis() < cutoff) {
-          Files.deleteIfExists(f);
+    pruneMatching(f -> !f.getFileName().toString().startsWith("crash-"));
+  }
+
+  /** Keeps only the newest {@link #MAX_LOGS} crash logs (pending + .sent).
+   *  Runs at init and after each successful upload via {@link #markSent}. */
+  private static void pruneCrashes() {
+    pruneMatching(f -> f.getFileName().toString().startsWith("crash-"));
+  }
+
+  private static void pruneMatching(final java.util.function.Predicate<Path> include) {
+    final List<Path> files = new ArrayList<>();
+    try(final DirectoryStream<Path> stream = Files.newDirectoryStream(logsDir)) {
+      for(final Path f : stream) {
+        if(Files.isRegularFile(f) && include.test(f)) {
+          files.add(f);
         }
       }
     } catch(final IOException e) {
       System.err.println("GameLog prune failed: " + e);
+      return;
+    }
+    files.sort(Comparator.comparing((final Path f) -> {
+      try {
+        return Files.getLastModifiedTime(f).toMillis();
+      } catch(final IOException e) {
+        return 0L;
+      }
+    }).reversed());
+    for(int i = MAX_LOGS; i < files.size(); i++) {
+      try {
+        Files.deleteIfExists(files.get(i));
+      } catch(final IOException e) {
+        System.err.println("GameLog prune failed: " + e);
+      }
     }
   }
 
@@ -124,13 +151,15 @@ public final class GameLog {
     return Files.readString(crash.file);
   }
 
-  /** Renames a crash log to <name>.sent so it isn't re-uploaded. */
+  /** Renames a crash log to <name>.sent so it isn't re-uploaded, then prunes
+   *  the crash logs to the newest {@link #MAX_LOGS}. */
   public static void markSent(final PendingCrash crash) {
     try {
       Files.move(crash.file, crash.file.resolveSibling(crash.name + ".sent"));
     } catch(final IOException e) {
       System.err.println("GameLog markSent failed: " + e);
     }
+    pruneCrashes();
   }
 
   private static String timestamp() {

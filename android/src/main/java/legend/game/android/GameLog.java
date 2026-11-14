@@ -40,7 +40,6 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Shared logs in Documents/Severed Chains/logs/.
@@ -58,7 +57,7 @@ public final class GameLog {
   private static final String TAG = "SC-GameLog";
   private static final String LOG_DIR = "Severed Chains/logs";
   private static final String REL_PATH = Environment.DIRECTORY_DOCUMENTS + "/" + LOG_DIR + "/";
-  private static final long MAX_AGE_MS = TimeUnit.DAYS.toMillis(14);
+  private static final int MAX_LOGS = 10;
   /** Lines of the engine's debug.log appended to each crash log. */
   private static final int LOG_TAIL_LINES = 300;
   /** How far back from the end of debug.log to read when looking for them. */
@@ -78,6 +77,7 @@ public final class GameLog {
       return false;
     }
     prune();
+    pruneCrashes();
     Log.i(TAG, "Shared logs ready -> Documents/" + LOG_DIR + (debuggable ? " (verbose)" : ""));
     return true;
   }
@@ -91,36 +91,53 @@ public final class GameLog {
     return Build.VERSION.SDK_INT >= 29 || !needsPermission(appContext);
   }
 
-  /** Deletes log files older than 14 days in the shared logs dir. */
+  /** Keeps only the newest {@link #MAX_LOGS} non-crash files in the shared
+   *  logs dir. crash-* logs are exempt — they're capped separately by {@link
+   *  #pruneCrashes} so pending uploads aren't lost to routine pruning. */
   private static void prune() {
-    final long cutoff = System.currentTimeMillis() / 1000 - TimeUnit.DAYS.toSeconds(14);
+    pruneMatching(MediaStore.MediaColumns.DISPLAY_NAME + " NOT LIKE 'crash-%'",
+      f -> !f.getName().startsWith("crash-"));
+  }
+
+  /** Keeps only the newest {@link #MAX_LOGS} crash logs (pending + .sent).
+   *  Runs at init and after each successful upload via {@link #markSent}. */
+  private static void pruneCrashes() {
+    pruneMatching(MediaStore.MediaColumns.DISPLAY_NAME + " LIKE 'crash-%'",
+      f -> f.getName().startsWith("crash-"));
+  }
+
+  private static void pruneMatching(final String nameSelection, final java.util.function.Predicate<File> legacyFilter) {
     if(Build.VERSION.SDK_INT >= 29) {
       final ContentResolver res = appContext.getContentResolver();
       final Uri files = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+      final List<Long> ids = new ArrayList<>();
       try(final Cursor c = res.query(files,
-        new String[] {MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DATE_MODIFIED},
-        MediaStore.MediaColumns.RELATIVE_PATH + "=? AND " + MediaStore.MediaColumns.DATE_MODIFIED + "<?",
-        new String[] {REL_PATH, String.valueOf(cutoff)}, null)) {
+        new String[] {MediaStore.MediaColumns._ID},
+        MediaStore.MediaColumns.RELATIVE_PATH + "=? AND " + nameSelection,
+        new String[] {REL_PATH}, MediaStore.MediaColumns.DATE_MODIFIED + " DESC")) {
         if(c == null) {
           return;
         }
         while(c.moveToNext()) {
-          final Uri item = Uri.withAppendedPath(files, String.valueOf(c.getLong(0)));
-          res.delete(item, null, null);
+          ids.add(c.getLong(0));
         }
       } catch(final RuntimeException e) {
         Log.e(TAG, "Failed to prune old logs", e);
+        return;
+      }
+      for(int i = MAX_LOGS; i < ids.size(); i++) {
+        res.delete(Uri.withAppendedPath(files, String.valueOf(ids.get(i))), null, null);
       }
     } else {
       final File dir = legacyDir();
-      final File[] files = dir.listFiles();
+      final File[] files = dir.listFiles(f -> f.isFile() && legacyFilter.test(f));
       if(files == null) {
         return;
       }
-      for(final File f : files) {
-        if(f.isFile() && f.lastModified() < System.currentTimeMillis() - MAX_AGE_MS) {
-          f.delete();
-        }
+      Arrays.sort(files, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
+      for(int i = MAX_LOGS; i < files.length; i++) {
+        //noinspection ResultOfMethodCallIgnored
+        files[i].delete();
       }
     }
   }
@@ -235,6 +252,7 @@ public final class GameLog {
     } catch(final RuntimeException e) {
       Log.w(TAG, "Failed to mark crash log sent: " + crash.name, e);
     }
+    pruneCrashes();
   }
 
   private static String timestamp() {
