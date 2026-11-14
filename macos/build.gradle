@@ -853,14 +853,21 @@ tasks.register('signMacNatives', Exec) {
   }
   commandLine '/bin/sh', '-c', """
     set -e
-    for jar in "${libs.absolutePath}"/*-natives-macos*.jar; do
-      [ -e "\$jar" ] || continue
+    find "${appDir.absolutePath}" -name '*.jar' | while read -r jar; do
       find "${stage.get().asFile}" -mindepth 1 -delete
-      unzip -o -q "\$jar" '*.dylib' -d "${stage.get().asFile}" || true
-      find "${stage.get().asFile}" -name '*.dylib' | while read -r d; do
-        codesign --force --timestamp --options runtime --sign '${macSignIdentity.get()}' "\$d"
+      rm -f "${stage.get().asFile}.rejar"
+      unzip -o -q "\$jar" -d "${stage.get().asFile}" || continue
+      find "${stage.get().asFile}" -type f | while read -r f; do
+        case "\$(file -b "\$f")" in
+          Mach-O*)
+            codesign --force --timestamp --options runtime --sign '${macSignIdentity.get()}' "\$f"
+            touch "${stage.get().asFile}.rejar"
+            ;;
+        esac
       done
-      (cd "${stage.get().asFile}" && jar uf "\$jar" .)
+      if [ -f "${stage.get().asFile}.rejar" ]; then
+        (cd "${stage.get().asFile}" && jar uf "\$jar" .)
+      fi
     done
     find "${appDir.parentFile.absolutePath}" -type f | while read -r f; do
       case "\$(file -b "\$f")" in
