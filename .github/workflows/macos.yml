@@ -40,7 +40,7 @@ jobs:
         cache: gradle
 
     - name: Import signing certificate
-      if: matrix.channel == 'release' && secrets.MACOS_CERTIFICATE != ''
+      if: matrix.channel == 'release' && env.CERT != ''
       env:
         CERT: ${{ secrets.MACOS_CERTIFICATE }}
         CERT_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
@@ -69,9 +69,44 @@ jobs:
         ./gradlew :macos:packageMacDmg $ARGS
         mv "macos/build/dist/Severed Chains.dmg" "severedchains-macos-${{ matrix.arch }}-${{ matrix.channel }}.dmg"
 
+    # Notarization needs either an App Store Connect API key
+    # (MACOS_NOTARIZE_KEY = base64 .p8, MACOS_NOTARIZE_KEY_ID,
+    # MACOS_NOTARIZE_ISSUER_ID) or an app-specific Apple ID password
+    # (MACOS_NOTARIZE_APPLE_ID + MACOS_NOTARIZE_PASSWORD).
+    - name: Notarize DMG
+      if: matrix.channel == 'release' && env.SIGN_IDENTITY != '' && (env.ASC_KEY != '' || env.APPLE_ID_PASSWORD != '')
+      env:
+        SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+        ASC_KEY: ${{ secrets.MACOS_NOTARIZE_KEY }}
+        ASC_KEY_ID: ${{ secrets.MACOS_NOTARIZE_KEY_ID }}
+        ASC_ISSUER_ID: ${{ secrets.MACOS_NOTARIZE_ISSUER_ID }}
+        APPLE_ID: ${{ secrets.MACOS_NOTARIZE_APPLE_ID }}
+        APPLE_ID_PASSWORD: ${{ secrets.MACOS_NOTARIZE_PASSWORD }}
+      run: |
+        DMG="severedchains-macos-${{ matrix.arch }}-${{ matrix.channel }}.dmg"
+        codesign --sign "$SIGN_IDENTITY" "$DMG"
+        if [ -n "$ASC_KEY" ]; then
+          echo "$ASC_KEY" | base64 --decode > asc-key.p8
+          xcrun notarytool submit "$DMG" --key asc-key.p8 --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID" --wait
+          rm asc-key.p8
+        else
+          xcrun notarytool submit "$DMG" --apple-id "$APPLE_ID" --password "$APPLE_ID_PASSWORD" --team-id 25TXA8VF4A --wait
+        fi
+        xcrun stapler staple "$DMG"
+
     - name: Upload DMG
       uses: actions/upload-artifact@v5
       with:
         name: severedchains-macos-${{ matrix.arch }}-${{ matrix.channel }}
         path: severedchains-macos-${{ matrix.arch }}-${{ matrix.channel }}.dmg
         if-no-files-found: error
+
+    - name: Upload to Google Drive
+      if: env.RCLONE_CONF != ''
+      env:
+        RCLONE_CONF: ${{ secrets.GDRIVE_RCLONE_CONFIG }}
+      run: |
+        brew install rclone
+        echo "$RCLONE_CONF" > rclone.conf
+        rclone --config rclone.conf copy "severedchains-macos-${{ matrix.arch }}-${{ matrix.channel }}.dmg" "gdrive:SeveredChains/builds/"
+        rm rclone.conf
