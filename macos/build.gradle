@@ -826,11 +826,12 @@ tasks.register('patchMacAppPlist', Exec) {
   """
 }
 
-// Notarization scans inside jars, and the x86_64 LWJGL natives ship
-// unsigned dylibs — extract, sign with the same identity + secure
-// timestamp, and update the jar entries before the bundle is signed.
-// The bundled ANGLE/MoltenVK dylibs are adhoc-signed and get the same
-// treatment since codesign --deep only reaches standard bundle paths.
+// Notarization scans inside jars and requires EVERY Mach-O in the bundle
+// to carry a Developer ID signature with hardened runtime + secure
+// timestamp. --deep only reaches standard nested-code paths, so this
+// signs jar natives (extracted + rejared) plus every loose binary —
+// JDK runtime executables, ANGLE/MoltenVK dylibs, ffmpeg binaries —
+// before the outer bundle signature is applied.
 tasks.register('signMacNatives', Exec) {
   dependsOn 'patchMacAppPlist'
   def appDir = file("${macDistDir.get().asFile}/Severed Chains.app/Contents/app")
@@ -861,8 +862,10 @@ tasks.register('signMacNatives', Exec) {
       done
       (cd "${stage.get().asFile}" && jar uf "\$jar" .)
     done
-    find "${appDir.absolutePath}" -type f \\( -name '*.dylib' -o -name '*.jnilib' \\) | while read -r d; do
-      codesign --force --timestamp --options runtime --sign '${macSignIdentity.get()}' "\$d"
+    find "${appDir.parentFile.absolutePath}" -type f | while read -r f; do
+      case "\$(file -b "\$f")" in
+        Mach-O*) codesign --force --timestamp --options runtime --sign '${macSignIdentity.get()}' "\$f" ;;
+      esac
     done
   """
 }
