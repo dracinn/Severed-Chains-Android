@@ -1,0 +1,72 @@
+name: macOS DMG
+
+on:
+  push:
+    branches:
+    - main
+    tags:
+    - 'v*'
+  workflow_dispatch:
+
+jobs:
+  dmg:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - runner: macos-15
+          arch: arm64
+        - runner: macos-15-intel
+          arch: x86_64
+        channel: [release, debug]
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+    - name: Clone repo
+      uses: actions/checkout@v5
+
+    - name: Stamp version
+      run: |
+        sed -i '' "s/SNAPSHOT/${{ github.run_number }}/g" ./src/main/java/legend/core/Version.java
+        sed -i '' "s/COMMIT/${{ github.sha }}/g" ./src/main/java/legend/core/Version.java
+        sed -i '' "s/\"CHANNEL\"/\"${{ matrix.channel }}\"/g" ./src/main/java/legend/core/Version.java
+        sed -i '' "s/TIMESTAMP = null/TIMESTAMP = ZonedDateTime.parse(\"$(date -u -v+5M +%Y-%m-%dT%H:%M:%SZ)\")/g" ./src/main/java/legend/core/Version.java
+
+    - name: Set up JDK 25
+      uses: actions/setup-java@v4
+      with:
+        java-version: '25'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Import signing certificate
+      if: matrix.channel == 'release' && secrets.MACOS_CERTIFICATE != ''
+      env:
+        CERT: ${{ secrets.MACOS_CERTIFICATE }}
+        CERT_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+      run: |
+        echo "$CERT" | base64 --decode > cert.p12
+        security create-keychain -p ci-build build.keychain
+        security default-keychain -d user -s build.keychain
+        security unlock-keychain -p ci-build build.keychain
+        security import cert.p12 -k build.keychain -P "$CERT_PASSWORD" -T /usr/bin/codesign
+        security set-key-partition-list -S apple-tool:,apple: -k ci-build build.keychain
+        rm cert.p12
+
+    - name: Build DMG
+      env:
+        SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+      run: |
+        ARGS="-PjpackageHome=$JAVA_HOME"
+        if [ "${{ matrix.channel }}" = release ] && [ -n "$SIGN_IDENTITY" ]; then
+          ARGS="$ARGS -PmacSignIdentity=$SIGN_IDENTITY"
+        fi
+        ./gradlew :macos:packageMacDmg $ARGS
+        mv "macos/build/dist/Severed Chains.dmg" "severedchains-macos-${{ matrix.arch }}-${{ matrix.channel }}.dmg"
+
+    - name: Upload DMG
+      uses: actions/upload-artifact@v5
+      with:
+        name: severedchains-macos-${{ matrix.arch }}-${{ matrix.channel }}
+        path: severedchains-macos-${{ matrix.arch }}-${{ matrix.channel }}.dmg
+        if-no-files-found: error

@@ -866,3 +866,28 @@ tasks.register('verifyMacApp', Exec) {
   onlyIf { tasks.named('signMacApp').get().state.executed }
   commandLine 'codesign', '--verify', '--deep', '--strict', '--verbose=2', app.absolutePath
 }
+
+// Stages the signed (or unsigned) .app plus an Applications symlink into a
+// compressed UDZO disk image at macos/build/dist/Severed Chains.dmg.
+tasks.register('packageMacDmg', Exec) {
+  dependsOn 'signMacApp'
+  def app = file("${macDistDir.get().asFile}/Severed Chains.app")
+  def stage = layout.buildDirectory.dir('dmg-stage')
+  def dmg = macDistDir.map { it.file('Severed Chains.dmg') }
+  inputs.dir app
+  outputs.file dmg
+  doFirst {
+    def stageDir = stage.get().asFile
+    delete stageDir, dmg.get().asFile
+    copy {
+      from app
+      into stageDir
+    }
+    java.nio.file.Files.createSymbolicLink(
+      new File(stageDir, 'Applications').toPath(),
+      new File('/Applications').toPath())
+  }
+  commandLine 'hdiutil', 'create', '-volname', 'Severed Chains',
+    '-srcfolder', stage.get().asFile.absolutePath,
+    '-ov', '-format', 'UDZO', dmg.get().asFile.absolutePath
+}
