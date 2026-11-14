@@ -14,11 +14,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - runner: macos-15
-          arch: arm64
-        - runner: macos-15-intel
-          arch: x86_64
-        channel: [release, debug]
+        - {runner: macos-15, arch: arm64, channel: release}
+        - {runner: macos-15, arch: arm64, channel: debug}
+        - {runner: macos-15-intel, arch: x86_64, channel: release}
+        - {runner: macos-15-intel, arch: x86_64, channel: debug}
     runs-on: ${{ matrix.runner }}
 
     steps:
