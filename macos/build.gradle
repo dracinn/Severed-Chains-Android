@@ -728,7 +728,7 @@ tasks.register('appInput', Copy) {
           'libEGL_vulkan_secondaries.dylib', 'libGLESv2_vulkan_secondaries.dylib'
       }
       // ANGLE's Vulkan path dlopens libMoltenVK.dylib (Vulkan -> Metal layer).
-      def moltenVk = ['/opt/homebrew/lib/libMoltenVK.dylib', '/usr/local/lib/libMoltenVK.dylib']
+      def moltenVk = ["${angleDir}/libMoltenVK.dylib", '/opt/homebrew/lib/libMoltenVK.dylib', '/usr/local/lib/libMoltenVK.dylib']
         .collect { file(it) }.find { it.isFile() }
       if(moltenVk != null) {
         from(moltenVk.parentFile) { include 'libMoltenVK.dylib' }

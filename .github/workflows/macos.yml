@@ -52,6 +52,21 @@ jobs:
         security set-key-partition-list -S apple-tool:,apple: -k ci-build build.keychain
         rm cert.p12
 
+    # Full source-built ANGLE + MoltenVK (GLES-over-Metal/Vulkan) is hosted
+    # in Drive since it cannot be rebuilt in CI. Best-effort: the runner's
+    # emulator libs are the fallback.
+    - name: Fetch bundled ANGLE libs
+      continue-on-error: true
+      if: matrix.arch == 'arm64' && env.RCLONE_CONF != ''
+      env:
+        RCLONE_CONF: ${{ secrets.GDRIVE_RCLONE_CONFIG }}
+      run: |
+        brew install rclone
+        echo "$RCLONE_CONF" > rclone.conf
+        rclone --config rclone.conf copy "gdrive:SeveredChains/angle/arm64" "$RUNNER_TEMP/angle"
+        rm rclone.conf
+        ls -l "$RUNNER_TEMP/angle"
+
     - name: Build DMG
       env:
         SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
@@ -61,6 +76,8 @@ jobs:
         # OpenGL bundle on Intel rather than shipping wrong-arch dylibs.
         if [ "${{ matrix.arch }}" = x86_64 ]; then
           ARGS+=(-PangleLibsDir=/nonexistent)
+        elif [ -d "$RUNNER_TEMP/angle" ]; then
+          ARGS+=(-PangleLibsDir="$RUNNER_TEMP/angle")
         fi
         if [ "${{ matrix.channel }}" = release ] && [ -n "$SIGN_IDENTITY" ]; then
           ARGS+=(-PmacSignIdentity="$SIGN_IDENTITY")
