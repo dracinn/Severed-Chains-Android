@@ -42,7 +42,7 @@ jobs:
         cache: gradle
 
     - name: Import signing certificate
-      if: matrix.channel == 'release' && env.CERT != ''
+      if: env.CERT != ''
       env:
         CERT: ${{ secrets.MACOS_CERTIFICATE }}
         CERT_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
@@ -82,7 +82,7 @@ jobs:
         elif [ -d "$RUNNER_TEMP/angle" ]; then
           ARGS+=(-PangleLibsDir="$RUNNER_TEMP/angle")
         fi
-        if [ "${{ matrix.channel }}" = release ] && [ -n "$SIGN_IDENTITY" ]; then
+        if [ -n "$SIGN_IDENTITY" ]; then
           ARGS+=(-PmacSignIdentity="$SIGN_IDENTITY")
         fi
         ./gradlew :macos:packageMacDmg "${ARGS[@]}"
