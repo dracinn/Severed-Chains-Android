@@ -10,6 +10,7 @@ on:
 
 jobs:
   dmg:
+    name: macOS ${{ matrix.arch }} ${{ matrix.channel }}
     strategy:
       fail-fast: false
       matrix:

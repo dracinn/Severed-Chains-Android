@@ -14,6 +14,7 @@ on:
 
 jobs:
   build-linux:
+    name: Desktop packages (Windows/Linux/macOS/Steam Deck)
     runs-on: ubuntu-latest
     permissions:
       contents: write
