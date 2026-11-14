@@ -173,7 +173,7 @@ def sharedLiteralTransforms = [
       'MOD_ACCESS.findMods(legend.game.macos.BundleMain.docsDir().resolve("mods"), Version.VERSION)',
     // The branding noslop is a wordmark (~2.9:1); a 16px square would squash it.
     '    transforms.scaling(16.0f, 16.0f, 1.0f);\n    transforms.transfer.set(301.0f, 221.0f, 29.0f);':
-      '    transforms.scaling(46.0f, 16.0f, 1.0f);\n    transforms.transfer.set(301.0f, 221.0f, 29.0f);',
+      '    transforms.scaling(46.0f, 16.0f, 1.0f);\n    transforms.transfer.set(271.0f, 221.0f, 29.0f);',
     'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
       'new ScriptPatcher(legend.game.macos.BundleMain.dataDir().resolve("patches"), legend.game.macos.BundleMain.docsDir().resolve("files"), legend.game.macos.BundleMain.docsDir().resolve("files/patches/cache"), legend.game.macos.BundleMain.docsDir().resolve("files/patches/backups"))',
   ],

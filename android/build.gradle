@@ -638,7 +638,7 @@ import java.awt.image.BufferedImage;
     '          legend.core.Config.enableLowMemoryUnpacker();\n          try {\n            Unpacker.unpack();',
     // The branding noslop is a wordmark (~2.9:1); a 16px square would squash it.
     '    transforms.scaling(16.0f, 16.0f, 1.0f);\n    transforms.transfer.set(301.0f, 221.0f, 29.0f);':
-    '    transforms.scaling(46.0f, 16.0f, 1.0f);\n    transforms.transfer.set(301.0f, 221.0f, 29.0f);',
+    '    transforms.scaling(46.0f, 16.0f, 1.0f);\n    transforms.transfer.set(271.0f, 221.0f, 29.0f);',
   ],
   'legend/game/unpacker/scripts/ScriptSearcher.java': [
     'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
