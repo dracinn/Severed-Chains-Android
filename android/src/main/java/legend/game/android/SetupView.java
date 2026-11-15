@@ -77,6 +77,11 @@ public final class SetupView extends ScrollView {
   private final Button storageButton;
   private boolean storageGranted = true;
 
+  private android.widget.Switch sdSwitch;
+  private TextView sdSub;
+  private String sdRootPath;
+  private File sdTarget;
+
   private volatile boolean cancelImport;
   private Thread importThread;
 
@@ -161,6 +166,35 @@ public final class SetupView extends ScrollView {
     compatSwitch.setChecked(GlesCompat.compatMode());
     compatSwitch.setOnCheckedChangeListener((v, on) -> GlesCompat.setCompatMode(on));
     compatCard.addView(compatSwitch);
+
+    // Save-location toggle: write saves to the SD card instead of internal
+    // storage. Shown only when a writable SD location exists; applies on
+    // next launch — existing saves are not moved.
+    if(AndroidEnv.sdSavesTarget() != null) {
+      final LinearLayout savesCard = new LinearLayout(activity);
+      savesCard.setOrientation(LinearLayout.HORIZONTAL);
+      savesCard.setGravity(Gravity.CENTER_VERTICAL);
+      savesCard.setBackground(this.rounded(COLOUR_SURFACE, 14, COLOUR_STROKE, 1));
+      savesCard.setPadding(pad, this.dp(10), pad, this.dp(10));
+      final LinearLayout.LayoutParams savesLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+      savesLp.topMargin = this.dp(12);
+      left.addView(savesCard, savesLp);
+
+      final LinearLayout savesText = new LinearLayout(activity);
+      savesText.setOrientation(LinearLayout.VERTICAL);
+      savesCard.addView(savesText, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+      savesText.addView(this.text("Saves on SD card", COLOUR_TEXT, 15, true));
+      this.sdSub = this.text("", COLOUR_DIM, 12, false);
+      this.sdSub.setPadding(0, this.dp(2), 0, 0);
+      savesText.addView(this.sdSub);
+
+      this.sdSwitch = new android.widget.Switch(activity);
+      this.sdSwitch.setChecked(AndroidEnv.preferSdSaves());
+      this.sdSwitch.setOnCheckedChangeListener((v, on) -> AndroidEnv.setPreferSdSaves(on));
+      savesCard.addView(this.sdSwitch);
+      this.updateSdCard();
+    }
 
     final TextView gpuNote = this.text("If the game closes while starting up, open it again — it retries in a compatibility mode automatically. Crash and debug logs live in Documents/Severed Chains/logs.", COLOUR_DIM, 12, false);
     gpuNote.setPadding(0, this.dp(14), 0, 0);
@@ -709,6 +743,31 @@ public final class SetupView extends ScrollView {
       this.storageGranted = granted;
       this.updateStorageCard();
     }
+    this.updateSdCard();
+  }
+
+  private void updateSdCard() {
+    if(this.sdSwitch == null) {
+      return;
+    }
+    // sdSavesTarget() write-probes the volume — only recompute when the
+    // mounted root path changes, not on every rescan tick.
+    final File root = AndroidEnv.sdCardRoot();
+    final String path = root != null ? root.getAbsolutePath() : null;
+    if(path == null ? this.sdRootPath != null : !path.equals(this.sdRootPath)) {
+      this.sdRootPath = path;
+      this.sdTarget = AndroidEnv.sdSavesTarget();
+    }
+    if(this.sdTarget == null) {
+      this.sdSwitch.setEnabled(false);
+      this.sdSub.setText("No writable SD location detected.");
+      return;
+    }
+    this.sdSwitch.setEnabled(true);
+    this.sdSub.setText("Save games to " + this.sdTarget.getAbsolutePath()
+      + (this.sdTarget.getAbsolutePath().contains("/Android/data/")
+        ? ". Removed if the app is uninstalled. Applies on next launch; existing saves are not moved."
+        : ". Applies on next launch; existing saves are not moved."));
   }
 
   private int dp(final int value) {

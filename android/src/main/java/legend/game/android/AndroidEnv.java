@@ -320,10 +320,114 @@ public final class AndroidEnv {
    * uninstalls), otherwise the internal filesDir/saves.
    */
   public static Path savesPath() {
+    final File sd = sdSavesDir();
+    if(sd != null) {
+      return sd.toPath();
+    }
     if(hasSharedStorageAccess()) {
       return PUBLIC_SAVES_DIR.toPath();
     }
     return new File(context.getFilesDir(), "saves").toPath();
+  }
+
+  // ------------------------------------------------------------------
+  // Optional SD-card save location
+  // ------------------------------------------------------------------
+
+  private static final String PREFS = "severed_chains";
+  private static final String PREF_SD_SAVES = "saves_on_sd";
+
+  public static boolean preferSdSaves() {
+    return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(PREF_SD_SAVES, false);
+  }
+
+  public static void setPreferSdSaves(final boolean on) {
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(PREF_SD_SAVES, on).apply();
+  }
+
+  /** Root of a mounted removable (SD card) volume, or null when none exists. */
+  @Nullable
+  public static File sdCardRoot() {
+    if(Build.VERSION.SDK_INT >= 30) {
+      final android.os.storage.StorageManager sm = context.getSystemService(android.os.storage.StorageManager.class);
+      if(sm != null) {
+        for(final android.os.storage.StorageVolume volume : sm.getStorageVolumes()) {
+          final File dir = volume.getDirectory();
+          if(volume.isRemovable() && dir != null && Environment.MEDIA_MOUNTED.equals(volume.getState())) {
+            return dir;
+          }
+        }
+      }
+      return null;
+    }
+    // Pre-API 30: secondary getExternalFilesDirs entries point at
+    // /storage/<uuid>/Android/data/<pkg>/files — walk up to the volume root.
+    final File[] dirs = context.getExternalFilesDirs(null);
+    for(int i = 1; i < dirs.length; i++) {
+      File root = dirs[i];
+      for(int j = 0; root != null && j < 4; j++) {
+        root = root.getParentFile();
+      }
+      if(root != null) {
+        return root;
+      }
+    }
+    return null;
+  }
+
+  /** Where SD saves go when enabled — public dir if the ROM allows writes
+   *  to the volume root, otherwise the app-private dir on the SD (always
+   *  writable, but deleted on uninstall). Null when no SD is mounted. */
+  @Nullable
+  public static File sdSavesTarget() {
+    final File root = sdCardRoot();
+    if(root != null) {
+      final File dir = new File(root, "Severed Chains");
+      if(isWritableDir(dir)) {
+        return new File(dir, "Saves");
+      }
+    }
+    final File appDir = sdAppFilesDir();
+    return appDir != null ? new File(appDir, "Saves") : null;
+  }
+
+  /** FUSE-mounted external storage can report canWrite() while writes fail
+   *  with EROFS — probe with a real file create instead. */
+  private static boolean isWritableDir(final File dir) {
+    if(!dir.isDirectory() && !dir.mkdirs()) {
+      return false;
+    }
+    final File probe = new File(dir, ".sc-write-test");
+    try {
+      if(probe.createNewFile()) {
+        //noinspection ResultOfMethodCallIgnored
+        probe.delete();
+        return true;
+      }
+      return false;
+    } catch(final IOException e) {
+      return false;
+    }
+  }
+
+  /** App-private files dir on a removable volume — writable without grants. */
+  @Nullable
+  private static File sdAppFilesDir() {
+    final File[] dirs = context.getExternalFilesDirs(null);
+    for(int i = 1; i < dirs.length; i++) {
+      final File dir = dirs[i];
+      if(dir != null && Environment.isExternalStorageRemovable(dir)
+          && Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState(dir))) {
+        return dir;
+      }
+    }
+    return null;
+  }
+
+  /** The Saves/ folder on the SD card when the user opted in. */
+  @Nullable
+  public static File sdSavesDir() {
+    return preferSdSaves() ? sdSavesTarget() : null;
   }
 
   /** Where picked disc images are staged: public ISOs/ when accessible. */
@@ -344,12 +448,13 @@ public final class AndroidEnv {
       return;
     }
 
+    final File savesDir = savesPath().toFile();
     //noinspection ResultOfMethodCallIgnored
-    PUBLIC_SAVES_DIR.mkdirs();
+    savesDir.mkdirs();
     //noinspection ResultOfMethodCallIgnored
     PUBLIC_ISOS_DIR.mkdirs();
 
-    moveContents(new File(context.getFilesDir(), "saves"), PUBLIC_SAVES_DIR);
+    moveContents(new File(context.getFilesDir(), "saves"), savesDir);
     moveContents(new File(context.getFilesDir(), "isos"), PUBLIC_ISOS_DIR);
   }
 
