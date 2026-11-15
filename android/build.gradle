@@ -607,15 +607,11 @@ import java.awt.image.BufferedImage;
     'private final Path dir = Paths.get("saves");':
     'private final Path dir = legend.game.android.AndroidEnv.savesPath();',
   ],
-  'legend/game/inventory/screens/MainMenuScreen.java': [
-    // Android-only "Setup" entry filling the empty right-column slot
-    // between Options and Load — reopens the disc/storage setup screen.
-    '''    this.addButton(new I18nText("lod_core.ui.ingame_menu.options"), this::showOptionsScreen);
-    this.addButton(RawText.BLANK, () -> { }).hide();
-    this.loadButton = this.addButton(new I18nText("lod_core.ui.ingame_menu.load"), this::showLoadScreen);''':
-    '''    this.addButton(new I18nText("lod_core.ui.ingame_menu.options"), this::showOptionsScreen);
-    this.addButton(new RawText("Setup"), legend.game.android.AndroidEnv::reopenSetup);
-    this.loadButton = this.addButton(new I18nText("lod_core.ui.ingame_menu.load"), this::showLoadScreen);''',
+  'legend/game/modding/coremod/CoreMod.java': [
+    // Options > Save location — Android-only storage picker, available in
+    // both the title-menu and in-game Options screens.
+    '  public static final RegistryDelegate<MonitorConfigEntry> MONITOR_CONFIG = CONFIG_REGISTRAR.register("monitor", MonitorConfigEntry::new);':
+      '  public static final RegistryDelegate<MonitorConfigEntry> MONITOR_CONFIG = CONFIG_REGISTRAR.register("monitor", MonitorConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.SaveLocationConfigEntry> SAVE_LOCATION_CONFIG = CONFIG_REGISTRAR.register("save_location", legend.game.android.SaveLocationConfigEntry::new);',
   ],
   'legend/game/saves/ConfigPresetManager.java': [
     'Files.createDirectories(path.toAbsolutePath().getParent());':
@@ -1110,6 +1106,17 @@ tasks.register('packageSharedClasses', Jar) {
         if(line == 'lod_core.config.resolution._4K=4K') {
           return line + '\nlod_core.config.resolution._2400=2400p\nlod_core.config.resolution._2880=2880p'
         }
+        // Android-only Save location option (Other category) — registered
+        // by the staged CoreMod transform, labels staged here like the
+        // resolution rungs.
+        if(line == 'lod_core.config.monitor.label=Monitor') {
+          return line + '\n' + '''lod_core.config.save_location.label=Save location
+lod_core.config.save_location.help=Where save files are stored. Applies on next launch; existing saves are not moved.
+lod_core.config.save_location.AUTO=Automatic
+lod_core.config.save_location.INTERNAL=Internal app storage
+lod_core.config.save_location.SHARED=Shared storage (Documents)
+lod_core.config.save_location.SD_CARD=SD card'''
+        }
         return line
       }
     }
@@ -1134,6 +1141,9 @@ tasks.register('packageSharedClasses', Jar) {
       .matching { include 'lod_core/lang/en.lang' }.singleFile
     if(!lang.text.contains('lod_core.config.resolution._2880=')) {
       throw new GradleException('Resolution lang labels missing: upstream en.lang changed; update packageSharedClasses')
+    }
+    if(!lang.text.contains('lod_core.config.save_location.SD_CARD=')) {
+      throw new GradleException('Save location lang labels missing: upstream en.lang changed; update packageSharedClasses')
     }
   }
   from annotationIndexDir
