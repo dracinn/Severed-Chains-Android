@@ -38,21 +38,31 @@ export default {
 
     // Dedup: the hash is embedded in the issue body, so a repeat crash finds
     // the existing issue and lands as a comment instead of a new issue.
+    // Use the issues list API rather than search — search indexing lags a
+    // few seconds behind issue creation, so crash bursts would race past
+    // it and file duplicates.
     if(hash) {
-      const q = encodeURIComponent(`repo:${env.GH_REPO} is:issue ${hash}`);
-      const res = await fetch(`https://api.github.com/search/issues?q=${q}&per_page=1`, { headers: ghHeaders });
-      if(res.ok) {
-        const found = await res.json();
-        if(found.total_count > 0) {
-          const issue = found.items[0];
-          await fetch(issue.comments_url, {
-            method: 'POST',
-            headers: ghHeaders,
-            body: JSON.stringify({
-              body: `Repeat report — ${device}, ${version}.\n\n<details><summary>crash log</summary>\n\n${fenced}\n</details>`,
-            }),
-          });
-          return Response.json({ issue: issue.html_url, deduplicated: true });
+      const needle = `Dedup hash:** \`${hash}\``;
+      for(let page = 1; page <= 3; page++) {
+        const res = await fetch(`https://api.github.com/repos/${env.GH_REPO}/issues?state=open&labels=crash&per_page=100&page=${page}`, { headers: ghHeaders });
+        if(!res.ok) {
+          break;
+        }
+        const issues = await res.json();
+        for(const issue of issues) {
+          if(!issue.pull_request && issue.body && issue.body.includes(needle)) {
+            await fetch(issue.comments_url, {
+              method: 'POST',
+              headers: ghHeaders,
+              body: JSON.stringify({
+                body: `Repeat report — ${device}, ${version}.\n\n<details><summary>crash log</summary>\n\n${fenced}\n</details>`,
+              }),
+            });
+            return Response.json({ issue: issue.html_url, deduplicated: true });
+          }
+        }
+        if(issues.length < 100) {
+          break;
         }
       }
     }
