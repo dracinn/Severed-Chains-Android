@@ -343,6 +343,30 @@ def sharedLiteralTransforms = [
     'StackWalker.StackFrame caller = DebugHelper.getCallerFrame();':
     'legend.game.android.JdkCompat.CallerFrame caller = DebugHelper.getCallerFrame();',
   ],
+  'legend/game/saves/SeveredSavedCharacterV2.java': [
+    // Same missing-mod-content class as the mastery criterion: when a save's
+    // selectedAddition isn't registered, upstream falls back to the first
+    // unlocked addition — but a character whose entire addition set came from
+    // an unloaded/failed mod has none, so getFirst() throws
+    // IndexOutOfBoundsException during load. Guard the fallback.
+    '        character.selectedAddition_19 = character.getUnlockedAdditions().getFirst();':
+    '''        if(!character.getUnlockedAdditions().isEmpty()) {
+          character.selectedAddition_19 = character.getUnlockedAdditions().getFirst();
+        }''',
+  ],
+  'legend/game/characters/AdditionMasteryUnlockCriterion.java': [
+    // Saves store RegistryIds for every addition the character has seen.
+    // If a mod that provided them is disabled in the campaign (or its
+    // registration listener silently failed), upstream's unguarded .get()
+    // throws ModNotLoadedException on the next level-up check (issue #37).
+    // A missing addition cannot be completed, so it must not block mastery.
+    '      final Addition addition = REGISTRIES.additions.getEntry(id).get();':
+    '''      if(!REGISTRIES.additions.hasEntry(id)) {
+        continue;
+      }
+
+      final Addition addition = REGISTRIES.additions.getEntry(id).get();''',
+  ],
   'legend/game/saves/ConfigCollection.java': [
     'final Class<?> caller = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE).getCallerClass();':
     'final Class<?> caller = legend.game.android.JdkCompat.callerClass();',
