@@ -77,10 +77,9 @@ public final class SetupView extends ScrollView {
   private final Button storageButton;
   private boolean storageGranted = true;
 
-  private android.widget.Switch sdSwitch;
-  private TextView sdSub;
-  private String sdRootPath;
-  private File sdTarget;
+  private TextView saveLocSub;
+  private String saveLocKey;
+  private String saveLocPath;
 
   private volatile boolean cancelImport;
   private Thread importThread;
@@ -167,34 +166,30 @@ public final class SetupView extends ScrollView {
     compatSwitch.setOnCheckedChangeListener((v, on) -> GlesCompat.setCompatMode(on));
     compatCard.addView(compatSwitch);
 
-    // Save-location toggle: write saves to the SD card instead of internal
-    // storage. Shown only when a writable SD location exists; applies on
-    // next launch — existing saves are not moved.
-    if(AndroidEnv.sdSavesTarget() != null) {
-      final LinearLayout savesCard = new LinearLayout(activity);
-      savesCard.setOrientation(LinearLayout.HORIZONTAL);
-      savesCard.setGravity(Gravity.CENTER_VERTICAL);
-      savesCard.setBackground(this.rounded(COLOUR_SURFACE, 14, COLOUR_STROKE, 1));
-      savesCard.setPadding(pad, this.dp(10), pad, this.dp(10));
-      final LinearLayout.LayoutParams savesLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-      savesLp.topMargin = this.dp(12);
-      left.addView(savesCard, savesLp);
+    // Save-location picker: internal app storage vs shared Documents vs SD
+    // card. Always shown — internal storage is always a valid choice.
+    final LinearLayout savesCard = new LinearLayout(activity);
+    savesCard.setOrientation(LinearLayout.HORIZONTAL);
+    savesCard.setGravity(Gravity.CENTER_VERTICAL);
+    savesCard.setBackground(this.rounded(COLOUR_SURFACE, 14, COLOUR_STROKE, 1));
+    savesCard.setPadding(pad, this.dp(10), pad, this.dp(10));
+    final LinearLayout.LayoutParams savesLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+    savesLp.topMargin = this.dp(12);
+    left.addView(savesCard, savesLp);
 
-      final LinearLayout savesText = new LinearLayout(activity);
-      savesText.setOrientation(LinearLayout.VERTICAL);
-      savesCard.addView(savesText, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+    final LinearLayout savesText = new LinearLayout(activity);
+    savesText.setOrientation(LinearLayout.VERTICAL);
+    savesCard.addView(savesText, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
 
-      savesText.addView(this.text("Saves on SD card", COLOUR_TEXT, 15, true));
-      this.sdSub = this.text("", COLOUR_DIM, 12, false);
-      this.sdSub.setPadding(0, this.dp(2), 0, 0);
-      savesText.addView(this.sdSub);
+    savesText.addView(this.text("Save location", COLOUR_TEXT, 15, true));
+    this.saveLocSub = this.text("", COLOUR_DIM, 12, false);
+    this.saveLocSub.setPadding(0, this.dp(2), 0, 0);
+    savesText.addView(this.saveLocSub);
 
-      this.sdSwitch = new android.widget.Switch(activity);
-      this.sdSwitch.setChecked(AndroidEnv.preferSdSaves());
-      this.sdSwitch.setOnCheckedChangeListener((v, on) -> AndroidEnv.setPreferSdSaves(on));
-      savesCard.addView(this.sdSwitch);
-      this.updateSdCard();
-    }
+    final Button saveLocButton = this.secondaryButton("Change");
+    saveLocButton.setOnClickListener(v -> this.pickSaveLocation());
+    savesCard.addView(saveLocButton);
+    this.updateSaveLocationCard();
 
     final TextView gpuNote = this.text("If the game closes while starting up, open it again — it retries in a compatibility mode automatically. Crash and debug logs live in Documents/Severed Chains/logs.", COLOUR_DIM, 12, false);
     gpuNote.setPadding(0, this.dp(14), 0, 0);
@@ -404,7 +399,7 @@ public final class SetupView extends ScrollView {
     if(this.storageGranted) {
       this.storageTitle.setText("Shared storage enabled");
       this.storageTitle.setTextColor(COLOUR_OK);
-      this.storageBody.setText("ISOs and Saves live in Documents/Severed Chains — add files with any file manager and they're picked up automatically.");
+      this.storageBody.setText("ISOs and Saves live in Documents/Severed Chains by default — add files with any file manager and they're picked up automatically.");
       this.storageButton.setVisibility(GONE);
     } else {
       this.storageTitle.setText("Enable shared storage");
@@ -743,31 +738,70 @@ public final class SetupView extends ScrollView {
       this.storageGranted = granted;
       this.updateStorageCard();
     }
-    this.updateSdCard();
+    this.updateSaveLocationCard();
   }
 
-  private void updateSdCard() {
-    if(this.sdSwitch == null) {
+  private void updateSaveLocationCard() {
+    if(this.saveLocSub == null) {
       return;
     }
-    // sdSavesTarget() write-probes the volume — only recompute when the
-    // mounted root path changes, not on every rescan tick.
+    // savesPath() may write-probe the SD — only recompute when the chosen
+    // location or mounted root changes, not on every rescan tick.
     final File root = AndroidEnv.sdCardRoot();
-    final String path = root != null ? root.getAbsolutePath() : null;
-    if(path == null ? this.sdRootPath != null : !path.equals(this.sdRootPath)) {
-      this.sdRootPath = path;
-      this.sdTarget = AndroidEnv.sdSavesTarget();
+    final String key = AndroidEnv.saveLocation() + "|" + this.storageGranted + "|" + (root != null ? root.getAbsolutePath() : "-");
+    if(!key.equals(this.saveLocKey)) {
+      this.saveLocKey = key;
+      this.saveLocPath = AndroidEnv.savesPath().toString();
     }
-    if(this.sdTarget == null) {
-      this.sdSwitch.setEnabled(false);
-      this.sdSub.setText("No writable SD location detected.");
-      return;
+    final String name = switch(AndroidEnv.saveLocation()) {
+      case "internal" -> "internal app storage";
+      case "sd" -> "the SD card";
+      case "documents" -> "shared storage";
+      default -> "automatic";
+    };
+    // An unavailable SD falls back to the default root — say so rather
+    // than showing a path that doesn't match the chosen name.
+    final String note = "sd".equals(AndroidEnv.saveLocation())
+      && (root == null || !this.saveLocPath.startsWith(root.getAbsolutePath()))
+      ? " (SD unavailable — using fallback)" : "";
+    this.saveLocSub.setText("Saves go to " + name + note + " (" + this.saveLocPath + "). Applies on next launch; existing saves are not moved.");
+  }
+
+  /** Radio picker for where saves live. SD/Documents entries only appear
+   *  when usable — Documents needs the shared-storage grant, SD needs a
+   *  writable removable volume. */
+  private void pickSaveLocation() {
+    final List<String> labels = new ArrayList<>();
+    final List<String> values = new ArrayList<>();
+    labels.add("Automatic (recommended)");
+    values.add("auto");
+    labels.add("Internal app storage — private, removed on uninstall");
+    values.add("internal");
+    if(this.storageGranted) {
+      labels.add("Shared storage — " + AndroidEnv.PUBLIC_SAVES_DIR.getAbsolutePath());
+      values.add("documents");
     }
-    this.sdSwitch.setEnabled(true);
-    this.sdSub.setText("Save games to " + this.sdTarget.getAbsolutePath()
-      + (this.sdTarget.getAbsolutePath().contains("/Android/data/")
-        ? ". Removed if the app is uninstalled. Applies on next launch; existing saves are not moved."
-        : ". Applies on next launch; existing saves are not moved."));
+    final File sd = AndroidEnv.sdSavesTarget();
+    if(sd != null) {
+      labels.add("SD card — " + sd.getAbsolutePath());
+      values.add("sd");
+    }
+
+    int checked = values.indexOf(AndroidEnv.saveLocation());
+    if(checked < 0) {
+      checked = 0;
+    }
+
+    new AlertDialog.Builder(this.activity, android.R.style.Theme_Material_Dialog_Alert)
+      .setTitle("Save location")
+      .setSingleChoiceItems(labels.toArray(new String[0]), checked, (d, w) -> {
+        AndroidEnv.setSaveLocation(values.get(w));
+        d.dismiss();
+        this.saveLocKey = null;
+        this.updateSaveLocationCard();
+      })
+      .setNegativeButton("Cancel", null)
+      .show();
   }
 
   private int dp(final int value) {

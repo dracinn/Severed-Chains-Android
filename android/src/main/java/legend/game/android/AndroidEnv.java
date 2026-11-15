@@ -320,10 +320,16 @@ public final class AndroidEnv {
    * uninstalls), otherwise the internal filesDir/saves.
    */
   public static Path savesPath() {
-    final File sd = sdSavesDir();
-    if(sd != null) {
-      return sd.toPath();
+    final String loc = saveLocation();
+    if("sd".equals(loc)) {
+      final File sd = sdSavesTarget();
+      if(sd != null) {
+        return sd.toPath();
+      }
+    } else if("internal".equals(loc)) {
+      return new File(context.getFilesDir(), "saves").toPath();
     }
+    // "documents" and "auto" share the default: public when granted
     if(hasSharedStorageAccess()) {
       return PUBLIC_SAVES_DIR.toPath();
     }
@@ -331,18 +337,25 @@ public final class AndroidEnv {
   }
 
   // ------------------------------------------------------------------
-  // Optional SD-card save location
+  // Save-location preference (internal / shared Documents / SD card)
   // ------------------------------------------------------------------
 
   private static final String PREFS = "severed_chains";
-  private static final String PREF_SD_SAVES = "saves_on_sd";
+  private static final String PREF_SAVE_LOCATION = "save_location";
+  private static final String PREF_SD_SAVES = "saves_on_sd"; // legacy boolean
 
-  public static boolean preferSdSaves() {
-    return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(PREF_SD_SAVES, false);
+  /** "auto" (default), "internal", "documents" or "sd". */
+  public static String saveLocation() {
+    final var prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    final String loc = prefs.getString(PREF_SAVE_LOCATION, null);
+    if(loc != null) {
+      return loc;
+    }
+    return prefs.getBoolean(PREF_SD_SAVES, false) ? "sd" : "auto";
   }
 
-  public static void setPreferSdSaves(final boolean on) {
-    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(PREF_SD_SAVES, on).apply();
+  public static void setSaveLocation(final String loc) {
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(PREF_SAVE_LOCATION, loc).apply();
   }
 
   /** Root of a mounted removable (SD card) volume, or null when none exists. */
@@ -427,7 +440,7 @@ public final class AndroidEnv {
   /** The Saves/ folder on the SD card when the user opted in. */
   @Nullable
   public static File sdSavesDir() {
-    return preferSdSaves() ? sdSavesTarget() : null;
+    return "sd".equals(saveLocation()) ? sdSavesTarget() : null;
   }
 
   /** Where picked disc images are staged: public ISOs/ when accessible. */
