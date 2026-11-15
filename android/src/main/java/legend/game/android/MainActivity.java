@@ -189,7 +189,7 @@ public final class MainActivity extends Activity {
     return new File(this.getFilesDir(), "files/version").isFile();
   }
 
-  private void showSetup() {
+  void showSetup() {
     this.setupView = new SetupView(this, new File(this.getFilesDir(), "isos"), this::showGame);
     this.setContentView(this.setupView);
   }

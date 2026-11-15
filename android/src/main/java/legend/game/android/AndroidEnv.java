@@ -52,6 +52,16 @@ public final class AndroidEnv {
     activity = act;
   }
 
+  /** Game thread -> UI thread: swap back to the setup screen (from the
+   *  in-game main menu's Setup entry). The engine thread keeps running;
+   *  pressing Start reattaches a fresh surface via the surface handshake. */
+  public static void reopenSetup() {
+    final android.app.Activity act = activity;
+    if(act instanceof MainActivity) {
+      act.runOnUiThread(((MainActivity)act)::showSetup);
+    }
+  }
+
   /** Game thread -> UI thread: apply a requested orientation to the Activity. */
   public static void setOrientation(final legend.core.platform.input.Orientation orientation) {
     final android.app.Activity act = activity;

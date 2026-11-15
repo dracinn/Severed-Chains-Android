@@ -607,6 +607,16 @@ import java.awt.image.BufferedImage;
     'private final Path dir = Paths.get("saves");':
     'private final Path dir = legend.game.android.AndroidEnv.savesPath();',
   ],
+  'legend/game/inventory/screens/MainMenuScreen.java': [
+    // Android-only "Setup" entry filling the empty right-column slot
+    // between Options and Load — reopens the disc/storage setup screen.
+    '''    this.addButton(new I18nText("lod_core.ui.ingame_menu.options"), this::showOptionsScreen);
+    this.addButton(RawText.BLANK, () -> { }).hide();
+    this.loadButton = this.addButton(new I18nText("lod_core.ui.ingame_menu.load"), this::showLoadScreen);''':
+    '''    this.addButton(new I18nText("lod_core.ui.ingame_menu.options"), this::showOptionsScreen);
+    this.addButton(new RawText("Setup"), legend.game.android.AndroidEnv::reopenSetup);
+    this.loadButton = this.addButton(new I18nText("lod_core.ui.ingame_menu.load"), this::showLoadScreen);''',
+  ],
   'legend/game/saves/ConfigPresetManager.java': [
     'Files.createDirectories(path.toAbsolutePath().getParent());':
     'Files.createDirectories(legend.game.android.JdkCompat.absolute(path).getParent());',
