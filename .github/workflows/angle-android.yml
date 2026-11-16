@@ -60,20 +60,11 @@ jobs:
         autoninja -C out/Android libEGL libGLESv2
         ls -la out/Android/*.so
 
-    - name: Rename to canonical sonames
-      # ANGLE emits *_angle.so on Android targets; the bundler + runtime
-      # loader use canonical names (explicit dlopen by path, so the
-      # embedded SONAME doesn't matter).
-      run: |
-        cd angle-build/out/Android
-        cp libEGL_angle.so libEGL.so
-        cp libGLESv2_angle.so libGLESv2.so
-
     - name: Upload ANGLE libs
       uses: actions/upload-artifact@v5
       with:
         name: angle-android-arm64
         path: |
-          angle-build/out/Android/libEGL.so
-          angle-build/out/Android/libGLESv2.so
+          angle-build/out/Android/libEGL_angle.so
+          angle-build/out/Android/libGLESv2_angle.so
         if-no-files-found: error

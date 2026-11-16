@@ -14,12 +14,12 @@ import java.io.InputStream;
  * Extracts the bundled ANGLE libraries (GLES-over-Vulkan) from
  * assets/angle/&lt;abi&gt;/ into the app-private files dir so they can be
  * dlopen'd by absolute path. Assets are used rather than jniLibs so the
- * canonical libEGL.so/libGLESv2.so names can't shadow the system libraries
+ * libEGL_angle.so/libGLESv2_angle.so names can't shadow the system libraries
  * during soname resolution.
  */
 public final class AngleLibs {
   private static final String TAG = "AngleLibs";
-  private static final String[] LIBS = {"libEGL.so", "libGLESv2.so"};
+  private static final String[] LIBS = {"libEGL_angle.so", "libGLESv2_angle.so"};
 
   private AngleLibs() { }
 
@@ -38,7 +38,7 @@ public final class AngleLibs {
     final File dir = new File(context.getFilesDir(), "angle/" + abi);
     final File stamp = new File(dir, ".version");
     final long version = versionCode(context);
-    if(stamp.isFile() && readStamp(stamp) == version) {
+    if(stamp.isFile() && readStamp(stamp) == version && new File(dir, LIBS[0]).isFile()) {
       return dir;
     }
 

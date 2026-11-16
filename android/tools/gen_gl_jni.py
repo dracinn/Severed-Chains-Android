@@ -355,7 +355,7 @@ public final class GlNative {{
 static GlTable g_fn;
 
 // EGL function table (ANGLE path)
-typedef EGLDisplay (APIENTRY *PFNEGLGETPLATFORMDISPLAY)(EGLenum, void*, const EGLint*);
+typedef EGLDisplay (APIENTRY *PFNEGLGETPLATFORMDISPLAY)(EGLenum, void*, const EGLAttrib*);
 typedef EGLBoolean (APIENTRY *PFNEGLINIT)(EGLDisplay, EGLint*, EGLint*);
 typedef EGLBoolean (APIENTRY *PFNEGLCHOOSECONFIG)(EGLDisplay, const EGLint*, EGLConfig*, EGLint, EGLint*);
 typedef EGLContext (APIENTRY *PFNEGLCREATECONTEXT)(EGLDisplay, EGLConfig, EGLContext, const EGLint*);
@@ -401,9 +401,22 @@ static PFNEGLGETERROR eglGetError_p;
 #define EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE  0x3450
 #define EGL_PLATFORM_ANGLE_DEBUG_LAYERS_ENABLED_ANGLE 0x3451
 
+static bool g_angle_mode;
+
+// ANGLE's eglGetProcAddress dereferences platform state that is null before
+// eglInitialize — calling it pre-init segfaults. Under ANGLE everything
+// resolves from libGLESv2 directly (it exports all core + extension entry
+// points); the system path keeps eglGetProcAddress first for extension fns.
+static void* resolve_fn(const char* name) {{
+  if(g_angle_mode) {{
+    return dlsym(g_gles_lib, name);
+  }}
+  void* p = g_getProcAddress != NULL ? g_getProcAddress(name) : NULL;
+  return p != NULL ? p : dlsym(g_gles_lib, name);
+}}
+
 #define RESOLVE(fn) \\
-  g_fn.fn = (__typeof__(g_fn.fn))(g_getProcAddress != NULL ? g_getProcAddress(#fn) : NULL); \\
-  if(g_fn.fn == NULL) g_fn.fn = (__typeof__(g_fn.fn))dlsym(g_gles_lib, #fn); \\
+  g_fn.fn = (__typeof__(g_fn.fn))resolve_fn(#fn); \\
   if(g_fn.fn == NULL) __android_log_write(ANDROID_LOG_WARN, TAG, "unresolved " #fn)
 
 static const char* err;
@@ -423,8 +436,8 @@ Java_legend_game_android_GlNative_init(JNIEnv* env, jclass cls, jstring angleDir
 
   char egl_path[600], gles_path[600];
   if(useAngle) {{
-    snprintf(egl_path, sizeof(egl_path), "%s/libEGL.so", dir);
-    snprintf(gles_path, sizeof(gles_path), "%s/libGLESv2.so", dir);
+    snprintf(egl_path, sizeof(egl_path), "%s/libEGL_angle.so", dir);
+    snprintf(gles_path, sizeof(gles_path), "%s/libGLESv2_angle.so", dir);
   }} else {{
     snprintf(egl_path, sizeof(egl_path), "libEGL.so");
     snprintf(gles_path, sizeof(gles_path), "libGLESv2.so");
@@ -439,6 +452,7 @@ Java_legend_game_android_GlNative_init(JNIEnv* env, jclass cls, jstring angleDir
 
   g_getProcAddress = (PFNEGLGETPROCADDRESS)dlsym(g_egl_lib, "eglGetProcAddress");
   g_getCurrentContext = (PFNEGLGETCURRENTCONTEXT)dlsym(g_egl_lib, "eglGetCurrentContext");
+  g_angle_mode = useAngle;
 
 {resolve_block}
 
@@ -484,7 +498,9 @@ Java_legend_game_android_GlNative_eglInitAngle(JNIEnv* env, jclass cls, jboolean
   eglQueryString_p = (PFNEGLQUERYSTRING)dlsym(g_egl_lib, "eglQueryString");
   eglGetError_p = (PFNEGLGETERROR)dlsym(g_egl_lib, "eglGetError");
 
-  const EGLint platformAttribs[] = {{
+  // eglGetPlatformDisplay takes EGLAttrib (64-bit) pairs, not EGLint —
+  // a 32-bit array reads as garbage platform attrs and segfaults ANGLE.
+  const EGLAttrib platformAttribs[] = {{
     EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE,
     EGL_PLATFORM_ANGLE_DEBUG_LAYERS_ENABLED_ANGLE, debug ? EGL_TRUE : EGL_FALSE,
     EGL_NONE,
