@@ -35,8 +35,6 @@ jobs:
         git clone --depth=1 https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
 
     - name: Fetch ANGLE (pinned rev, Android target)
-      env:
-        DEPOT_TOOLS_UPDATE: '0'
       run: |
         export PATH="$HOME/depot_tools:$PATH"
         mkdir angle-build && cd angle-build
