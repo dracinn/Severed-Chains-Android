@@ -430,10 +430,12 @@ Java_legend_game_android_GlNative_init(JNIEnv* env, jclass cls, jstring angleDir
     snprintf(gles_path, sizeof(gles_path), "libGLESv2.so");
   }}
 
-  g_egl_lib = dlopen(egl_path, RTLD_NOW | RTLD_LOCAL);
-  if(g_egl_lib == NULL) {{ return env->NewStringUTF(dlerror()); }}
+  // Load GLES first so libEGL's DT_NEEDED on it resolves from the
+  // already-loaded handle rather than the system search path.
   g_gles_lib = dlopen(gles_path, RTLD_NOW | RTLD_LOCAL);
   if(g_gles_lib == NULL) {{ return env->NewStringUTF(dlerror()); }}
+  g_egl_lib = dlopen(egl_path, RTLD_NOW | RTLD_LOCAL);
+  if(g_egl_lib == NULL) {{ return env->NewStringUTF(dlerror()); }}
 
   g_getProcAddress = (PFNEGLGETPROCADDRESS)dlsym(g_egl_lib, "eglGetProcAddress");
   g_getCurrentContext = (PFNEGLGETCURRENTCONTEXT)dlsym(g_egl_lib, "eglGetCurrentContext");
