@@ -367,6 +367,8 @@ public final class AndroidEnv {
   private static final String PREF_LAST_GL_BACKEND = "last_gl_backend";
   /** Written by GlNative when a run dies mid-GL-init — see GlesCompat. */
   private static final String PREF_GL_INIT_OK = "gl_init_ok";
+  /** Sticky: a single ANGLE init death stops auto mode from retrying Vulkan. */
+  private static final String PREF_ANGLE_FAILED = "angle_failed";
 
   /** "auto" (default), "gles" or "vulkan". */
   public static String rendererBackend() {
@@ -375,13 +377,18 @@ public final class AndroidEnv {
   }
 
   public static void setRendererBackend(final String backend) {
-    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(PREF_RENDERER_BACKEND, backend).apply();
+    // Changing the setting is an explicit user decision — give Vulkan a
+    // fresh chance under auto even if it crashed once before.
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+      .putString(PREF_RENDERER_BACKEND, backend)
+      .remove(PREF_ANGLE_FAILED)
+      .apply();
   }
 
   /**
    * Backend to actually attempt: an explicit GLES/VULKAN pick is honoured;
-   * AUTO prefers Vulkan when ANGLE libs exist and the last run didn't die
-   * during ANGLE init.
+   * AUTO prefers Vulkan when ANGLE libs exist, but permanently settles on
+   * GLES after a single run that dies during ANGLE init.
    */
   public static String effectiveBackend() {
     final String pref = rendererBackend();
@@ -392,9 +399,16 @@ public final class AndroidEnv {
       return "gles";
     }
     final var prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    if(prefs.getBoolean(PREF_ANGLE_FAILED, false)) {
+      return "gles";
+    }
     final boolean crashedOnAngle = !prefs.getBoolean(PREF_GL_INIT_OK, true)
       && "vulkan".equals(prefs.getString(PREF_LAST_GL_BACKEND, ""));
-    return crashedOnAngle ? "gles" : "vulkan";
+    if(crashedOnAngle) {
+      prefs.edit().putBoolean(PREF_ANGLE_FAILED, true).apply();
+      return "gles";
+    }
+    return "vulkan";
   }
 
   /** Records which backend init began; cleared when the first frame lands. */
