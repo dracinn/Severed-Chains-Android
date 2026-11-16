@@ -1,0 +1,72 @@
+name: ANGLE Android libs
+
+# One-off/on-demand job: builds libEGL.so + libGLESv2.so (GLES-over-Vulkan)
+# for arm64 Android from the pinned ANGLE rev. ANGLE's GN config only
+# supports Android targets on Linux hosts, hence the CI route.
+#
+# Usage: Actions → "ANGLE Android libs" → Run workflow. Download the
+# uploaded artifact into the dir bundler task reads (default
+# /Volumes/Storage/angle-build/out/Android, or pass
+# -PangleAndroidLibsDir=<dir> to the APK build).
+
+on:
+  workflow_dispatch:
+    inputs:
+      angle_rev:
+        description: 'ANGLE commit to build (matches the macOS checkout)'
+        required: true
+        default: 'f64775b0d245d39c47f5100b81b9378dc82df0fa'
+
+jobs:
+  build:
+    name: Build ANGLE arm64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    steps:
+    - name: Free disk space
+      run: |
+        sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
+          /usr/share/swift /usr/lib/mono /opt/hostedtoolcache/CodeQL
+        df -h /
+
+    - name: Install depot_tools
+      run: |
+        git clone --depth=1 https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
+
+    - name: Fetch ANGLE (pinned rev, Android target)
+      env:
+        DEPOT_TOOLS_UPDATE: '0'
+      run: |
+        export PATH="$HOME/depot_tools:$PATH"
+        mkdir angle-build && cd angle-build
+        cat > .gclient <<'EOF'
+        solutions = [
+          {
+            "name": ".",
+            "url": "https://chromium.googlesource.com/angle/angle.git",
+            "deps_file": "DEPS",
+            "target_os": ["android"],
+            "custom_vars": {"checkout_android": True},
+          },
+        ]
+        EOF
+        gclient sync --no-history --shallow --revision "${{ inputs.angle_rev }}" -D
+        df -h .
+
+    - name: Generate + build libEGL/libGLESv2 (arm64)
+      run: |
+        export PATH="$HOME/depot_tools:$PATH"
+        cd angle-build
+        gn gen out/Android --args='target_os="android" target_cpu="arm64" is_debug=false'
+        autoninja -C out/Android libEGL libGLESv2
+        ls -la out/Android/*.so
+
+    - name: Upload ANGLE libs
+      uses: actions/upload-artifact@v5
+      with:
+        name: angle-android-arm64
+        path: |
+          angle-build/out/Android/libEGL.so
+          angle-build/out/Android/libGLESv2.so
+        if-no-files-found: error
