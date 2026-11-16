@@ -390,16 +390,14 @@ public final class AndroidEnv {
   }
 
   /**
-   * Backend to actually attempt: an explicit GLES/VULKAN pick is honoured;
-   * AUTO prefers Vulkan when ANGLE libs exist, but permanently settles on
-   * GLES after a single run that dies during ANGLE init.
+   * Backend to actually attempt: the system GLES driver is the default for
+   * both AUTO and GLES — ANGLE's GLES-over-Vulkan is strictly opt-in via an
+   * explicit VULKAN pick. Even then a recorded init death degrades to GLES
+   * so a crashing driver can't bootloop the app; re-selecting the backend
+   * clears {@link #PREF_ANGLE_FAILED} and gives Vulkan a fresh chance.
    */
   public static String effectiveBackend() {
-    final String pref = rendererBackend();
-    if(!"auto".equals(pref)) {
-      return "vulkan".equals(pref) && AngleLibs.dir() != null ? "vulkan" : pref;
-    }
-    if(AngleLibs.dir() == null) {
+    if(!"vulkan".equals(rendererBackend()) || AngleLibs.dir() == null) {
       return "gles";
     }
     final var prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);

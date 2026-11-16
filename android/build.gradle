@@ -354,6 +354,57 @@ def sharedLiteralTransforms = [
   'legend/game/Graphics.java': [
     'StackWalker.StackFrame frame = DebugHelper.getCallerFrame();':
     'legend.game.android.JdkCompat.CallerFrame frame = DebugHelper.getCallerFrame();',
+    // Frame rate cap: every vsyncMode write is clamped to FrameCap.minVsync
+    // so the engine's own frame-skip machinery runs the cap — tick rate,
+    // timestamp advance and all 60/vsyncMode duration math stay consistent.
+    'public static int vsyncMode_8007a3b8 = 1;':
+    'public static int vsyncMode_8007a3b8 = Math.max(1, legend.game.android.FrameCap.minVsync());',
+  ],
+  'legend/game/Scus94491BpeSegment.java': [
+    'vsyncMode_8007a3b8 = 2;':
+    'vsyncMode_8007a3b8 = Math.max(2, legend.game.android.FrameCap.minVsync());',
+    // Read-side clamps too, so tightening the cap takes effect mid-scene
+    // instead of waiting for the next vsyncMode write.
+    'gameState_800babc8.timestamp_a0 += vsyncMode_8007a3b8;':
+    'gameState_800babc8.timestamp_a0 += Math.max(legend.game.android.FrameCap.minVsync(), vsyncMode_8007a3b8);',
+    'final int frames = Math.max(1, vsyncMode_8007a3b8);':
+    'final int frames = Math.max(legend.game.android.FrameCap.minVsync(), Math.max(1, vsyncMode_8007a3b8));',
+  ],
+  'legend/game/scripting/GameVarParam.java': [
+    'case 25 -> Graphics.vsyncMode_8007a3b8 = val;':
+    'case 25 -> Graphics.vsyncMode_8007a3b8 = Math.max(val, legend.game.android.FrameCap.minVsync());',
+  ],
+  'legend/game/combat/SBtld.java': [
+    'vsyncMode_8007a3b8 = 1;':
+    'vsyncMode_8007a3b8 = Math.max(1, legend.game.android.FrameCap.minVsync());',
+  ],
+  'legend/game/combat/Battle.java': [
+    'vsyncMode_8007a3b8 = 3;':
+    'vsyncMode_8007a3b8 = Math.max(3, legend.game.android.FrameCap.minVsync());',
+    'vsyncMode_8007a3b8 = 2;':
+    'vsyncMode_8007a3b8 = Math.max(2, legend.game.android.FrameCap.minVsync());',
+  ],
+  'legend/game/title/GameOver.java': [
+    'vsyncMode_8007a3b8 = 2;':
+    'vsyncMode_8007a3b8 = Math.max(2, legend.game.android.FrameCap.minVsync());',
+  ],
+  'legend/game/EngineStates.java': [
+    'vsyncMode_8007a3b8 = 2;':
+    'vsyncMode_8007a3b8 = Math.max(2, legend.game.android.FrameCap.minVsync());',
+  ],
+  'legend/game/submap/SMap.java': [
+    'vsyncMode_8007a3b8 = 1;':
+    'vsyncMode_8007a3b8 = Math.max(1, legend.game.android.FrameCap.minVsync());',
+  ],
+  'legend/game/wmap/WMap.java': [
+    'vsyncMode_8007a3b8 = 1;':
+    'vsyncMode_8007a3b8 = Math.max(1, legend.game.android.FrameCap.minVsync());',
+    'vsyncMode_8007a3b8 = 2;':
+    'vsyncMode_8007a3b8 = Math.max(2, legend.game.android.FrameCap.minVsync());',
+  ],
+  'legend/game/credits/Credits.java': [
+    'vsyncMode_8007a3b8 = 1;':
+    'vsyncMode_8007a3b8 = Math.max(1, legend.game.android.FrameCap.minVsync());',
   ],
   'legend/game/combat/SEffe.java': [
     'StackWalker.StackFrame caller = DebugHelper.getCallerFrame();':
@@ -627,7 +678,7 @@ import java.awt.image.BufferedImage;
     // Options > Save location — Android-only storage picker, available in
     // both the title-menu and in-game Options screens.
     '  public static final RegistryDelegate<MonitorConfigEntry> MONITOR_CONFIG = CONFIG_REGISTRAR.register("monitor", MonitorConfigEntry::new);':
-      '  public static final RegistryDelegate<MonitorConfigEntry> MONITOR_CONFIG = CONFIG_REGISTRAR.register("monitor", MonitorConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.SaveLocationConfigEntry> SAVE_LOCATION_CONFIG = CONFIG_REGISTRAR.register("save_location", legend.game.android.SaveLocationConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.GameDataConfigEntry> GAME_DATA_LOCATION_CONFIG = CONFIG_REGISTRAR.register("game_data_location", legend.game.android.GameDataConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.DynamicResolutionConfigEntry> DYNAMIC_RESOLUTION_CONFIG = CONFIG_REGISTRAR.register("dynamic_resolution", legend.game.android.DynamicResolutionConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.RendererConfigEntry> RENDERER_BACKEND_CONFIG = CONFIG_REGISTRAR.register("renderer_backend", legend.game.android.RendererConfigEntry::new);',
+      '  public static final RegistryDelegate<MonitorConfigEntry> MONITOR_CONFIG = CONFIG_REGISTRAR.register("monitor", MonitorConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.SaveLocationConfigEntry> SAVE_LOCATION_CONFIG = CONFIG_REGISTRAR.register("save_location", legend.game.android.SaveLocationConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.GameDataConfigEntry> GAME_DATA_LOCATION_CONFIG = CONFIG_REGISTRAR.register("game_data_location", legend.game.android.GameDataConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.DynamicResolutionConfigEntry> DYNAMIC_RESOLUTION_CONFIG = CONFIG_REGISTRAR.register("dynamic_resolution", legend.game.android.DynamicResolutionConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.RendererConfigEntry> RENDERER_BACKEND_CONFIG = CONFIG_REGISTRAR.register("renderer_backend", legend.game.android.RendererConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.FrameRateCapConfigEntry> FRAME_RATE_CAP_CONFIG = CONFIG_REGISTRAR.register("fps_cap", legend.game.android.FrameRateCapConfigEntry::new);',
   ],
   'legend/game/saves/ConfigPresetManager.java': [
     'Files.createDirectories(path.toAbsolutePath().getParent());':
@@ -796,6 +847,12 @@ import java.awt.image.BufferedImage;
     // Slow-frame + p50/p95/max logging for in-game perf hunting (PerfLog)
     '        final long frameTime = System.nanoTime() - this.lastFrame;':
     '        final long frameTime = System.nanoTime() - this.lastFrame;\n        legend.game.android.PerfLog.frame(frameTime);',
+    // 45fps cap: not expressible as a vsync divisor, so FrameCap drives the
+    // same frameSkip path upstream uses for gameSpeedMultiplier — the 60Hz
+    // sim tick is untouched while every 4th tick drops GL submission and
+    // re-presents the previous buffer (pacing preserved, 45fps out).
+    '        if(this.frameSkip) {\n          if(this.frameSkipIndex == Config.getGameSpeedMultiplier() - 1) {':
+    '        if(legend.game.android.FrameCap.renderSkipActive(this.window.getFpsLimit())) {\n          this.frameSkipIndex = legend.game.android.FrameCap.skipIndex();\n          if(this.frameSkipIndex == 0) {\n            this.renderBufferIndex = (this.renderBufferIndex + 1) % RENDER_BUFFER_COUNT;\n          }\n        } else if(this.frameSkip) {\n          if(this.frameSkipIndex == Config.getGameSpeedMultiplier() - 1) {',
     // Publish the frame's captured UI text for GameInspector (a11y nodes on
     // the surface + the loopback /screen endpoint).
     '''  private void renderFrame() {
@@ -830,6 +887,8 @@ import java.awt.image.BufferedImage;
     """public static final String FULL_VERSION = VERSION + '-' + "${buildVersionName}";""",
   ],
   'legend/game/title/Ttle.java': [
+    'vsyncMode_8007a3b8 = 2;':
+    'vsyncMode_8007a3b8 = Math.max(2, legend.game.android.FrameCap.minVsync());',
     // The copyright strip ships as a low-res baked TIM; give it the same
     // native-res font treatment as the rest of the text with its own font
     // file (generated by :generateCopyrightFont from the OFL
@@ -1167,10 +1226,15 @@ lod_core.config.game_data_location.SD_CARD=SD card
 lod_core.config.dynamic_resolution.label=Dynamic resolution
 lod_core.config.dynamic_resolution.help=Automatically lowers the internal render resolution when the GPU can't keep up, and raises it again when there's headroom. The Resolution setting is the maximum.
 lod_core.config.renderer_backend.label=Renderer backend
-lod_core.config.renderer_backend.help=Graphics backend. Vulkan routes GLES through ANGLE (full ES 3.2 incl. geometry shaders); may fix rendering glitches on some GPUs. Applies on next launch.
+lod_core.config.renderer_backend.help=Graphics backend. The system OpenGL ES driver is used by default; Vulkan routes GLES through ANGLE and may fix rendering glitches on some GPUs, but adds translation overhead. Applies on next launch.
 lod_core.config.renderer_backend.AUTO=Automatic
 lod_core.config.renderer_backend.GLES=OpenGL ES (system driver)
-lod_core.config.renderer_backend.VULKAN=Vulkan (experimental)'''
+lod_core.config.renderer_backend.VULKAN=Vulkan (experimental)
+lod_core.config.fps_cap.label=Frame rate cap
+lod_core.config.fps_cap.help=Caps the frame rate to save battery while keeping game speed correct. 45 keeps the 60Hz simulation and presents 45fps; 30 runs the engine's native 30fps mode (lowest power). Applies immediately.
+lod_core.config.fps_cap.NATIVE=Native (per-scene)
+lod_core.config.fps_cap.FPS_45=45 fps
+lod_core.config.fps_cap.FPS_30=30 fps'''
         }
         return line
       }
@@ -1205,6 +1269,9 @@ lod_core.config.renderer_backend.VULKAN=Vulkan (experimental)'''
     }
     if(!lang.text.contains('lod_core.config.renderer_backend.VULKAN=')) {
       throw new GradleException('Renderer backend lang labels missing: upstream en.lang changed; update packageSharedClasses')
+    }
+    if(!lang.text.contains('lod_core.config.fps_cap.FPS_45=')) {
+      throw new GradleException('Frame rate cap lang labels missing: upstream en.lang changed; update packageSharedClasses')
     }
   }
   from annotationIndexDir

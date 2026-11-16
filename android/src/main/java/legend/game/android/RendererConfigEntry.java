@@ -12,11 +12,10 @@ import legend.game.saves.EnumConfigEntry;
  * Graphics &gt; Renderer backend picker, visible from both the title-menu
  * and in-game Options screens. Mirrors the choice into the AndroidEnv pref
  * consulted at window creation — the renderer is fixed once the EGL context
- * exists, so changes apply on next launch. AUTO tries ANGLE's GLES-over-
- * Vulkan first (full ES 3.2 including geometry shaders, consistent across
- * vendors) and falls back to the system GLES driver on any failure; VULKAN
- * requests ANGLE explicitly and degrades to GLES with a log; GLES skips
- * ANGLE entirely.
+ * exists, so changes apply on next launch. The system GLES driver is the
+ * default for AUTO and GLES alike; VULKAN is strictly opt-in (GLES-over-
+ * Vulkan through bundled ANGLE) and degrades to GLES after an init crash —
+ * re-selecting the backend clears that flag for a retry.
  */
 public class RendererConfigEntry extends EnumConfigEntry<RendererConfigEntry.Renderer> {
   public enum Renderer {
