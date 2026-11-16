@@ -103,6 +103,14 @@ public class GLES20 {
   public static final int GL_UNPACK_ALIGNMENT = android.opengl.GLES20.GL_UNPACK_ALIGNMENT;
   public static final int GL_PACK_ALIGNMENT = android.opengl.GLES20.GL_PACK_ALIGNMENT;
 
+  protected static int byteOff(final Buffer buffer) {
+    return buffer == null ? 0 : buffer.position() * elementSize(buffer);
+  }
+
+  protected static int remaining(final Buffer buffer) {
+    return buffer == null ? 0 : buffer.remaining();
+  }
+
   protected static int elementSize(final Buffer buffer) {
     if(buffer instanceof FloatBuffer || buffer instanceof IntBuffer) {
       return 4;
@@ -114,263 +122,263 @@ public class GLES20 {
   }
 
   public static void glActiveTexture(final int texture) {
-    android.opengl.GLES20.glActiveTexture(texture);
+    legend.game.android.GlNative.glActiveTexture(texture);
   }
 
   public static void glAttachShader(final int program, final int shader) {
-    android.opengl.GLES20.glAttachShader(program, shader);
+    legend.game.android.GlNative.glAttachShader(program, shader);
   }
 
   public static void glBindBuffer(final int target, final int buffer) {
-    android.opengl.GLES20.glBindBuffer(target, buffer);
+    legend.game.android.GlNative.glBindBuffer(target, buffer);
   }
 
   public static void glBindFramebuffer(final int target, final int framebuffer) {
-    android.opengl.GLES20.glBindFramebuffer(target, framebuffer);
+    legend.game.android.GlNative.glBindFramebuffer(target, framebuffer);
   }
 
   public static void glBindTexture(final int target, final int texture) {
-    android.opengl.GLES20.glBindTexture(target, texture);
+    legend.game.android.GlNative.glBindTexture(target, texture);
   }
 
   public static void glBlendEquation(final int mode) {
-    android.opengl.GLES20.glBlendEquation(mode);
+    legend.game.android.GlNative.glBlendEquation(mode);
   }
 
   public static void glBlendFunc(final int sfactor, final int dfactor) {
-    android.opengl.GLES20.glBlendFunc(sfactor, dfactor);
+    legend.game.android.GlNative.glBlendFunc(sfactor, dfactor);
   }
 
   public static void glBufferData(final int target, final Buffer data, final int usage) {
-    android.opengl.GLES20.glBufferData(target, data.remaining() * elementSize(data), data, usage);
+    legend.game.android.GlNative.glBufferData(target, remaining(data) * elementSize(data), data, byteOff(data), usage);
   }
 
   public static void glBufferData(final int target, final long size, final int usage) {
-    android.opengl.GLES20.glBufferData(target, (int)size, null, usage);
+    legend.game.android.GlNative.glBufferData(target, (int)size, null, 0, usage);
   }
 
   public static void glBufferData(final int target, final float[] data, final int usage) {
-    android.opengl.GLES20.glBufferData(target, data.length * 4, FloatBuffer.wrap(data), usage);
+    legend.game.android.GlNative.glBufferDataF(target, data.length * 4, data, 0, usage);
   }
 
   public static void glBufferData(final int target, final int[] data, final int usage) {
-    android.opengl.GLES20.glBufferData(target, data.length * 4, IntBuffer.wrap(data), usage);
+    legend.game.android.GlNative.glBufferDataI(target, data.length * 4, data, 0, usage);
   }
 
   public static void glBufferData(final int target, final short[] data, final int usage) {
-    android.opengl.GLES20.glBufferData(target, data.length * 2, ShortBuffer.wrap(data), usage);
+    legend.game.android.GlNative.glBufferDataS(target, data.length * 2, data, 0, usage);
   }
 
   public static void glBufferData(final int target, final byte[] data, final int usage) {
-    android.opengl.GLES20.glBufferData(target, data.length, ByteBuffer.wrap(data), usage);
+    legend.game.android.GlNative.glBufferDataB(target, data.length, data, 0, usage);
   }
 
   public static void glBufferSubData(final int target, final long offset, final Buffer data) {
-    android.opengl.GLES20.glBufferSubData(target, (int)offset, data.remaining() * elementSize(data), data);
+    legend.game.android.GlNative.glBufferSubData(target, (int)offset, remaining(data) * elementSize(data), data, byteOff(data));
   }
 
   public static void glBufferSubData(final int target, final long offset, final float[] data) {
-    android.opengl.GLES20.glBufferSubData(target, (int)offset, data.length * 4, FloatBuffer.wrap(data));
+    legend.game.android.GlNative.glBufferSubDataF(target, (int)offset, data.length * 4, data, 0);
   }
 
   public static void glBufferSubData(final int target, final long offset, final int[] data) {
-    android.opengl.GLES20.glBufferSubData(target, (int)offset, data.length * 4, IntBuffer.wrap(data));
+    legend.game.android.GlNative.glBufferSubDataI(target, (int)offset, data.length * 4, data, 0);
   }
 
   public static int glCheckFramebufferStatus(final int target) {
-    return android.opengl.GLES20.glCheckFramebufferStatus(target);
+    return legend.game.android.GlNative.glCheckFramebufferStatus(target);
   }
 
   public static void glClear(final int mask) {
-    android.opengl.GLES20.glClear(mask);
+    legend.game.android.GlNative.glClear(mask);
   }
 
   public static void glClearColor(final float red, final float green, final float blue, final float alpha) {
-    android.opengl.GLES20.glClearColor(red, green, blue, alpha);
+    legend.game.android.GlNative.glClearColor(red, green, blue, alpha);
   }
 
   public static void glCompileShader(final int shader) {
-    android.opengl.GLES20.glCompileShader(shader);
+    legend.game.android.GlNative.glCompileShader(shader);
   }
 
   public static int glCreateProgram() {
-    return android.opengl.GLES20.glCreateProgram();
+    return legend.game.android.GlNative.glCreateProgram();
   }
 
   public static int glCreateShader(final int type) {
-    return android.opengl.GLES20.glCreateShader(type);
+    return legend.game.android.GlNative.glCreateShader(type);
   }
 
   public static void glDeleteBuffers(final int buffer) {
-    android.opengl.GLES20.glDeleteBuffers(1, new int[] {buffer}, 0);
+    legend.game.android.GlNative.glDeleteBuffersA(1, new int[] {buffer}, 0);
   }
 
   public static void glDeleteBuffers(final IntBuffer buffers) {
-    android.opengl.GLES20.glDeleteBuffers(buffers.remaining(), buffers);
+    legend.game.android.GlNative.glDeleteBuffers(remaining(buffers), buffers, byteOff(buffers));
   }
 
   public static void glDeleteBuffers(final int[] buffers) {
-    android.opengl.GLES20.glDeleteBuffers(buffers.length, buffers, 0);
+    legend.game.android.GlNative.glDeleteBuffersA(buffers.length, buffers, 0);
   }
 
   public static void glDeleteFramebuffers(final int framebuffer) {
-    android.opengl.GLES20.glDeleteFramebuffers(1, new int[] {framebuffer}, 0);
+    legend.game.android.GlNative.glDeleteFramebuffersA(1, new int[] {framebuffer}, 0);
   }
 
   public static void glDeleteProgram(final int program) {
-    android.opengl.GLES20.glDeleteProgram(program);
+    legend.game.android.GlNative.glDeleteProgram(program);
   }
 
   public static void glDeleteShader(final int shader) {
-    android.opengl.GLES20.glDeleteShader(shader);
+    legend.game.android.GlNative.glDeleteShader(shader);
   }
 
   public static void glDeleteTextures(final int texture) {
-    android.opengl.GLES20.glDeleteTextures(1, new int[] {texture}, 0);
+    legend.game.android.GlNative.glDeleteTexturesA(1, new int[] {texture}, 0);
   }
 
   public static void glDeleteTextures(final IntBuffer textures) {
-    android.opengl.GLES20.glDeleteTextures(textures.remaining(), textures);
+    legend.game.android.GlNative.glDeleteTextures(remaining(textures), textures, byteOff(textures));
   }
 
   public static void glDepthFunc(final int func) {
-    android.opengl.GLES20.glDepthFunc(func);
+    legend.game.android.GlNative.glDepthFunc(func);
   }
 
   public static void glDepthMask(final boolean flag) {
-    android.opengl.GLES20.glDepthMask(flag);
+    legend.game.android.GlNative.glDepthMask(flag);
   }
 
   public static void glDisable(final int cap) {
-    android.opengl.GLES20.glDisable(cap);
+    legend.game.android.GlNative.glDisable(cap);
   }
 
   public static void glDrawArrays(final int mode, final int first, final int count) {
-    android.opengl.GLES20.glDrawArrays(mode, first, count);
+    legend.game.android.GlNative.glDrawArrays(mode, first, count);
   }
 
   public static void glDrawElements(final int mode, final int count, final int type, final long indices) {
-    android.opengl.GLES20.glDrawElements(mode, count, type, (int)indices);
+    legend.game.android.GlNative.glDrawElements(mode, count, type, indices);
   }
 
   public static void glDrawElements(final int mode, final int count, final int type, final Buffer indices) {
-    android.opengl.GLES20.glDrawElements(mode, count, type, indices);
+    legend.game.android.GlNative.glDrawElementsB(mode, count, type, indices, byteOff(indices));
   }
 
   public static void glEnable(final int cap) {
-    android.opengl.GLES20.glEnable(cap);
+    legend.game.android.GlNative.glEnable(cap);
   }
 
   public static void glEnableVertexAttribArray(final int index) {
-    android.opengl.GLES20.glEnableVertexAttribArray(index);
+    legend.game.android.GlNative.glEnableVertexAttribArray(index);
   }
 
   public static void glDisableVertexAttribArray(final int index) {
-    android.opengl.GLES20.glDisableVertexAttribArray(index);
+    legend.game.android.GlNative.glDisableVertexAttribArray(index);
   }
 
   public static void glCopyTexSubImage2D(final int target, final int level, final int xoffset, final int yoffset, final int x, final int y, final int width, final int height) {
-    android.opengl.GLES20.glCopyTexSubImage2D(target, level, xoffset, yoffset, x, y, width, height);
+    legend.game.android.GlNative.glCopyTexSubImage2D(target, level, xoffset, yoffset, x, y, width, height);
   }
 
   public static void glFramebufferTexture2D(final int target, final int attachment, final int textarget, final int texture, final int level) {
-    android.opengl.GLES20.glFramebufferTexture2D(target, attachment, textarget, texture, level);
+    legend.game.android.GlNative.glFramebufferTexture2D(target, attachment, textarget, texture, level);
   }
 
   public static int glGenBuffers() {
     final int[] out = new int[1];
-    android.opengl.GLES20.glGenBuffers(1, out, 0);
+    legend.game.android.GlNative.glGenBuffersA(1, out, 0);
     return out[0];
   }
 
   public static void glGenBuffers(final IntBuffer buffers) {
-    android.opengl.GLES20.glGenBuffers(buffers.remaining(), buffers);
+    legend.game.android.GlNative.glGenBuffers(remaining(buffers), buffers, byteOff(buffers));
   }
 
   public static int glGenFramebuffers() {
     final int[] out = new int[1];
-    android.opengl.GLES20.glGenFramebuffers(1, out, 0);
+    legend.game.android.GlNative.glGenFramebuffersA(1, out, 0);
     return out[0];
   }
 
   public static int glGenTextures() {
     final int[] out = new int[1];
-    android.opengl.GLES20.glGenTextures(1, out, 0);
+    legend.game.android.GlNative.glGenTexturesA(1, out, 0);
     return out[0];
   }
 
   public static void glGenTextures(final IntBuffer textures) {
-    android.opengl.GLES20.glGenTextures(textures.remaining(), textures);
+    legend.game.android.GlNative.glGenTextures(remaining(textures), textures, byteOff(textures));
   }
 
   public static int glGetError() {
-    return android.opengl.GLES20.glGetError();
+    return legend.game.android.GlNative.glGetError();
   }
 
   public static int glGetInteger(final int pname) {
     final int[] out = new int[1];
-    android.opengl.GLES20.glGetIntegerv(pname, out, 0);
+    legend.game.android.GlNative.glGetIntegervA(pname, out, 0);
     return out[0];
   }
 
   public static void glGetIntegerv(final int pname, final IntBuffer params) {
-    android.opengl.GLES20.glGetIntegerv(pname, params);
+    legend.game.android.GlNative.glGetIntegerv(pname, params, byteOff(params));
   }
 
   public static void glGetIntegerv(final int pname, final int[] params) {
-    android.opengl.GLES20.glGetIntegerv(pname, params, 0);
+    legend.game.android.GlNative.glGetIntegervA(pname, params, 0);
   }
 
   public static int glGetProgrami(final int program, final int pname) {
     final int[] out = new int[1];
-    android.opengl.GLES20.glGetProgramiv(program, pname, out, 0);
+    legend.game.android.GlNative.glGetProgramivA(program, pname, out, 0);
     return out[0];
   }
 
   public static String glGetProgramInfoLog(final int program) {
-    return android.opengl.GLES20.glGetProgramInfoLog(program);
+    return legend.game.android.GlNative.glGetProgramInfoLog(program);
   }
 
   public static int glGetShaderi(final int shader, final int pname) {
     final int[] out = new int[1];
-    android.opengl.GLES20.glGetShaderiv(shader, pname, out, 0);
+    legend.game.android.GlNative.glGetShaderivA(shader, pname, out, 0);
     return out[0];
   }
 
   public static String glGetShaderInfoLog(final int shader) {
-    return android.opengl.GLES20.glGetShaderInfoLog(shader);
+    return legend.game.android.GlNative.glGetShaderInfoLog(shader);
   }
 
   public static String glGetString(final int name) {
-    return android.opengl.GLES20.glGetString(name);
+    return legend.game.android.GlNative.glGetString(name);
   }
 
   public static int glGetUniformLocation(final int program, final CharSequence name) {
-    return android.opengl.GLES20.glGetUniformLocation(program, name.toString());
+    return legend.game.android.GlNative.glGetUniformLocation(program, name.toString());
   }
 
   public static void glLineWidth(final float width) {
-    android.opengl.GLES20.glLineWidth(width);
+    legend.game.android.GlNative.glLineWidth(width);
   }
 
   public static void glLinkProgram(final int program) {
-    android.opengl.GLES20.glLinkProgram(program);
+    legend.game.android.GlNative.glLinkProgram(program);
   }
 
   public static void glPixelStorei(final int pname, final int param) {
-    android.opengl.GLES20.glPixelStorei(pname, param);
+    legend.game.android.GlNative.glPixelStorei(pname, param);
   }
 
   public static void glReadPixels(final int x, final int y, final int width, final int height, final int format, final int type, final Buffer pixels) {
-    android.opengl.GLES20.glReadPixels(x, y, width, height, format, type, pixels);
+    legend.game.android.GlNative.glReadPixels(x, y, width, height, format, type, pixels, byteOff(pixels));
   }
 
   public static void glScissor(final int x, final int y, final int width, final int height) {
-    android.opengl.GLES20.glScissor(x, y, width, height);
+    legend.game.android.GlNative.glScissor(x, y, width, height);
   }
 
   public static void glShaderSource(final int shader, final CharSequence source) {
-    android.opengl.GLES20.glShaderSource(shader, source.toString());
+    legend.game.android.GlNative.glShaderSource(shader, source.toString());
   }
 
   private static int sizedInternalFormat(final int internalformat, final int type) {
@@ -387,78 +395,78 @@ public class GLES20 {
   }
 
   public static void glTexImage2D(final int target, final int level, final int internalformat, final int width, final int height, final int border, final int format, final int type, final Buffer pixels) {
-    android.opengl.GLES20.glTexImage2D(target, level, sizedInternalFormat(internalformat, type), width, height, border, format, type, pixels);
+    legend.game.android.GlNative.glTexImage2D(target, level, sizedInternalFormat(internalformat, type), width, height, border, format, type, pixels, byteOff(pixels));
   }
 
   public static void glTexImage2D(final int target, final int level, final int internalformat, final int width, final int height, final int border, final int format, final int type, final long pixels) {
-    android.opengl.GLES20.glTexImage2D(target, level, sizedInternalFormat(internalformat, type), width, height, border, format, type, pixels == 0L ? null : MemoryUtil.bufferForAddress(pixels));
+    legend.game.android.GlNative.glTexImage2D(target, level, sizedInternalFormat(internalformat, type), width, height, border, format, type, pixels == 0L ? null : MemoryUtil.bufferForAddress(pixels), 0);
   }
 
   public static void glTexSubImage2D(final int target, final int level, final int xoffset, final int yoffset, final int width, final int height, final int format, final int type, final Buffer pixels) {
-    android.opengl.GLES20.glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels);
+    legend.game.android.GlNative.glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels, byteOff(pixels));
   }
 
   public static void glTexSubImage2D(final int target, final int level, final int xoffset, final int yoffset, final int width, final int height, final int format, final int type, final int[] pixels) {
-    android.opengl.GLES20.glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, IntBuffer.wrap(pixels));
+    legend.game.android.GlNative.glTexSubImage2DI(target, level, xoffset, yoffset, width, height, format, type, pixels, 0);
   }
 
   public static void glTexSubImage2D(final int target, final int level, final int xoffset, final int yoffset, final int width, final int height, final int format, final int type, final long pixels) {
-    android.opengl.GLES20.glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels == 0L ? null : MemoryUtil.bufferForAddress(pixels));
+    legend.game.android.GlNative.glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels == 0L ? null : MemoryUtil.bufferForAddress(pixels), 0);
   }
 
   public static void glTexParameteri(final int target, final int pname, final int param) {
-    android.opengl.GLES20.glTexParameteri(target, pname, param);
+    legend.game.android.GlNative.glTexParameteri(target, pname, param);
   }
 
   public static void glUniform1f(final int location, final float v0) {
-    android.opengl.GLES20.glUniform1f(location, v0);
+    legend.game.android.GlNative.glUniform1f(location, v0);
   }
 
   public static void glUniform1i(final int location, final int v0) {
-    android.opengl.GLES20.glUniform1i(location, v0);
+    legend.game.android.GlNative.glUniform1i(location, v0);
   }
 
   public static void glUniform2f(final int location, final float v0, final float v1) {
-    android.opengl.GLES20.glUniform2f(location, v0, v1);
+    legend.game.android.GlNative.glUniform2f(location, v0, v1);
   }
 
   public static void glUniform2fv(final int location, final FloatBuffer value) {
-    android.opengl.GLES20.glUniform2fv(location, value.remaining() / 2, value);
+    legend.game.android.GlNative.glUniform2fv(location, remaining(value) / 2, value, byteOff(value));
   }
 
   public static void glUniform3f(final int location, final float v0, final float v1, final float v2) {
-    android.opengl.GLES20.glUniform3f(location, v0, v1, v2);
+    legend.game.android.GlNative.glUniform3f(location, v0, v1, v2);
   }
 
   public static void glUniform3fv(final int location, final FloatBuffer value) {
-    android.opengl.GLES20.glUniform3fv(location, value.remaining() / 3, value);
+    legend.game.android.GlNative.glUniform3fv(location, remaining(value) / 3, value, byteOff(value));
   }
 
   public static void glUniform4f(final int location, final float v0, final float v1, final float v2, final float v3) {
-    android.opengl.GLES20.glUniform4f(location, v0, v1, v2, v3);
+    legend.game.android.GlNative.glUniform4f(location, v0, v1, v2, v3);
   }
 
   public static void glUniform4fv(final int location, final FloatBuffer value) {
-    android.opengl.GLES20.glUniform4fv(location, value.remaining() / 4, value);
+    legend.game.android.GlNative.glUniform4fv(location, remaining(value) / 4, value, byteOff(value));
   }
 
   public static void glUniformMatrix4fv(final int location, final boolean transpose, final FloatBuffer value) {
-    android.opengl.GLES20.glUniformMatrix4fv(location, value.remaining() / 16, transpose, value);
+    legend.game.android.GlNative.glUniformMatrix4fv(location, remaining(value) / 16, transpose, value, byteOff(value));
   }
 
   public static void glUseProgram(final int program) {
-    android.opengl.GLES20.glUseProgram(program);
+    legend.game.android.GlNative.glUseProgram(program);
   }
 
   public static void glVertexAttribPointer(final int index, final int size, final int type, final boolean normalized, final int stride, final long pointer) {
-    android.opengl.GLES20.glVertexAttribPointer(index, size, type, normalized, stride, (int)pointer);
+    legend.game.android.GlNative.glVertexAttribPointer(index, size, type, normalized, stride, pointer);
   }
 
   public static void glVertexAttribPointer(final int index, final int size, final int type, final boolean normalized, final int stride, final Buffer pointer) {
-    android.opengl.GLES20.glVertexAttribPointer(index, size, type, normalized, stride, pointer);
+    legend.game.android.GlNative.glVertexAttribPointerB(index, size, type, normalized, stride, pointer, byteOff(pointer));
   }
 
   public static void glViewport(final int x, final int y, final int width, final int height) {
-    android.opengl.GLES20.glViewport(x, y, width, height);
+    legend.game.android.GlNative.glViewport(x, y, width, height);
   }
 }

@@ -16,8 +16,9 @@ public final class DebugGl {
 
   private DebugGl() { }
 
-  /** Must be called on the GL thread with a current context. */
-  public static native boolean install();
+  /** Must be called on the GL thread with a current context. Resolves the
+   * callback setter + glEnable through the active backend (system or ANGLE). */
+  public static native boolean install(long callbackFn, long enableFn);
 
   public static void setCallback(final GLDebugMessageCallback callback) {
     DebugGl.callback = callback;

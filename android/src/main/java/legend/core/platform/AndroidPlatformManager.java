@@ -149,7 +149,7 @@ public class AndroidPlatformManager extends PlatformManager {
 
   @Override
   public boolean isContextCurrent() {
-    return android.opengl.EGL14.eglGetCurrentContext() != android.opengl.EGL14.EGL_NO_CONTEXT;
+    return legend.game.android.GlNative.eglContextCurrent();
   }
 
   @Override

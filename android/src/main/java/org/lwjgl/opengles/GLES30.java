@@ -40,61 +40,61 @@ public class GLES30 extends GLES20 {
   public static final int GL_DEPTH_STENCIL = android.opengl.GLES30.GL_DEPTH_STENCIL;
 
   public static void glBindVertexArray(final int array) {
-    android.opengl.GLES30.glBindVertexArray(array);
+    legend.game.android.GlNative.glBindVertexArray(array);
   }
 
   public static int glGenVertexArrays() {
     final int[] out = new int[1];
-    android.opengl.GLES30.glGenVertexArrays(1, out, 0);
+    legend.game.android.GlNative.glGenVertexArraysA(1, out, 0);
     return out[0];
   }
 
   public static void glGenVertexArrays(final IntBuffer arrays) {
-    android.opengl.GLES30.glGenVertexArrays(arrays.remaining(), arrays);
+    legend.game.android.GlNative.glGenVertexArrays(remaining(arrays), arrays, byteOff(arrays));
   }
 
   public static void glDeleteVertexArrays(final int array) {
-    android.opengl.GLES30.glDeleteVertexArrays(1, new int[] {array}, 0);
+    legend.game.android.GlNative.glDeleteVertexArraysA(1, new int[] {array}, 0);
   }
 
   public static void glBindBufferBase(final int target, final int index, final int buffer) {
-    android.opengl.GLES30.glBindBufferBase(target, index, buffer);
+    legend.game.android.GlNative.glBindBufferBase(target, index, buffer);
   }
 
   public static void glDrawRangeElements(final int mode, final int start, final int end, final int count, final int type, final long indices) {
-    android.opengl.GLES30.glDrawRangeElements(mode, start, end, count, type, (int)indices);
+    legend.game.android.GlNative.glDrawRangeElements(mode, start, end, count, type, indices);
   }
 
   public static void glDrawRangeElements(final int mode, final int start, final int end, final int count, final int type, final Buffer indices) {
-    android.opengl.GLES30.glDrawRangeElements(mode, start, end, count, type, indices);
+    legend.game.android.GlNative.glDrawRangeElementsB(mode, start, end, count, type, indices, byteOff(indices));
   }
 
   public static int glGetUniformBlockIndex(final int program, final CharSequence uniformBlockName) {
-    return android.opengl.GLES30.glGetUniformBlockIndex(program, uniformBlockName.toString());
+    return legend.game.android.GlNative.glGetUniformBlockIndex(program, uniformBlockName.toString());
   }
 
   public static void glUniformBlockBinding(final int program, final int uniformBlockIndex, final int uniformBlockBinding) {
-    android.opengl.GLES30.glUniformBlockBinding(program, uniformBlockIndex, uniformBlockBinding);
+    legend.game.android.GlNative.glUniformBlockBinding(program, uniformBlockIndex, uniformBlockBinding);
   }
 
   public static void glReadBuffer(final int src) {
-    android.opengl.GLES30.glReadBuffer(src);
+    legend.game.android.GlNative.glReadBuffer(src);
   }
 
   public static void glDrawBuffers(final int[] bufs) {
-    android.opengl.GLES30.glDrawBuffers(bufs.length, bufs, 0);
+    legend.game.android.GlNative.glDrawBuffersA(bufs.length, bufs, 0);
   }
 
   public static void glDrawBuffers(final int n, final IntBuffer bufs) {
-    android.opengl.GLES30.glDrawBuffers(n, bufs);
+    legend.game.android.GlNative.glDrawBuffers(n, bufs, byteOff(bufs));
   }
 
   public static void glBlitFramebuffer(final int srcX0, final int srcY0, final int srcX1, final int srcY1, final int dstX0, final int dstY0, final int dstX1, final int dstY1, final int mask, final int filter) {
-    android.opengl.GLES30.glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
+    legend.game.android.GlNative.glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
   }
 
   public static void glTexStorage2D(final int target, final int levels, final int internalformat, final int width, final int height) {
-    android.opengl.GLES30.glTexStorage2D(target, levels, internalformat, width, height);
+    legend.game.android.GlNative.glTexStorage2D(target, levels, internalformat, width, height);
   }
 
   public static final int GL_PROGRAM_BINARY_RETRIEVABLE_HINT = 0x8257;
@@ -102,18 +102,18 @@ public class GLES30 extends GLES20 {
   public static final int GL_NUM_PROGRAM_BINARY_FORMATS = 0x87FE;
 
   public static void glProgramParameteri(final int program, final int pname, final int value) {
-    android.opengl.GLES30.glProgramParameteri(program, pname, value);
+    legend.game.android.GlNative.glProgramParameteri(program, pname, value);
   }
 
   public static void glProgramBinary(final int program, final int binaryFormat, final Buffer binary, final int length) {
-    android.opengl.GLES30.glProgramBinary(program, binaryFormat, binary, length);
+    legend.game.android.GlNative.glProgramBinary(program, binaryFormat, binary, byteOff(binary), length);
   }
 
   /** Returns the program binary format, or -1 if the query failed. */
   public static int glGetProgramBinary(final int program, final Buffer binary) {
     final int[] length = new int[1];
     final int[] format = new int[1];
-    android.opengl.GLES30.glGetProgramBinary(program, binary.remaining(), length, 0, format, 0, binary);
+    legend.game.android.GlNative.glGetProgramBinary(program, remaining(binary), length, 0, format, 0, binary, 0);
     return format[0];
   }
 }

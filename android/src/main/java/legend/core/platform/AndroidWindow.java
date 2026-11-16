@@ -39,6 +39,10 @@ public class AndroidWindow extends Window {
   private int width;
   private int height;
 
+  /** True while the GL context is owned by ANGLE (GLES-over-Vulkan). */
+  private boolean angle;
+  private boolean angleAttempted;
+
   private boolean shouldClose;
   boolean hasFocus = true;
 
@@ -76,6 +80,27 @@ public class AndroidWindow extends Window {
     // crash), the marker survives and GlesCompat escalates the fallback
     // level on next launch.
     legend.game.android.GlesCompat.markGlInit();
+
+    // Backend selection: the Vulkan preference (or AUTO with ANGLE present)
+    // attempts GLES-over-Vulkan once; any failure falls back to the system
+    // GLES driver for the rest of this boot.
+    final boolean wantAngle = !this.angleAttempted && "vulkan".equals(AndroidEnv.effectiveBackend());
+    if(wantAngle) {
+      this.angleAttempted = true;
+      AndroidEnv.markGlBackend("vulkan");
+      if(this.createAngleContext()) {
+        this.angle = true;
+        this.dumpGlInfo(true);
+        return;
+      }
+      Log.w(TAG, "ANGLE init failed — falling back to system GLES driver");
+    }
+
+    AndroidEnv.markGlBackend("gles");
+    final String glErr = legend.game.android.GlNative.init("", false);
+    if(glErr != null) {
+      throw new RuntimeException("GL dispatch init failed: " + glErr);
+    }
     this.display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
     if(this.display == EGL14.EGL_NO_DISPLAY) {
       throw new RuntimeException("eglGetDisplay failed");
@@ -151,29 +176,69 @@ public class AndroidWindow extends Window {
 
     this.createWindowSurface(this.surface, AndroidEnv.surfaceWidth(), AndroidEnv.surfaceHeight());
 
-    if(!EGL14.eglMakeCurrent(this.display, this.eglSurface, this.eglSurface, this.context)) {
-      throw new RuntimeException("eglMakeCurrent failed: " + EGL14.eglGetError());
+    EGL14.eglSwapInterval(this.display, 0);
+    this.dumpGlInfo(false);
+  }
+
+  /**
+   * ANGLE GLES-over-Vulkan context. EGL objects live in gl_jni.cpp statics —
+   * the app is single-window so no handles need to round-trip through Java.
+   * Returns false on any failure so the caller can fall back to the system
+   * driver.
+   */
+  private boolean createAngleContext() {
+    final java.io.File angleDir = legend.game.android.AngleLibs.dir();
+    if(angleDir == null) {
+      Log.w(TAG, "ANGLE libs not bundled in this build");
+      return false;
     }
 
+    final String err = legend.game.android.GlNative.init(angleDir.getAbsolutePath(), true);
+    if(err != null) {
+      Log.w(TAG, "ANGLE lib load failed: " + err);
+      return false;
+    }
+
+    final boolean debuggable = (AndroidEnv.context().getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+    final int initErr = legend.game.android.GlNative.eglInitAngle(debuggable);
+    if(initErr != 0) {
+      Log.w(TAG, "ANGLE eglInit failed: 0x" + Integer.toHexString(initErr));
+      legend.game.android.GlNative.eglTerminate();
+      return false;
+    }
+    Log.i(TAG, "ANGLE EGL initialized (GLES-over-Vulkan)");
+    this.angle = true;
+
+    try {
+      this.createWindowSurface(this.surface, AndroidEnv.surfaceWidth(), AndroidEnv.surfaceHeight());
+    } catch(final RuntimeException e) {
+      legend.game.android.GlNative.eglTerminate();
+      this.angle = false;
+      return false;
+    }
+    legend.game.android.GlNative.eglSwapInterval(0);
+    return true;
+  }
+
+  private void dumpGlInfo(final boolean angle) {
     // ES feature level (e.g. Mali Midgard tops out at ES 3.1 - no geometry
-    // shaders); GlesCompat drives shader variants and mesh adaptation.
-    final String glVersion = android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_VERSION);
+    // shaders); GlesCompat drives shader variants and mesh adaptation. ANGLE
+    // always reports full ES 3.2.
+    final String glVersion = legend.game.android.GlNative.glGetString(android.opengl.GLES20.GL_VERSION);
     legend.game.android.GlesCompat.detect(glVersion);
 
     // Dump GL/EGL caps into the support log - the key data for triaging
     // unsupported GPUs.
     legend.game.android.GameLog.logGlInfo(
-      android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_VENDOR),
-      android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_RENDERER),
+      legend.game.android.GlNative.glGetString(android.opengl.GLES20.GL_VENDOR),
+      legend.game.android.GlNative.glGetString(android.opengl.GLES20.GL_RENDERER),
       glVersion,
-      android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_SHADING_LANGUAGE_VERSION),
-      android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_EXTENSIONS),
-      EGL14.eglQueryString(this.display, EGL14.EGL_VENDOR),
-      EGL14.eglQueryString(this.display, EGL14.EGL_VERSION),
-      EGL14.eglQueryString(this.display, EGL14.EGL_CLIENT_APIS),
-      EGL14.eglQueryString(this.display, EGL14.EGL_EXTENSIONS));
-
-    EGL14.eglSwapInterval(this.display, 0);
+      legend.game.android.GlNative.glGetString(android.opengl.GLES20.GL_SHADING_LANGUAGE_VERSION),
+      legend.game.android.GlNative.glGetString(android.opengl.GLES20.GL_EXTENSIONS),
+      angle ? legend.game.android.GlNative.eglQueryString(EGL14.EGL_VENDOR) : EGL14.eglQueryString(this.display, EGL14.EGL_VENDOR),
+      angle ? legend.game.android.GlNative.eglQueryString(EGL14.EGL_VERSION) : EGL14.eglQueryString(this.display, EGL14.EGL_VERSION),
+      angle ? legend.game.android.GlNative.eglQueryString(EGL14.EGL_CLIENT_APIS) : EGL14.eglQueryString(this.display, EGL14.EGL_CLIENT_APIS),
+      angle ? legend.game.android.GlNative.eglQueryString(EGL14.EGL_EXTENSIONS) : EGL14.eglQueryString(this.display, EGL14.EGL_EXTENSIONS));
   }
 
   /** (Re)create the window EGL surface for the given Android surface. */
@@ -184,15 +249,25 @@ public class AndroidWindow extends Window {
     this.releaseWindowSurface();
 
     this.surface = surface;
-    this.eglSurface = EGL14.eglCreateWindowSurface(this.display, this.config, surface, new int[] {EGL14.EGL_NONE}, 0);
-    if(this.eglSurface == EGL14.EGL_NO_SURFACE) {
-      // Leave the context current on the pbuffer so GL calls stay valid
-      EGL14.eglMakeCurrent(this.display, this.pbuffer, this.pbuffer, this.context);
-      throw new RuntimeException("eglCreateWindowSurface failed: " + EGL14.eglGetError());
-    }
+    if(this.angle) {
+      if(!legend.game.android.GlNative.eglCreateWindowSurface(surface)) {
+        legend.game.android.GlNative.eglMakeCurrentPbuffer();
+        throw new RuntimeException("ANGLE eglCreateWindowSurface failed");
+      }
+      if(!legend.game.android.GlNative.eglMakeCurrentWindow()) {
+        throw new RuntimeException("ANGLE eglMakeCurrent failed");
+      }
+    } else {
+      this.eglSurface = EGL14.eglCreateWindowSurface(this.display, this.config, surface, new int[] {EGL14.EGL_NONE}, 0);
+      if(this.eglSurface == EGL14.EGL_NO_SURFACE) {
+        // Leave the context current on the pbuffer so GL calls stay valid
+        EGL14.eglMakeCurrent(this.display, this.pbuffer, this.pbuffer, this.context);
+        throw new RuntimeException("eglCreateWindowSurface failed: " + EGL14.eglGetError());
+      }
 
-    if(!EGL14.eglMakeCurrent(this.display, this.eglSurface, this.eglSurface, this.context)) {
-      throw new RuntimeException("eglMakeCurrent failed: " + EGL14.eglGetError());
+      if(!EGL14.eglMakeCurrent(this.display, this.eglSurface, this.eglSurface, this.context)) {
+        throw new RuntimeException("eglMakeCurrent failed: " + EGL14.eglGetError());
+      }
     }
 
     if(w != this.width || h != this.height) {
@@ -204,6 +279,13 @@ public class AndroidWindow extends Window {
 
   /** Destroy the window EGL surface, keeping the context alive on the pbuffer. */
   private void releaseWindowSurface() {
+    if(this.angle) {
+      legend.game.android.GlNative.eglMakeCurrentPbuffer();
+      legend.game.android.GlNative.eglDestroyWindowSurface();
+      this.boundGeneration = -1;
+      Log.i(TAG, "Released ANGLE window surface; context parked on pbuffer");
+      return;
+    }
     if(this.eglSurface != EGL14.EGL_NO_SURFACE) {
       EGL14.eglMakeCurrent(this.display, this.pbuffer, this.pbuffer, this.context);
       EGL14.eglDestroySurface(this.display, this.eglSurface);
@@ -227,6 +309,11 @@ public class AndroidWindow extends Window {
   }
 
   private void teardownEgl() {
+    if(this.angle) {
+      legend.game.android.GlNative.eglTerminate();
+      this.angle = false;
+      return;
+    }
     if(this.display != EGL14.EGL_NO_DISPLAY) {
       EGL14.eglMakeCurrent(this.display, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT);
       if(this.eglSurface != EGL14.EGL_NO_SURFACE) {
@@ -370,11 +457,17 @@ public class AndroidWindow extends Window {
       }
     }
 
-    if(this.eglSurface == EGL14.EGL_NO_SURFACE) {
-      return;
+    if(this.angle) {
+      if(!legend.game.android.GlNative.eglSwapBuffers()) {
+        return;
+      }
+    } else {
+      if(this.eglSurface == EGL14.EGL_NO_SURFACE) {
+        return;
+      }
+      EGL14.eglSwapBuffers(this.display, this.eglSurface);
     }
-
-    EGL14.eglSwapBuffers(this.display, this.eglSurface);
+    AndroidEnv.glBackendOk();
     legend.game.android.GlesCompat.glInitOk();
     this.events().onDraw();
     this.manager.clearPressed();

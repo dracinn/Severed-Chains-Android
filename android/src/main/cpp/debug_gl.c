@@ -4,7 +4,7 @@
 #include <jni.h>
 #include <string.h>
 #include <GLES3/gl32.h>
-#include <EGL/egl.h>
+#include <stdint.h>
 #include <android/log.h>
 
 #define TAG "SC-GLDBG"
@@ -30,7 +30,10 @@ static void GL_APIENTRY onGlDebugMessage(const GLenum source, const GLenum type,
   }
 }
 
-JNIEXPORT jboolean JNICALL Java_legend_game_android_DebugGl_install(JNIEnv* env, const jclass cls) {
+// callbackFn/enableFn are resolved by GlNative against whichever backend lib
+// owns the context (system GLES or bundled ANGLE), so debug output works under
+// either backend without this .so binding a specific EGL/GLES at link time.
+JNIEXPORT jboolean JNICALL Java_legend_game_android_DebugGl_install(JNIEnv* env, const jclass cls, const jlong callbackFn, const jlong enableFn) {
   (*env)->GetJavaVM(env, &gJvm);
   if(gCls != NULL) {
     (*env)->DeleteGlobalRef(env, gCls);
@@ -42,11 +45,10 @@ JNIEXPORT jboolean JNICALL Java_legend_game_android_DebugGl_install(JNIEnv* env,
   }
 
   typedef void (GL_APIENTRY *DebugCallbackFn)(GLDEBUGPROC callback, const void* userParam);
-  DebugCallbackFn pfn = (DebugCallbackFn)eglGetProcAddress("glDebugMessageCallbackKHR");
-  if(pfn == NULL) {
-    pfn = (DebugCallbackFn)eglGetProcAddress("glDebugMessageCallback");
-  }
-  if(pfn == NULL) {
+  typedef void (GL_APIENTRY *EnableFn)(GLenum cap);
+  const DebugCallbackFn pfn = (DebugCallbackFn)(uintptr_t)callbackFn;
+  const EnableFn enable = (EnableFn)(uintptr_t)enableFn;
+  if(pfn == NULL || enable == NULL) {
     __android_log_write(ANDROID_LOG_WARN, TAG, "no glDebugMessageCallback entry point");
     return JNI_FALSE;
   }
@@ -55,7 +57,7 @@ JNIEXPORT jboolean JNICALL Java_legend_game_android_DebugGl_install(JNIEnv* env,
 
   // Synchronous delivery keeps the callback on the GL thread, where the JVM
   // is already attached.
-  glEnable(GL_DEBUG_OUTPUT);
-  glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+  enable(GL_DEBUG_OUTPUT);
+  enable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
   return JNI_TRUE;
 }

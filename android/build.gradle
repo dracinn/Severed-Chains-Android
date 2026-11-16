@@ -160,9 +160,25 @@ android {
       // duplicate in mergeJavaRes.
       manifest.srcFile 'src/main/AndroidManifest.xml'
       assets.srcDirs += "$buildDir/generated/assets".toString()
+      // Bundled ANGLE libs (GLES-over-Vulkan backend) land under
+      // assets/angle/<abi>/ and are extracted at runtime by AngleLibs.
+      assets.srcDirs += "$buildDir/angle-assets".toString()
     }
   }
 }
+
+// ANGLE libs for the Vulkan renderer backend — built externally from the
+// ANGLE checkout (target_os="android"). Absent libs degrade the backend to
+// system GLES; the option is hidden in the Renderer config dropdown.
+def angleLibsSrc = findProperty('angleAndroidLibsDir') ?: '/Volumes/Storage/angle-build/out/Android'
+tasks.register('bundleAngleLibs', Copy) {
+  from(angleLibsSrc) {
+    include 'libEGL.so'
+    include 'libGLESv2.so'
+  }
+  into "$buildDir/angle-assets/angle/arm64-v8a"
+}
+tasks.named('preBuild').configure { dependsOn 'bundleAngleLibs' }
 
 // Stage upstream sources minus the desktop-only files that are replaced by
 // same-FQN Android variants (android/src/main/java) or unused on device.
@@ -611,7 +627,7 @@ import java.awt.image.BufferedImage;
     // Options > Save location — Android-only storage picker, available in
     // both the title-menu and in-game Options screens.
     '  public static final RegistryDelegate<MonitorConfigEntry> MONITOR_CONFIG = CONFIG_REGISTRAR.register("monitor", MonitorConfigEntry::new);':
-      '  public static final RegistryDelegate<MonitorConfigEntry> MONITOR_CONFIG = CONFIG_REGISTRAR.register("monitor", MonitorConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.SaveLocationConfigEntry> SAVE_LOCATION_CONFIG = CONFIG_REGISTRAR.register("save_location", legend.game.android.SaveLocationConfigEntry::new);',
+      '  public static final RegistryDelegate<MonitorConfigEntry> MONITOR_CONFIG = CONFIG_REGISTRAR.register("monitor", MonitorConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.SaveLocationConfigEntry> SAVE_LOCATION_CONFIG = CONFIG_REGISTRAR.register("save_location", legend.game.android.SaveLocationConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.RendererConfigEntry> RENDERER_BACKEND_CONFIG = CONFIG_REGISTRAR.register("renderer_backend", legend.game.android.RendererConfigEntry::new);',
   ],
   'legend/game/saves/ConfigPresetManager.java': [
     'Files.createDirectories(path.toAbsolutePath().getParent());':
@@ -1115,7 +1131,12 @@ lod_core.config.save_location.help=Where save files are stored. Applies on next 
 lod_core.config.save_location.AUTO=Automatic
 lod_core.config.save_location.INTERNAL=Internal app storage
 lod_core.config.save_location.SHARED=Shared storage (Documents)
-lod_core.config.save_location.SD_CARD=SD card'''
+lod_core.config.save_location.SD_CARD=SD card
+lod_core.config.renderer_backend.label=Renderer backend
+lod_core.config.renderer_backend.help=Graphics backend. Vulkan routes GLES through ANGLE (full ES 3.2 incl. geometry shaders); may fix rendering glitches on some GPUs. Applies on next launch.
+lod_core.config.renderer_backend.AUTO=Automatic
+lod_core.config.renderer_backend.GLES=OpenGL ES (system driver)
+lod_core.config.renderer_backend.VULKAN=Vulkan (experimental)'''
         }
         return line
       }
@@ -1144,6 +1165,9 @@ lod_core.config.save_location.SD_CARD=SD card'''
     }
     if(!lang.text.contains('lod_core.config.save_location.SD_CARD=')) {
       throw new GradleException('Save location lang labels missing: upstream en.lang changed; update packageSharedClasses')
+    }
+    if(!lang.text.contains('lod_core.config.renderer_backend.VULKAN=')) {
+      throw new GradleException('Renderer backend lang labels missing: upstream en.lang changed; update packageSharedClasses')
     }
   }
   from annotationIndexDir

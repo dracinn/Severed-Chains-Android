@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22.1)
-project(scopus C)
+project(scopus C CXX)
 
 # Third-party sources are fetched and SHA-256-verified by the fetchThirdParty
 # Gradle task into android/build/third_party/src (not committed).
@@ -42,7 +42,7 @@ target_include_directories(opusfile PUBLIC ${OPUSFILE_DIR}/include)
 # compiling opusfile itself (ogg.h + generated config_types.h, opus_multistream.h)
 target_link_libraries(opusfile PUBLIC ogg opus)
 
-add_library(scopus SHARED opus_jni.c yuv2rgb.c debug_gl.c os_jni.c)
-target_link_libraries(scopus PRIVATE opusfile opus ogg log EGL GLESv3)
+add_library(scopus SHARED opus_jni.c yuv2rgb.c debug_gl.c os_jni.c gl_jni.cpp)
+target_link_libraries(scopus PRIVATE opusfile opus ogg log android)
 # Android 15+ requires LOAD segments aligned to 16 KB pages
 target_link_options(scopus PRIVATE -Wl,-z,max-page-size=16384)

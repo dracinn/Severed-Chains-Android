@@ -160,7 +160,7 @@ public final class GlesCompat {
    */
   public static void logDepthAttachment(final String fboName) {
     final int[] params = new int[1];
-    android.opengl.GLES20.glGetFramebufferAttachmentParameteriv(
+    GlNative.glGetFramebufferAttachmentParameterivA(
       android.opengl.GLES20.GL_FRAMEBUFFER,
       android.opengl.GLES20.GL_DEPTH_ATTACHMENT,
       android.opengl.GLES20.GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, params, 0);
@@ -168,7 +168,7 @@ public final class GlesCompat {
       return; // copy/blit FBOs have no depth attachment
     }
 
-    android.opengl.GLES20.glGetFramebufferAttachmentParameteriv(
+    GlNative.glGetFramebufferAttachmentParameterivA(
       android.opengl.GLES20.GL_FRAMEBUFFER,
       android.opengl.GLES20.GL_DEPTH_ATTACHMENT,
       android.opengl.GLES30.GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE, params, 0);

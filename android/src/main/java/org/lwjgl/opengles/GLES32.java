@@ -47,26 +47,32 @@ public class GLES32 extends GLES30 {
     }
 
     // android.opengl.GLES32.glDebugMessageCallback is an unimplemented framework
-    // stub; register KHR_debug through JNI instead.
+    // stub; register KHR_debug through JNI instead. Entry points come from the
+    // active backend (system GLES or ANGLE) via GlNative.
     legend.game.android.DebugGl.setCallback(callback);
-    if(!legend.game.android.DebugGl.install()) {
+    long pfn = legend.game.android.GlNative.eglGetProcAddress("glDebugMessageCallbackKHR");
+    if(pfn == 0L) {
+      pfn = legend.game.android.GlNative.eglGetProcAddress("glDebugMessageCallback");
+    }
+    final long enable = legend.game.android.GlNative.eglGetProcAddress("glEnable");
+    if(!legend.game.android.DebugGl.install(pfn, enable)) {
       android.util.Log.w("SC-GL", "KHR_debug callback unavailable");
     }
   }
 
   public static void glDebugMessageControl(final int source, final int type, final int severity, final int[] ids, final boolean enabled) {
-    android.opengl.GLES32.glDebugMessageControl(source, type, severity, ids.length, ids, 0, enabled);
+    legend.game.android.GlNative.glDebugMessageControl(source, type, severity, ids, 0, enabled);
   }
 
   public static void glObjectLabel(final int identifier, final int name, final CharSequence label) {
     final String text = label.toString();
-    android.opengl.GLES32.glObjectLabel(identifier, name, text.length(), text);
+    legend.game.android.GlNative.glObjectLabel(identifier, name, text);
     LABEL_NAMES.put(((long)identifier << 32) | (name & 0xffff_ffffL), text);
   }
 
   public static void glObjectLabel(final int identifier, final int name, final Buffer label) {
     final ByteBuffer buf = (ByteBuffer)label;
-    final byte[] bytes = new byte[buf.remaining()];
+    final byte[] bytes = new byte[remaining(buf)];
     buf.get(bytes);
     final String text = new String(bytes, StandardCharsets.UTF_8).replace("\0", "");
     glObjectLabel(identifier, name, text);
@@ -78,10 +84,10 @@ public class GLES32 extends GLES30 {
   }
 
   public static void glTexStorage2DMultisample(final int target, final int samples, final int internalformat, final int width, final int height, final boolean fixedsamplelocations) {
-    android.opengl.GLES31.glTexStorage2DMultisample(target, samples, internalformat, width, height, fixedsamplelocations);
+    legend.game.android.GlNative.glTexStorage2DMultisample(target, samples, internalformat, width, height, fixedsamplelocations);
   }
 
   public static void glFramebufferTexture(final int target, final int attachment, final int texture, final int level) {
-    android.opengl.GLES32.glFramebufferTexture(target, attachment, texture, level);
+    legend.game.android.GlNative.glFramebufferTexture(target, attachment, texture, level);
   }
 }

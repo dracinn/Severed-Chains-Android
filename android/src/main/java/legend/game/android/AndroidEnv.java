@@ -359,6 +359,58 @@ public final class AndroidEnv {
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(PREF_SAVE_LOCATION, loc).apply();
   }
 
+  // ------------------------------------------------------------------
+  // Renderer backend (system GLES / ANGLE GLES-over-Vulkan)
+  // ------------------------------------------------------------------
+
+  private static final String PREF_RENDERER_BACKEND = "renderer_backend";
+  private static final String PREF_LAST_GL_BACKEND = "last_gl_backend";
+  /** Written by GlNative when a run dies mid-GL-init — see GlesCompat. */
+  private static final String PREF_GL_INIT_OK = "gl_init_ok";
+
+  /** "auto" (default), "gles" or "vulkan". */
+  public static String rendererBackend() {
+    return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+      .getString(PREF_RENDERER_BACKEND, "auto");
+  }
+
+  public static void setRendererBackend(final String backend) {
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(PREF_RENDERER_BACKEND, backend).apply();
+  }
+
+  /**
+   * Backend to actually attempt: an explicit GLES/VULKAN pick is honoured;
+   * AUTO prefers Vulkan when ANGLE libs exist and the last run didn't die
+   * during ANGLE init.
+   */
+  public static String effectiveBackend() {
+    final String pref = rendererBackend();
+    if(!"auto".equals(pref)) {
+      return "vulkan".equals(pref) && AngleLibs.dir() != null ? "vulkan" : pref;
+    }
+    if(AngleLibs.dir() == null) {
+      return "gles";
+    }
+    final var prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    final boolean crashedOnAngle = !prefs.getBoolean(PREF_GL_INIT_OK, true)
+      && "vulkan".equals(prefs.getString(PREF_LAST_GL_BACKEND, ""));
+    return crashedOnAngle ? "gles" : "vulkan";
+  }
+
+  /** Records which backend init began; cleared when the first frame lands. */
+  public static void markGlBackend(final String backend) {
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+      .putString(PREF_LAST_GL_BACKEND, backend)
+      .putBoolean(PREF_GL_INIT_OK, false)
+      .apply();
+  }
+
+  public static void glBackendOk() {
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+      .putBoolean(PREF_GL_INIT_OK, true)
+      .apply();
+  }
+
   /** Root of a mounted removable (SD card) volume, or null when none exists. */
   @Nullable
   public static File sdCardRoot() {
