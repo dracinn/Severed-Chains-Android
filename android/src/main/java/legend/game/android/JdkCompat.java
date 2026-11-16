@@ -85,7 +85,9 @@ public final class JdkCompat {
    */
   public static void sleepNanos(final long nanos) {
     if(nanos > 0) {
+      final long start = System.nanoTime();
       java.util.concurrent.locks.LockSupport.parkNanos(nanos);
+      PerfLog.sleepSample(nanos, System.nanoTime() - start);
     }
   }
 

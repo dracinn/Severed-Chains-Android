@@ -465,6 +465,7 @@ public class AndroidWindow extends Window {
       }
     }
 
+    final long swapStart = System.nanoTime();
     if(this.angle) {
       if(!legend.game.android.GlNative.eglSwapBuffers()) {
         return;
@@ -475,9 +476,11 @@ public class AndroidWindow extends Window {
       }
       EGL14.eglSwapBuffers(this.display, this.eglSurface);
     }
+    final long swapNs = System.nanoTime() - swapStart;
     AndroidEnv.glBackendOk();
     legend.game.android.GlesCompat.glInitOk();
     this.events().onDraw();
+    legend.game.android.PerfLog.phase(swapNs, System.nanoTime() - swapStart - swapNs);
     this.manager.clearPressed();
   }
 }

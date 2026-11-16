@@ -693,7 +693,9 @@ import java.awt.image.BufferedImage;
     // overshoots — parkNanos wakes much closer to the tick deadline, which
     // (with eglSwapInterval(1)) is what paces frames to vsync boundaries.
     'DebugHelper.sleep(Math.max(0, nextAction.nanosUntilNextRun() / 1_000_000));':
-    'legend.game.android.JdkCompat.sleepNanos(nextAction.nanosUntilNextRun());',
+    'legend.game.android.PerfLog.loopSample(System.nanoTime() - legend.game.android.PerfLog.loopIterStart);\n      legend.game.android.JdkCompat.sleepNanos(nextAction.nanosUntilNextRun());',
+    '      this.removeWindows(toRemove);':
+    '      this.removeWindows(toRemove);\n      legend.game.android.PerfLog.loopIterStart = System.nanoTime();',
   ],
   'legend/game/unpacker/scripts/ScriptSearcher.java': [
     'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':

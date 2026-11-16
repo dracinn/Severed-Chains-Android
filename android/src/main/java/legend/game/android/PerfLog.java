@@ -24,7 +24,47 @@ public final class PerfLog {
   private static int over50;
   private static long windowStart;
 
+  // Phase split: how much of the frame is eglSwapBuffers (queue/vsync
+  // backpressure — GPU-bound signal) vs the engine's draw+submit work.
+  private static long phaseSwapNs;
+  private static long phaseDrawNs;
+  private static long phaseMaxSwapNs;
+
+  // Pacer sleep accuracy: requested nanos vs actual — surfaces sleep
+  // overshoot, which is invisible in per-frame work times.
+  private static long sleepReqNs;
+  private static long sleepActNs;
+  private static long sleepSamples;
+
+  /** Pacer sleep sample from JdkCompat.sleepNanos (game thread). */
+  public static void sleepSample(final long requestedNs, final long actualNs) {
+    sleepReqNs += requestedNs;
+    sleepActNs += actualNs;
+    sleepSamples++;
+  }
+
+  // Loop-level accounting: iterations vs render frames tells whether the
+  // render Action fires every loop pass or skips (phase-locked pacer).
+  public static long loopIterStart;
+  private static long loopIters;
+  private static long loopBusyNs;
+
+  /** Called once per PlatformManager.run iteration with busy time inside action ticks. */
+  public static void loopSample(final long busyNs) {
+    loopIters++;
+    loopBusyNs += busyNs;
+  }
+
   private PerfLog() { }
+
+  /** Per-frame phase costs measured in AndroidWindow.tick. */
+  public static void phase(final long swapNs, final long drawNs) {
+    phaseSwapNs += swapNs;
+    phaseDrawNs += drawNs;
+    if(swapNs > phaseMaxSwapNs) {
+      phaseMaxSwapNs = swapNs;
+    }
+  }
 
   public static void frame(final long frameNs) {
     ring[ringIndex] = frameNs;
@@ -65,7 +105,23 @@ public final class PerfLog {
       + " p95=" + copy[(int)(copy.length * 0.95f)] / 1_000_000L + "ms"
       + " max=" + maxNs / 1_000_000L + "ms"
       + " over33ms=" + over33
-      + " over50ms=" + over50);
+      + " over50ms=" + over50
+      + " swap=" + (frames > 0 ? phaseSwapNs / frames : 0) / 1_000_000L + "ms"
+      + " draw=" + (frames > 0 ? phaseDrawNs / frames : 0) / 1_000_000L + "ms"
+      + " maxSwap=" + phaseMaxSwapNs / 1_000_000L + "ms"
+      + " sleep=" + (sleepSamples > 0 ? sleepReqNs / sleepSamples : 0) / 1_000_000L + "ms"
+      + " slept=" + (sleepSamples > 0 ? sleepActNs / sleepSamples : 0) / 1_000_000L + "ms"
+      + " iters=" + loopIters
+      + " busy=" + (loopIters > 0 ? loopBusyNs / loopIters : 0) / 1_000_000L + "ms");
+
+    phaseSwapNs = 0;
+    phaseDrawNs = 0;
+    phaseMaxSwapNs = 0;
+    sleepReqNs = 0;
+    sleepActNs = 0;
+    sleepSamples = 0;
+    loopIters = 0;
+    loopBusyNs = 0;
 
     frames = 0;
     sumNs = 0;
