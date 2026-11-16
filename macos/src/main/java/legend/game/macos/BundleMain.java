@@ -81,13 +81,29 @@ public final class BundleMain {
       // org.lwjgl.opengles.libname is set as a JVM option in the packaged
       // app so LWJGL binds ANGLE instead of the system GL.
     }
-    // ANGLE statically links the Khronos Vulkan loader; point it at the
-    // bundled MoltenVK ICD so the Vulkan (ES 3.2-capable) backend works.
-    final Path vkIcd = appDir.resolve("angle").resolve("icd").resolve("MoltenVK_icd.json");
-    if(Files.exists(vkIcd)) {
-      final String icd = vkIcd.toAbsolutePath().toString();
-      setEnv("VK_ICD_FILENAMES", icd);
-      setEnv("VK_DRIVER_FILES", icd);
+    // ANGLE statically links the Khronos Vulkan loader; point it at one
+    // bundled ICD. Both drivers can't coexist in the list — with portability
+    // enumeration enabled (which MoltenVK requires), the loader orders
+    // portability drivers first, so a joint list always picks MoltenVK.
+    // KosmicKrisp (Vulkan 1.4 on Metal 4) needs macOS 26+ and is preferred
+    // when bundled and supported; -Dlod.vulkan.driver=kosmickrisp|moltenvk
+    // pins a driver explicitly.
+    final Path icdDir = appDir.resolve("angle").resolve("icd");
+    final String[] order = switch(System.getProperty("lod.vulkan.driver", "auto")) {
+      case "kosmickrisp" -> new String[] {"KosmicKrisp_icd.json"};
+      case "moltenvk" -> new String[] {"MoltenVK_icd.json"};
+      default -> macOsMajor() >= 26
+        ? new String[] {"KosmicKrisp_icd.json", "MoltenVK_icd.json"}
+        : new String[] {"MoltenVK_icd.json"};
+    };
+    for(final String manifest : order) {
+      final Path icd = icdDir.resolve(manifest);
+      if(Files.exists(icd)) {
+        final String path = icd.toAbsolutePath().toString();
+        setEnv("VK_ICD_FILENAMES", path);
+        setEnv("VK_DRIVER_FILES", path);
+        break;
+      }
     }
 
     Main.main(args);
@@ -167,6 +183,15 @@ public final class BundleMain {
           Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING);
         }
       }
+    }
+  }
+
+  /** Marketing-version major of the host macOS (27.x here); 0 if unparsable. */
+  private static int macOsMajor() {
+    try {
+      return Integer.parseInt(System.getProperty("os.version", "0").split("\\.")[0]);
+    } catch(final NumberFormatException e) {
+      return 0;
     }
   }
 

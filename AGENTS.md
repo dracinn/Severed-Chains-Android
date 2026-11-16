@@ -150,10 +150,18 @@ reusing the shared staging pipeline — no AGP.
   precedence is `-Dlod.angle.backend` → persisted setting → `auto`
   (`-Dlod.angle.disable` also forces GL). AUTO tries ANGLE Metal then
   falls back to system GL; SYSTEM_GL skips ANGLE; ANGLE_VULKAN requests
-  ANGLE's Vulkan backend, which runs over bundled `libMoltenVK.dylib`
-  (real ES 3.2 on Apple Silicon). The titlebar reports the actual
-  backend `[OpenGL|Vulkan|Metal]` — set only after ES-version
+  ANGLE's Vulkan backend over a bundled driver (real ES 3.2 on Apple
+  Silicon). The titlebar reports the actual backend
+  `[OpenGL|Vulkan|Metal]` — set only after ES-version
   validation so a failed ANGLE attempt correctly shows `[OpenGL]`.
+- **Vulkan driver selection**: two ICDs can be bundled — KosmicKrisp
+  (LunarG's Vulkan 1.4 on Metal 4, macOS 26+) and MoltenVK (Vulkan 1.1
+  portability). `BundleMain` emits exactly ONE ICD manifest in
+  `VK_ICD_FILENAMES`/`VK_DRIVER_FILES` because a joint list always
+  resolves to MoltenVK (the loader orders portability drivers first
+  once MoltenVK forces `VK_KHR_portability_enumeration` on). Auto
+  picks KosmicKrisp when bundled AND `os.version` ≥ 26, else MoltenVK;
+  `-Dlod.vulkan.driver=kosmickrisp|moltenvk` pins one.
 - **GS-free TMD path**: neither ANGLE backend provides geometry shaders
   on Metal, so when `GL_MAX_GEOMETRY_OUTPUT_VERTICES == 0` the staged
   shaders swap `tmd.vsh`/`battle_tmd.vsh` for generated `_es.vsh`
@@ -181,7 +189,11 @@ reusing the shared staging pipeline — no AGP.
   which only advertises ES 3.0 and is rejected at runtime. The Vulkan
   backend additionally bundles `libMoltenVK.dylib` from Homebrew
   (`brew install molten-vk`, picked up from `/opt/homebrew/lib` or
-  `/usr/local/lib`) plus a generated `MoltenVK_icd.json` manifest.
+  `/usr/local/lib`) plus a generated `MoltenVK_icd.json` manifest, and
+  `libvulkan_kosmickrisp.dylib` + `KosmicKrisp_LICENSE.txt` when found
+  (in `angleLibsDir`, Homebrew lib dirs, or `~/VulkanSDK/*/macOS/lib`
+  — e.g. the LunarG SDK release tarball) with a generated
+  `KosmicKrisp_icd.json`. Both drivers are optional: absent → skipped.
 
 ## Platform: android/ ANGLE (Vulkan backend)
 

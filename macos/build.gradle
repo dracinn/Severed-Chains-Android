@@ -582,9 +582,11 @@ tasks.register('appInput', Copy) {
   doFirst {
     // A read-only staged file (brew ships libMoltenVK.dylib mode-444) breaks
     // the copy; drop it so the copy recreates it fresh.
-    final File stale = file("${macAppInput.get().asFile}/angle/libMoltenVK.dylib")
-    if(stale.isFile() && !stale.canWrite()) {
-      stale.delete()
+    ['libMoltenVK.dylib', 'libvulkan_kosmickrisp.dylib'].each { lib ->
+      final File stale = file("${macAppInput.get().asFile}/angle/${lib}")
+      if(stale.isFile() && !stale.canWrite()) {
+        stale.delete()
+      }
     }
   }
   into macAppInput
@@ -734,6 +736,22 @@ tasks.register('appInput', Copy) {
 }
 '''
     }
+    // KosmicKrisp (LunarG's Vulkan 1.4 driver on Metal 4, macOS 26+): same
+    // loader manifest treatment, but it is a real ICD — no portability flag.
+    final File libKk = file("${macAppInput.get().asFile}/angle/libvulkan_kosmickrisp.dylib")
+    if(libKk.isFile()) {
+      libKk.setWritable(true)
+      final File icdDir = file("${macAppInput.get().asFile}/angle/icd")
+      icdDir.mkdirs()
+      file("${icdDir}/KosmicKrisp_icd.json").text = '''{
+    "file_format_version" : "1.0.0",
+    "ICD": {
+        "library_path": "../libvulkan_kosmickrisp.dylib",
+        "api_version" : "1.4.0"
+    }
+}
+'''
+    }
   }
 
   def angleDir = file(angleLibsDir.get())
@@ -750,6 +768,19 @@ tasks.register('appInput', Copy) {
         .collect { file(it) }.find { it.isFile() }
       if(moltenVk != null) {
         from(moltenVk.parentFile) { include 'libMoltenVK.dylib' }
+      }
+      // KosmicKrisp — the newer Vulkan-on-Metal driver, preferred over
+      // MoltenVK when bundled (BundleMain orders VK_ICD_FILENAMES). Sources:
+      // the ANGLE libs dir, a LunarG Vulkan SDK install, or the system lib dirs.
+      def sdkLibs = file("${System.getProperty('user.home')}/VulkanSDK").listFiles()
+        ?.findAll { it.isDirectory() }?.sort { it.name }?.reverse()
+        ?.collect { file("${it}/macOS/lib/libvulkan_kosmickrisp.dylib") } ?: []
+      def kosmicKrisp = (["${angleDir}/libvulkan_kosmickrisp.dylib", '/opt/homebrew/lib/libvulkan_kosmickrisp.dylib', '/usr/local/lib/libvulkan_kosmickrisp.dylib'] + sdkLibs)
+        .collect { file(it) }.find { it.isFile() }
+      if(kosmicKrisp != null) {
+        from(kosmicKrisp.parentFile) {
+          include 'libvulkan_kosmickrisp.dylib', 'KosmicKrisp_LICENSE.txt'
+        }
       }
     }
   } else {
