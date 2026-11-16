@@ -155,13 +155,13 @@ public final class MainActivity extends Activity {
     // the EGL surface handshake every time the IME opens.
     this.getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
 
-    // First run (or a rerun after an incomplete unpack): stage disc images
-    // before the engine starts. -e force_setup 1 reopens the screen to
-    // manage discs on an unpacked install.
-    if(this.isUnpacked() && !this.getIntent().getBooleanExtra("force_setup", false)) {
-      this.showGame();
+    // A game-data location change queues a move of the multi-GB files/
+    // tree — run it before deciding which screen to show so the engine
+    // never boots on a half-moved install.
+    if(AndroidEnv.pendingDataMigration() != null) {
+      this.showDataMigration();
     } else {
-      this.showSetup();
+      this.proceedToGameOrSetup();
     }
 
     // Track physical gamepad hotplug
@@ -185,8 +185,100 @@ public final class MainActivity extends Activity {
     }, null);
   }
 
+  private void proceedToGameOrSetup() {
+    // First run (or a rerun after an incomplete unpack): stage disc images
+    // before the engine starts. -e force_setup 1 reopens the screen to
+    // manage discs on an unpacked install.
+    if(this.isUnpacked() && !this.getIntent().getBooleanExtra("force_setup", false)) {
+      this.showGame();
+    } else {
+      this.showSetup();
+    }
+  }
+
   private boolean isUnpacked() {
-    return new File(this.getFilesDir(), "files/version").isFile();
+    return new File(AndroidEnv.gameFilesDir().toFile(), "version").isFile();
+  }
+
+  /**
+   * Move files/ to the newly selected storage root with a progress screen.
+   * Destination unavailable (card pulled) → revert the pref and boot from
+   * the old root. Any copy failure → partial destination is cleaned up by
+   * DataMigration, the pref reverts, and the old install keeps working.
+   */
+  private void showDataMigration() {
+    final String from = AndroidEnv.pendingDataMigration();
+    final String to = AndroidEnv.gameDataLocation();
+    final File srcRoot = AndroidEnv.dataRootFor(from);
+    final File dstRoot = AndroidEnv.dataRootFor(to);
+
+    if(srcRoot == null || dstRoot == null) {
+      Log.w(TAG, "Data migration aborted: root unavailable (from=" + from + " to=" + to + ")");
+      AndroidEnv.revertDataMigration(from);
+      this.proceedToGameOrSetup();
+      return;
+    }
+
+    final java.io.File src = new java.io.File(srcRoot, "files");
+    if(!src.isDirectory()) {
+      // Nothing to move — selection just applies going forward.
+      AndroidEnv.clearDataMigration();
+      this.proceedToGameOrSetup();
+      return;
+    }
+
+    final android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
+    layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+    layout.setGravity(android.view.Gravity.CENTER);
+    final int pad = this.getResources().getDisplayMetrics().density > 0
+      ? (int)(24 * this.getResources().getDisplayMetrics().density) : 24;
+    layout.setPadding(pad, pad, pad, pad);
+    layout.setBackgroundColor(0xff151210);
+
+    final android.widget.TextView title = new android.widget.TextView(this);
+    title.setText("Moving game data");
+    title.setTextColor(0xffe8ddc9);
+    title.setTextSize(18);
+    layout.addView(title);
+
+    final android.widget.TextView status = new android.widget.TextView(this);
+    status.setText(src.getAbsolutePath() + "  →  " + new java.io.File(dstRoot, "files").getAbsolutePath());
+    status.setTextColor(0xff9a8f80);
+    status.setTextSize(12);
+    status.setPadding(0, pad / 3, 0, 0);
+    layout.addView(status);
+
+    final android.widget.ProgressBar bar = new android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+    bar.setMax(1000);
+    layout.addView(bar, new android.widget.LinearLayout.LayoutParams(
+      android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+      android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+
+    final android.widget.TextView pct = new android.widget.TextView(this);
+    pct.setTextColor(0xff9a8f80);
+    pct.setTextSize(12);
+    pct.setPadding(0, pad / 3, 0, 0);
+    layout.addView(pct);
+
+    this.setContentView(layout);
+
+    new Thread(() -> {
+      try {
+        DataMigration.moveTree(src.toPath(), new java.io.File(dstRoot, "files").toPath(), (done, total) -> this.runOnUiThread(() -> {
+          final int p = total > 0 ? (int)(done * 1000 / total) : 0;
+          bar.setProgress(p);
+          pct.setText(String.format(java.util.Locale.US, "%.1f / %.1f GB", done / 1e9, total / 1e9));
+        }));
+        AndroidEnv.clearDataMigration();
+      } catch(final java.io.IOException e) {
+        Log.e(TAG, "Game data migration failed", e);
+        this.runOnUiThread(() -> android.widget.Toast.makeText(this,
+          "Couldn't move game data — keeping " + ("sd".equals(from) ? "SD card" : "internal") + " storage",
+          android.widget.Toast.LENGTH_LONG).show());
+        AndroidEnv.revertDataMigration(from);
+      }
+      this.runOnUiThread(this::proceedToGameOrSetup);
+    }, "data-migration").start();
   }
 
   void showSetup() {

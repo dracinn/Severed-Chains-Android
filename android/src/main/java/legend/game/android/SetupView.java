@@ -80,6 +80,7 @@ public final class SetupView extends ScrollView {
   private TextView saveLocSub;
   private String saveLocKey;
   private String saveLocPath;
+  private TextView gameDataSub;
 
   private volatile boolean cancelImport;
   private Thread importThread;
@@ -190,6 +191,34 @@ public final class SetupView extends ScrollView {
     saveLocButton.setOnClickListener(v -> this.pickSaveLocation());
     savesCard.addView(saveLocButton);
     this.updateSaveLocationCard();
+
+    // Game-data location: where the multi-GB unpacked files/ tree lives.
+    // Only shown while a removable volume exists — internal is the only
+    // option otherwise, so the card is noise without one.
+    if(AndroidEnv.dataRootFor("sd") != null) {
+      final LinearLayout dataCard = new LinearLayout(activity);
+      dataCard.setOrientation(LinearLayout.HORIZONTAL);
+      dataCard.setGravity(Gravity.CENTER_VERTICAL);
+      dataCard.setBackground(this.rounded(COLOUR_SURFACE, 14, COLOUR_STROKE, 1));
+      dataCard.setPadding(pad, this.dp(10), pad, this.dp(10));
+      final LinearLayout.LayoutParams dataLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+      dataLp.topMargin = this.dp(12);
+      left.addView(dataCard, dataLp);
+
+      final LinearLayout dataText = new LinearLayout(activity);
+      dataText.setOrientation(LinearLayout.VERTICAL);
+      dataCard.addView(dataText, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+      dataText.addView(this.text("Game data location", COLOUR_TEXT, 15, true));
+      this.gameDataSub = this.text("", COLOUR_DIM, 12, false);
+      this.gameDataSub.setPadding(0, this.dp(2), 0, 0);
+      dataText.addView(this.gameDataSub);
+
+      final Button dataLocButton = this.secondaryButton("Change");
+      dataLocButton.setOnClickListener(v -> this.pickGameDataLocation());
+      dataCard.addView(dataLocButton);
+      this.updateGameDataCard();
+    }
 
     final TextView gpuNote = this.text("If the game closes while starting up, open it again — it retries in a compatibility mode automatically. Crash and debug logs live in Documents/Severed Chains/logs.", COLOUR_DIM, 12, false);
     gpuNote.setPadding(0, this.dp(14), 0, 0);
@@ -799,6 +828,49 @@ public final class SetupView extends ScrollView {
         d.dismiss();
         this.saveLocKey = null;
         this.updateSaveLocationCard();
+      })
+      .setNegativeButton("Cancel", null)
+      .show();
+  }
+
+  private void updateGameDataCard() {
+    if(this.gameDataSub == null) {
+      return;
+    }
+    final boolean sd = "sd".equals(AndroidEnv.gameDataLocation()) && AndroidEnv.dataRootFor("sd") != null;
+    final File root = AndroidEnv.gameDataRoot();
+    final String note = "sd".equals(AndroidEnv.gameDataLocation()) && !sd
+      ? " (SD unavailable — using internal)" : "";
+    this.gameDataSub.setText("Game files go to " + (sd ? "the SD card" : "internal app storage") + note
+      + " (" + new File(root, "files").getAbsolutePath() + "). ~3 GB. "
+      + "Applies on next launch; existing files are moved automatically.");
+  }
+
+  /** Radio picker for where the unpacked files/ tree lives. Internal is
+   *  always offered; SD only while a removable volume is mounted. A change
+   *  flags a verified move of the tree at the next launch. */
+  private void pickGameDataLocation() {
+    final List<String> labels = new ArrayList<>();
+    final List<String> values = new ArrayList<>();
+    labels.add("Internal app storage — private, removed on uninstall");
+    values.add("internal");
+    final File sd = AndroidEnv.dataRootFor("sd");
+    if(sd != null) {
+      labels.add("SD card — " + sd.getAbsolutePath());
+      values.add("sd");
+    }
+
+    int checked = values.indexOf("sd".equals(AndroidEnv.gameDataLocation()) ? "sd" : "internal");
+    if(checked < 0) {
+      checked = 0;
+    }
+
+    new AlertDialog.Builder(this.activity, android.R.style.Theme_Material_Dialog_Alert)
+      .setTitle("Game data location")
+      .setSingleChoiceItems(labels.toArray(new String[0]), checked, (d, w) -> {
+        AndroidEnv.setGameDataLocation(values.get(w));
+        d.dismiss();
+        this.updateGameDataCard();
       })
       .setNegativeButton("Cancel", null)
       .show();

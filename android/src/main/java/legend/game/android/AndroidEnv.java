@@ -425,6 +425,90 @@ public final class AndroidEnv {
       .apply();
   }
 
+  // ------------------------------------------------------------------
+  // Game-data storage (unpacked files/ assets — the multi-GB payload)
+  // ------------------------------------------------------------------
+
+  private static final String PREF_GAME_DATA_LOCATION = "game_data_location";
+  /** Location the files/ tree lived at before the last change — pending move. */
+  private static final String PREF_DATA_MIGRATE_FROM = "game_data_migrate_from";
+
+  /** "auto" (default), "internal" or "sd". Auto never leaves internal. */
+  public static String gameDataLocation() {
+    return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+      .getString(PREF_GAME_DATA_LOCATION, "auto");
+  }
+
+  public static void setGameDataLocation(final String location) {
+    final String from = effectiveDataLocation(gameDataLocation());
+    final String to = effectiveDataLocation(location);
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+      .putString(PREF_GAME_DATA_LOCATION, location)
+      // Only flag a move when the effective root actually changes —
+      // auto↔internal flips share a root and must never "migrate".
+      .putString(PREF_DATA_MIGRATE_FROM, from.equals(to) ? null : from)
+      .apply();
+  }
+
+  /** auto resolves to internal for game data — the plan is explicit that
+   *  nothing moves to a card just because one was inserted. */
+  private static String effectiveDataLocation(final String location) {
+    return "sd".equals(location) ? "sd" : "internal";
+  }
+
+  /** Root dir that contains the extracted files/ tree for a location
+   *  value, or null when that location isn't usable right now. SD must
+   *  survive a real write probe — a flaky card mounted read-only counts
+   *  as unavailable, not as a destination. */
+  @Nullable
+  public static File dataRootFor(final String location) {
+    if("sd".equals(location)) {
+      final File dir = sdAppFilesDir();
+      return dir != null && isWritableDir(dir) ? dir : null;
+    }
+    return context.getFilesDir();
+  }
+
+  /** Parent dir of the live files/ tree: the SD app dir when selected and
+   *  writable, internal storage otherwise. */
+  public static File gameDataRoot() {
+    if("sd".equals(effectiveDataLocation(gameDataLocation()))) {
+      final File sd = dataRootFor("sd");
+      if(sd != null) {
+        return sd;
+      }
+    }
+    return context.getFilesDir();
+  }
+
+  /** The extracted-assets root itself ({@code <gameDataRoot>/files}). Read
+   *  by staged transforms on Unpacker/ScriptPatcher/Finderator/LloydTemplate
+   *  — every files/ access in the engine funnels through this. */
+  public static Path gameFilesDir() {
+    return new File(gameDataRoot(), "files").toPath();
+  }
+
+  /** Location the files/ tree should be moved from on this boot, or null. */
+  @Nullable
+  public static String pendingDataMigration() {
+    return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+      .getString(PREF_DATA_MIGRATE_FROM, null);
+  }
+
+  public static void clearDataMigration() {
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+      .remove(PREF_DATA_MIGRATE_FROM).apply();
+  }
+
+  /** Abort a pending move whose destination vanished (card pulled): put the
+   *  location pref back to the source and drop the flag. */
+  public static void revertDataMigration(final String from) {
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+      .putString(PREF_GAME_DATA_LOCATION, from)
+      .remove(PREF_DATA_MIGRATE_FROM)
+      .apply();
+  }
+
   /** Root of a mounted removable (SD card) volume, or null when none exists. */
   @Nullable
   public static File sdCardRoot() {

@@ -94,6 +94,16 @@ the missing desktop APIs).
   state live in the app-private filesDir via `JdkCompat.base`; there is
   no user mods dir (bundled mods load via the classpath `legend` scan).
   `AndroidEnv` handles legacy-dir migration and the public-dir sync.
+- **Game-data location** (`game_data_location` pref: auto/internal/sd):
+  the multi-GB `files/` tree can live on the app-private SD dir
+  (`getExternalFilesDirs()[1+]`, write-probed — an ro-mounted card counts
+  as unavailable). All `files/` paths in staged sources route through
+  `AndroidEnv.gameFilesDir()` — update the transform, never add a new
+  `Path.of("files...")`. Selecting a new root flags
+  `game_data_migrate_from`; `MainActivity` runs the copy pre-boot with a
+  progress screen via `DataMigration` (verify-then-delete; failures
+  revert the pref). Patches/config/ISOs/saves stay where they were —
+  saves have their own picker.
 - **Signing**: release/debug share the keystore from
   `releaseKeystorePath`/env vars (`SIGNING_*`); `perf` build type exists
   for profiling.

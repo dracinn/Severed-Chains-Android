@@ -515,7 +515,7 @@ import java.awt.image.BufferedImage;
   // "/" — anchor the relative write-roots as a backstop.
   'legend/game/unpacker/Unpacker.java': [
     'public static Path ROOT = Path.of(".", "files");':
-    'public static Path ROOT = legend.game.android.JdkCompat.absolute(Path.of(".", "files"));',
+    'public static Path ROOT = legend.game.android.AndroidEnv.gameFilesDir();',
     'Files.createDirectories(Path.of("./isos"));':
     'Files.createDirectories(legend.game.android.JdkCompat.absolute(Path.of("./isos")));',
     // Also scan the public Documents/Severed Chains/ISOs folder when the
@@ -627,7 +627,7 @@ import java.awt.image.BufferedImage;
     // Options > Save location — Android-only storage picker, available in
     // both the title-menu and in-game Options screens.
     '  public static final RegistryDelegate<MonitorConfigEntry> MONITOR_CONFIG = CONFIG_REGISTRAR.register("monitor", MonitorConfigEntry::new);':
-      '  public static final RegistryDelegate<MonitorConfigEntry> MONITOR_CONFIG = CONFIG_REGISTRAR.register("monitor", MonitorConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.SaveLocationConfigEntry> SAVE_LOCATION_CONFIG = CONFIG_REGISTRAR.register("save_location", legend.game.android.SaveLocationConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.RendererConfigEntry> RENDERER_BACKEND_CONFIG = CONFIG_REGISTRAR.register("renderer_backend", legend.game.android.RendererConfigEntry::new);',
+      '  public static final RegistryDelegate<MonitorConfigEntry> MONITOR_CONFIG = CONFIG_REGISTRAR.register("monitor", MonitorConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.SaveLocationConfigEntry> SAVE_LOCATION_CONFIG = CONFIG_REGISTRAR.register("save_location", legend.game.android.SaveLocationConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.GameDataConfigEntry> GAME_DATA_LOCATION_CONFIG = CONFIG_REGISTRAR.register("game_data_location", legend.game.android.GameDataConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.RendererConfigEntry> RENDERER_BACKEND_CONFIG = CONFIG_REGISTRAR.register("renderer_backend", legend.game.android.RendererConfigEntry::new);',
   ],
   'legend/game/saves/ConfigPresetManager.java': [
     'Files.createDirectories(path.toAbsolutePath().getParent());':
@@ -669,8 +669,10 @@ import java.awt.image.BufferedImage;
   'legend/core/GameEngine.java': [
     'Files.createDirectories(Path.of("saves"));':
     'Files.createDirectories(legend.game.android.AndroidEnv.savesPath());',
+    // patchDir stays internal (shipped scripts); filesDir/cache/backups
+    // live inside files/ and follow the selected game-data root.
     'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
-    'new ScriptPatcher(legend.game.android.JdkCompat.absolute(Path.of("./patches")), legend.game.android.JdkCompat.absolute(Path.of("./files")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/cache")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/backups")))',
+    'new ScriptPatcher(legend.game.android.JdkCompat.absolute(Path.of("./patches")), legend.game.android.AndroidEnv.gameFilesDir(), legend.game.android.AndroidEnv.gameFilesDir().resolve("patches/cache"), legend.game.android.AndroidEnv.gameFilesDir().resolve("patches/backups"))',
     // ScriptManager (script-recompiler jar) absolutizes include paths
     // internally, so relative ./patches roots resolve under /.
     'new ScriptManager(List.of(Path.of("./patches/libs"), Path.of("./patches/scripts")), Path.of("./patches"))':
@@ -688,7 +690,19 @@ import java.awt.image.BufferedImage;
   ],
   'legend/game/unpacker/scripts/ScriptSearcher.java': [
     'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
-    'new ScriptPatcher(legend.game.android.JdkCompat.absolute(Path.of("./patches")), legend.game.android.JdkCompat.absolute(Path.of("./files")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/cache")), legend.game.android.JdkCompat.absolute(Path.of("./files/patches/backups")))',
+    'new ScriptPatcher(legend.game.android.JdkCompat.absolute(Path.of("./patches")), legend.game.android.AndroidEnv.gameFilesDir(), legend.game.android.AndroidEnv.gameFilesDir().resolve("patches/cache"), legend.game.android.AndroidEnv.gameFilesDir().resolve("patches/backups"))',
+  ],
+  'legend/game/unpacker/Finderator.java': [
+    'final Path drgnBin = Path.of("./files/SECT/DRGN2" + num + ".BIN");':
+    'final Path drgnBin = legend.game.android.AndroidEnv.gameFilesDir().resolve("SECT/DRGN2" + num + ".BIN");',
+  ],
+  'lod/lloydmod/stats/LloydTemplate.java': [
+    'return Path.of("files", "SECT", "DRGN0.BIN", file);':
+    'return legend.game.android.AndroidEnv.gameFilesDir().resolve(Path.of("SECT", "DRGN0.BIN", file));',
+    'return Path.of("files", "monsters", file, "textures", "combat");':
+    'return legend.game.android.AndroidEnv.gameFilesDir().resolve(Path.of("monsters", file, "textures", "combat"));',
+    'return Path.of("files", "monsters", file, "sounds");':
+    'return legend.game.android.AndroidEnv.gameFilesDir().resolve(Path.of("monsters", file, "sounds"));',
   ],
   'legend/core/renderer/Resolution.java': [
     // Fill in the missing rungs of the 240p integer-scaling ladder. Internal
@@ -1132,6 +1146,11 @@ lod_core.config.save_location.AUTO=Automatic
 lod_core.config.save_location.INTERNAL=Internal app storage
 lod_core.config.save_location.SHARED=Shared storage (Documents)
 lod_core.config.save_location.SD_CARD=SD card
+lod_core.config.game_data_location.label=Game data location
+lod_core.config.game_data_location.help=Where the unpacked game files (~3 GB) are stored. Applies on next launch; existing files are moved to the new location automatically.
+lod_core.config.game_data_location.AUTO=Automatic
+lod_core.config.game_data_location.INTERNAL=Internal app storage
+lod_core.config.game_data_location.SD_CARD=SD card
 lod_core.config.renderer_backend.label=Renderer backend
 lod_core.config.renderer_backend.help=Graphics backend. Vulkan routes GLES through ANGLE (full ES 3.2 incl. geometry shaders); may fix rendering glitches on some GPUs. Applies on next launch.
 lod_core.config.renderer_backend.AUTO=Automatic
@@ -1165,6 +1184,9 @@ lod_core.config.renderer_backend.VULKAN=Vulkan (experimental)'''
     }
     if(!lang.text.contains('lod_core.config.save_location.SD_CARD=')) {
       throw new GradleException('Save location lang labels missing: upstream en.lang changed; update packageSharedClasses')
+    }
+    if(!lang.text.contains('lod_core.config.game_data_location.SD_CARD=')) {
+      throw new GradleException('Game data location lang labels missing: upstream en.lang changed; update packageSharedClasses')
     }
     if(!lang.text.contains('lod_core.config.renderer_backend.VULKAN=')) {
       throw new GradleException('Renderer backend lang labels missing: upstream en.lang changed; update packageSharedClasses')
