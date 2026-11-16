@@ -627,7 +627,7 @@ import java.awt.image.BufferedImage;
     // Options > Save location — Android-only storage picker, available in
     // both the title-menu and in-game Options screens.
     '  public static final RegistryDelegate<MonitorConfigEntry> MONITOR_CONFIG = CONFIG_REGISTRAR.register("monitor", MonitorConfigEntry::new);':
-      '  public static final RegistryDelegate<MonitorConfigEntry> MONITOR_CONFIG = CONFIG_REGISTRAR.register("monitor", MonitorConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.SaveLocationConfigEntry> SAVE_LOCATION_CONFIG = CONFIG_REGISTRAR.register("save_location", legend.game.android.SaveLocationConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.GameDataConfigEntry> GAME_DATA_LOCATION_CONFIG = CONFIG_REGISTRAR.register("game_data_location", legend.game.android.GameDataConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.RendererConfigEntry> RENDERER_BACKEND_CONFIG = CONFIG_REGISTRAR.register("renderer_backend", legend.game.android.RendererConfigEntry::new);',
+      '  public static final RegistryDelegate<MonitorConfigEntry> MONITOR_CONFIG = CONFIG_REGISTRAR.register("monitor", MonitorConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.SaveLocationConfigEntry> SAVE_LOCATION_CONFIG = CONFIG_REGISTRAR.register("save_location", legend.game.android.SaveLocationConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.GameDataConfigEntry> GAME_DATA_LOCATION_CONFIG = CONFIG_REGISTRAR.register("game_data_location", legend.game.android.GameDataConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.DynamicResolutionConfigEntry> DYNAMIC_RESOLUTION_CONFIG = CONFIG_REGISTRAR.register("dynamic_resolution", legend.game.android.DynamicResolutionConfigEntry::new);\n  public static final RegistryDelegate<legend.game.android.RendererConfigEntry> RENDERER_BACKEND_CONFIG = CONFIG_REGISTRAR.register("renderer_backend", legend.game.android.RendererConfigEntry::new);',
   ],
   'legend/game/saves/ConfigPresetManager.java': [
     'Files.createDirectories(path.toAbsolutePath().getParent());':
@@ -687,6 +687,13 @@ import java.awt.image.BufferedImage;
     // The branding noslop is a wordmark (~2.9:1); a 16px square would squash it.
     '    transforms.scaling(16.0f, 16.0f, 1.0f);\n    transforms.transfer.set(301.0f, 221.0f, 29.0f);':
     '    transforms.scaling(46.0f, 16.0f, 1.0f);\n    transforms.transfer.set(271.0f, 221.0f, 29.0f);',
+  ],
+  'legend/core/platform/PlatformManager.java': [
+    // The ms-floored Thread.sleep here both truncates the nanos budget and
+    // overshoots — parkNanos wakes much closer to the tick deadline, which
+    // (with eglSwapInterval(1)) is what paces frames to vsync boundaries.
+    'DebugHelper.sleep(Math.max(0, nextAction.nanosUntilNextRun() / 1_000_000));':
+    'legend.game.android.JdkCompat.sleepNanos(nextAction.nanosUntilNextRun());',
   ],
   'legend/game/unpacker/scripts/ScriptSearcher.java': [
     'new ScriptPatcher(Path.of("./patches"), Path.of("./files"), Path.of("./files/patches/cache"), Path.of("./files/patches/backups"))':
@@ -794,6 +801,10 @@ import java.awt.image.BufferedImage;
     '''  private void renderFrame() {
     legend.game.android.GameInspector.beginFrame();
     // Reset CLUT animations''',
+    // Dynamic resolution (android pref): swap the configured rung for the
+    // controller's current step — identical upstream behaviour when off.
+    '    final Resolution res = CONFIG.getConfig(RESOLUTION_CONFIG.get());':
+    '    final Resolution res = legend.game.android.DynamicResolution.effective(CONFIG.getConfig(RESOLUTION_CONFIG.get()), height);',
   ],
   'legend/game/Text.java': [
     // Feed every rendered string to GameInspector so the game surface can
@@ -1151,6 +1162,8 @@ lod_core.config.game_data_location.help=Where the unpacked game files (~3 GB) ar
 lod_core.config.game_data_location.AUTO=Automatic
 lod_core.config.game_data_location.INTERNAL=Internal app storage
 lod_core.config.game_data_location.SD_CARD=SD card
+lod_core.config.dynamic_resolution.label=Dynamic resolution
+lod_core.config.dynamic_resolution.help=Automatically lowers the internal render resolution when the GPU can't keep up, and raises it again when there's headroom. The Resolution setting is the maximum.
 lod_core.config.renderer_backend.label=Renderer backend
 lod_core.config.renderer_backend.help=Graphics backend. Vulkan routes GLES through ANGLE (full ES 3.2 incl. geometry shaders); may fix rendering glitches on some GPUs. Applies on next launch.
 lod_core.config.renderer_backend.AUTO=Automatic

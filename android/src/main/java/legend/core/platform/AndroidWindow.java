@@ -176,7 +176,9 @@ public class AndroidWindow extends Window {
 
     this.createWindowSurface(this.surface, AndroidEnv.surfaceWidth(), AndroidEnv.surfaceHeight());
 
-    EGL14.eglSwapInterval(this.display, 0);
+    // VSync-aligned FIFO — interval 0 let buffers pile up mid-scan and
+    // jittered presentation; 1 paces the queue to display refresh.
+    EGL14.eglSwapInterval(this.display, 1);
     this.dumpGlInfo(false);
   }
 
@@ -216,7 +218,7 @@ public class AndroidWindow extends Window {
       this.angle = false;
       return false;
     }
-    legend.game.android.GlNative.eglSwapInterval(0);
+    legend.game.android.GlNative.eglSwapInterval(1);
     return true;
   }
 
@@ -441,6 +443,12 @@ public class AndroidWindow extends Window {
    * effectively pauses the game while backgrounded.
    */
   private void tick() {
+    // Dynamic-resolution step? Re-fire the resize event between frames so
+    // RenderEngine reallocates buffers at the new rung.
+    if(legend.game.android.DynamicResolution.pollFrame()) {
+      this.events().onResize(this.getWidth(), this.getHeight());
+    }
+
     if(AndroidEnv.isReleaseRequested()) {
       this.releaseWindowSurface();
       AndroidEnv.ackRelease();

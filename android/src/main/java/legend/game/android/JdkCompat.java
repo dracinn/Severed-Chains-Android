@@ -76,6 +76,19 @@ public final class JdkCompat {
   /** Java 25 {@code Math.TAU}. */
   public static final double TAU = Math.PI * 2;
 
+  /**
+   * Nanos-granularity wait for the frame pacer. {@code Thread.sleep} is
+   * millisecond-floored at the call site <em>and</em> overshoots, so the
+   * staged PlatformManager loop calls this instead — {@code parkNanos}
+   * wakes far closer to the deadline, which is what makes 60 Hz pacing
+   * actually land on vsync boundaries.
+   */
+  public static void sleepNanos(final long nanos) {
+    if(nanos > 0) {
+      java.util.concurrent.locks.LockSupport.parkNanos(nanos);
+    }
+  }
+
   /** Java 21 {@code Math.clamp(long, int, int)}. */
   public static int clamp(final long value, final int min, final int max) {
     if(min > max) {

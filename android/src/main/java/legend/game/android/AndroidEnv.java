@@ -342,6 +342,10 @@ public final class AndroidEnv {
   // ------------------------------------------------------------------
 
   private static final String PREFS = "severed_chains";
+
+  public static android.content.SharedPreferences prefs() {
+    return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+  }
   private static final String PREF_SAVE_LOCATION = "save_location";
   private static final String PREF_SD_SAVES = "saves_on_sd"; // legacy boolean
 
