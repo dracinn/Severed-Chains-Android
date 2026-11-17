@@ -388,6 +388,10 @@ def sharedLiteralTransforms = [
     // Slow-frame + p50/p95/max logging for in-game perf hunting (PerfLog)
     '        final long frameTime = System.nanoTime() - this.lastFrame;':
       '        final long frameTime = System.nanoTime() - this.lastFrame;\n        legend.game.macos.PerfLog.frame(frameTime);',
+    // perf_overlay HUD — the config is registered in shared CoreMod but the
+    // Android build owns its only consumer; draw it in-engine here.
+    '        GameOverlay.drawFps();':
+      '        GameOverlay.drawFps();\n        legend.game.macos.PerfOverlay.draw();',
     // Show the active renderer (OpenGL / Vulkan / Metal) in the titlebar.
     'scale: %.2f res: %dx%d".formatted(Version.FULL_VERSION, this.currentFps, fpsLimit, RENDERER.getRenderHeight() / 240.0f, this.getNativeWidth(), this.getNativeHeight()));':
       'scale: %.2f res: %dx%d [%s]".formatted(Version.FULL_VERSION, this.currentFps, fpsLimit, RENDERER.getRenderHeight() / 240.0f, this.getNativeWidth(), this.getNativeHeight(), legend.game.macos.AngleContext.rendererName()));',
@@ -508,6 +512,11 @@ lod_core.config.renderer_backend.help=Graphics backend. The Vulkan (ANGLE) backe
 lod_core.config.renderer_backend.AUTO=Auto
 lod_core.config.renderer_backend.SYSTEM_GL=System OpenGL
 lod_core.config.renderer_backend.ANGLE_VULKAN=Vulkan (experimental)'''
+      }
+      // The shared help text says "(Android only)" — macOS has its own
+      // PerfOverlay consumer now.
+      if(line == 'lod_core.config.perf_overlay.help=On-screen performance HUD drawn over the game: FPS plus a frame-time graph and stats in Full mode (Android only)') {
+        return 'lod_core.config.perf_overlay.help=On-screen performance HUD drawn over the game: FPS plus frame-time and resolution stats in Full mode'
       }
       return line
     }
