@@ -35,7 +35,10 @@ elsewhere — the engine overlays them on the background for parallax/depth.
    # single cut: -PbgExtractCuts=12
    ```
 
-   Output mirrors the pack layout plus a `manifest.json` cut→variant map.
+   Output mirrors the pack layout plus a `manifest.json` cut→variant map
+   and `scenes.md` — every scene in story order (Intro → Disc 4) listing
+   each cut's early/late variants and foreground counts, so a pack can be
+   built scene-by-scene.
 2. Upscale the PNGs offline (RealESRGAN, waifu2x, …) at a uniform integer
    scale and copy into `mods/hd_textures/` preserving the directory
    structure.
