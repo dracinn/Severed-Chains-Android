@@ -51,6 +51,13 @@ def macAppVersion = providers.gradleProperty('macAppVersion').orElse(macTagVersi
 })
 
 def sharedLiteralTransforms = [
+  'legend/core/platform/PlatformManager.java': [
+    // Nanos-precise pacing: upstream floors the sleep to whole millis (and
+    // Thread.sleep overshoots), jittering the 60Hz tick deadlines. parkNanos
+    // lands on them — same as Android's JdkCompat.sleepNanos.
+    '      DebugHelper.sleep(Math.max(0, nextAction.nanosUntilNextRun() / 1_000_000));':
+      '      java.util.concurrent.locks.LockSupport.parkNanos(Math.max(0, nextAction.nanosUntilNextRun()));',
+  ],
   'legend/core/platform/SdlWindow.java': [
     '  private final long window;\n  private final long context;\n\n  private final RenderApi renderApi;':
       '  private final long window;\n  private final long context;\n  private final legend.game.macos.AngleContext angle;\n\n  private final RenderApi renderApi;',
@@ -96,8 +103,10 @@ def sharedLiteralTransforms = [
         }
       }
     }''',
+    // Vsync-aligned presentation (the engine software-paces the tick rate
+    // itself — same Phase-1 reasoning as the Android port).
     '    SDL_GL_SetSwapInterval(0);':
-      '    if(this.angle == null) {\n      SDL_GL_SetSwapInterval(0);\n    }',
+      '    if(this.angle == null) {\n      SDL_GL_SetSwapInterval(1);\n    }',
     '    SDL_GL_DestroyContext(this.context);\n    SDL_DestroyWindow(this.window);':
       '    if(this.angle != null) {\n      this.angle.destroy();\n    } else {\n      SDL_GL_DestroyContext(this.context);\n      SDL_DestroyWindow(this.window);\n    }',
     '  private void tick() {\n    SDL_GL_SwapWindow(this.window);':

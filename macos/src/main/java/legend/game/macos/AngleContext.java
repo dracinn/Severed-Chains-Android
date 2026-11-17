@@ -233,7 +233,7 @@ public final class AngleContext {
       if((int)makeCurrent.invoke(display, surface, surface, context) == 0) {
         throw new IllegalStateException("eglMakeCurrent failed");
       }
-      swapInterval.invoke(display, 0);
+      swapInterval.invoke(display, 1);
 
       // Check the context's ES level before touching LWJGL's GLES module —
       // once GLES.create runs on this thread the GL fallback can no longer
