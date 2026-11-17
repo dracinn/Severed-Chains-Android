@@ -40,8 +40,9 @@ elsewhere — the engine overlays them on the background for parallax/depth.
    each cut's early/late variants and foreground counts, so a pack can be
    built scene-by-scene.
 2. **Upscale** — `tools/bgextract/upscale.sh` runs the whole pipeline for a
-   list of variants (RealESRGAN `realesrgan-x4plus` by default — the
-   general/realistic model; `realesr-animevideov3` is noticeably softer):
+   list of variants (RealESRGAN `4x-UltraSharp-fp16` by default — Kim2091's
+   UltraSharp, the sharpest/most-detailed model for painted game bgs;
+   `realesrgan-x4plus` is smoother, `realesr-animevideov3` softer):
 
    ```
    tools/bgextract/upscale.sh build/hd-pack /tmp/pack 21/694 22/1108 ...

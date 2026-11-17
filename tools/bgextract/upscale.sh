@@ -11,10 +11,13 @@
 # usage: upscale.sh <extractDir> <outDir> <bin/index> [<bin/index> ...]
 #
 # env overrides:
-#   REALESRGAN   path to realesrgan-ncnn-vulkan (default /tmp/realesrgan/…)
+#   REALESRGAN   path to realesrgan-ncnn-vulkan (default ~/realesrgan/…)
 #   REALESRGAN_MODELS  model dir (default $REALESRGAN's sibling models/)
-#   MODEL        model name (default realesrgan-x4plus — the general/real-
-#                istic model; realesr-animevideov3 is softer/painterly)
+#   MODEL        model name (default 4x-UltraSharp-fp16 — Kim2091's
+#                UltraSharp ncnn port, sharpest/most detailed for painted
+#                game bgs; get the .bin/.param pair from
+#                huggingface.co/Kim2091/UltraSharp — CC-BY-NC-SA.
+#                realesrgan-x4plus is smoother; animevideov3 is softest)
 #   SCALE        upscale factor (default 4)
 #   THRESHOLD    alpha binarize threshold 0-255 (default 128)
 #   DILATE       matte dilation px at output scale (default 2)
@@ -23,9 +26,9 @@ set -euo pipefail
 
 SRC=$1; DST=$2; shift 2
 
-REALESRGAN=${REALESRGAN:-/tmp/realesrgan/realesrgan-ncnn-vulkan}
+REALESRGAN=${REALESRGAN:-$HOME/realesrgan/realesrgan-bin/realesrgan-ncnn-vulkan}
 REALESRGAN_MODELS=${REALESRGAN_MODELS:-$(dirname "$REALESRGAN")/models}
-MODEL=${MODEL:-realesrgan-x4plus}
+MODEL=${MODEL:-4x-UltraSharp-fp16}
 SCALE=${SCALE:-4}
 THRESHOLD=${THRESHOLD:-128}
 DILATE=${DILATE:-2}
