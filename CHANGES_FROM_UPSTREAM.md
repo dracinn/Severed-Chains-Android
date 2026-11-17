@@ -158,6 +158,11 @@ hardcoded into the game.
 - **Save Point Heal** (this fork) — save points restore the active
   party's HP and MP when you walk into them, no menu needed; works
   with mod-added party members too.
+- **HD Textures** (this fork) — optional mod that swaps in
+  higher-resolution submap backgrounds and foreground cutouts from a
+  `mods/hd_textures/` pack (see `own_mods/hd_textures/README.md`); a
+  bundled `tools/bgextract` extractor produces retail-resolution
+  reference PNGs for pack authors.
 
 ## Stability and diagnostics
 

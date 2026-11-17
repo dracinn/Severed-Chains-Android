@@ -20,6 +20,7 @@ def sharedSourceRoots = [
   'third_party/lloyd_mod/src/main/java',
   'own_mods/stardust_indicator/src/main/java',
   'own_mods/savepoint_heal/src/main/java',
+  'own_mods/hd_textures/src/main/java',
 ]
 def sharedResourceRoots = sharedSourceRoots.collect { it.replace('/java', '/resources') }
 

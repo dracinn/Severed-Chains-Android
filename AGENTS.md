@@ -28,6 +28,8 @@ third_party/*/src        vendored upstream mods (git subtree)
 own_mods/*/src           local mods, same treatment
 gfx/, patches/, lang/    upstream runtime assets staged into builds
 tools/fontgen/           OFL TTF + atlas generator (:generateCopyrightFont → build/generated-gfx, staged into gfx/)
+tools/bgextract/         headless submap-env extractor (:extractSubmapBackgrounds → build/hd-pack)
+                         — replicates RetailSubmap.prepareEnv on the CPU; feeds own_mods/hd_textures
 isos/                    local dev discs ONLY (.gitignore '*')
 
 android/                 Android subproject (reference implementation)

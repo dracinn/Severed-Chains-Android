@@ -213,6 +213,7 @@ tasks.register('stageSharedSources', Sync) {
   // This fork's own in-tree mods (mods/; not vendored, fully redistributable)
   from '../own_mods/stardust_indicator/src/main/java'
   from '../own_mods/savepoint_heal/src/main/java'
+  from '../own_mods/hd_textures/src/main/java'
   // Raw staging only. patchStagedSources syncs this into shared-sources and
   // applies transforms there, so consumers never see the reverted raw state
   // (Sync would otherwise recopy over the patched files every build).
@@ -1247,6 +1248,7 @@ lod_core.config.fps_cap.FPS_30=30 fps'''
   // This fork's own in-tree mods (mods/; not vendored, fully redistributable)
   from '../own_mods/stardust_indicator/src/main/resources'
   from '../own_mods/savepoint_heal/src/main/resources'
+  from '../own_mods/hd_textures/src/main/resources'
   // Main.main points log4j2.configurationFile at the relative "log4j2.xml";
   // it does not exist on device, so log4j falls back to a classpath lookup
   from('../log4j2.xml') {

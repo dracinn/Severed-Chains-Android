@@ -296,11 +296,11 @@ test {
 sourceSets {
   main {
     java {
-      srcDirs = ["src/main/java", "third_party/sc-dragoon-modifier/src/main/java", "third_party/Additional-Additions/src/main/java", "third_party/icon-turn-order/src/main/java", "third_party/lloyd_mod/src/main/java", "own_mods/stardust_indicator/src/main/java", "own_mods/savepoint_heal/src/main/java"]
+      srcDirs = ["src/main/java", "third_party/sc-dragoon-modifier/src/main/java", "third_party/Additional-Additions/src/main/java", "third_party/icon-turn-order/src/main/java", "third_party/lloyd_mod/src/main/java", "own_mods/stardust_indicator/src/main/java", "own_mods/savepoint_heal/src/main/java", "own_mods/hd_textures/src/main/java"]
       exclude ".gradle", "build", "files"
     }
     resources {
-      srcDirs = ["src/main/resources", "third_party/sc-dragoon-modifier/src/main/resources", "third_party/Additional-Additions/src/main/resources", "third_party/icon-turn-order/src/main/resources", "third_party/lloyd_mod/src/main/resources", "own_mods/stardust_indicator/src/main/resources", "own_mods/savepoint_heal/src/main/resources"]
+      srcDirs = ["src/main/resources", "third_party/sc-dragoon-modifier/src/main/resources", "third_party/Additional-Additions/src/main/resources", "third_party/icon-turn-order/src/main/resources", "third_party/lloyd_mod/src/main/resources", "own_mods/stardust_indicator/src/main/resources", "own_mods/savepoint_heal/src/main/resources", "own_mods/hd_textures/src/main/resources"]
     }
   }
 }
@@ -317,4 +317,32 @@ tasks.register('generateCopyrightFont', Exec) {
     'tools/fontgen/FontGen.java',
     'tools/fontgen/RobotoCondensed-Bold.ttf',
     outDir.get().asFile.absolutePath
+}
+
+// Composite-extract every submap's background/foreground textures at retail
+// resolution (tools/bgextract replicates RetailSubmap.prepareEnv on the CPU).
+// Output feeds the hd_textures mod: upscale the PNGs offline and drop them in
+// mods/hd_textures/. Args: -PbgExtractFilesDir=<files> -PbgExtractOutDir=<out>
+// optional -PbgExtractCuts=comma,separated,cut,ids
+tasks.register('compileBgExtract', Exec) {
+  inputs.file 'tools/bgextract/BgExtract.java'
+  final def classes = layout.buildDirectory.dir('tools/bgextract-classes')
+  outputs.dir classes
+  dependsOn 'compileJava'
+  commandLine 'javac', '--release', '25',
+    '-cp', (sourceSets.main.output + sourceSets.main.compileClasspath).asPath,
+    '-d', classes.get().asFile.absolutePath,
+    'tools/bgextract/BgExtract.java'
+}
+tasks.register('extractSubmapBackgrounds', JavaExec) {
+  dependsOn 'compileBgExtract'
+  final def filesDir = providers.gradleProperty('bgExtractFilesDir')
+    .orElse(providers.environmentVariable('HOME').map { it + '/Documents/Severed Chains/files' })
+  final def outDir = providers.gradleProperty('bgExtractOutDir').orElse('build/hd-pack')
+  classpath = files(layout.buildDirectory.dir('tools/bgextract-classes')) +
+              sourceSets.main.runtimeClasspath
+  mainClass = 'BgExtract'
+  systemProperty 'java.awt.headless', 'true'
+  args = [filesDir.get(), outDir.get()] +
+         providers.gradleProperty('bgExtractCuts').orElse('').get().split(',').findAll { !it.isEmpty() }
 }
