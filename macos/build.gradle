@@ -628,7 +628,7 @@ tasks.register('appInput', Copy) {
     }
   }
   // Built-in mod assets (stat tables, portraits) read via Path.of("mods/...").
-  // Contents/app/mods is symlinked to the user mods dir by BundleMain, so the
+  // BundleMain symlinks <cwd>/mods to the user mods dir at launch, so the
   // assets stage under builtin-mods/ and BundleMain merge-copies them into
   // ~/Documents/Severed Chains/mods at launch (mirrors the Android assets).
   into('builtin-mods') {

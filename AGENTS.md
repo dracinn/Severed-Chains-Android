@@ -127,7 +127,10 @@ reusing the shared staging pipeline — no AGP.
   `~/Documents/Severed Chains` is the user-facing dir and holds only
   `isos/`, `mods/`, `saves/`, `files/` and `logs/` — reached via staged
   transforms through `BundleMain.docsDir()`; the sealed bundle is never
-  written to. The JDK caches the boot-time cwd for
+  written to. BundleMain also symlinks each of those five names inside
+  the cwd to its Documents counterpart so untransformed relative reads
+  (third-party mod code like `Path.of("mods", ...)`/`Path.of("files",
+  ...)`) resolve correctly. The JDK caches the boot-time cwd for
   `toAbsolutePath`/`getAbsolutePath`, so staged transforms also fix the
   handful of absolutizing call sites (VideoPlayer, ConfigPresetManager,
   ConfigStorage, Main, SelfUpdater, ScriptManager/ScriptPatcher roots)

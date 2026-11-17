@@ -65,6 +65,18 @@ public final class BundleMain {
       copyTree(builtinMods, docsDir.resolve("mods"));
     }
 
+    // Third-party mod code resolves Path.of("mods"/"files"/...) against the
+    // kernel cwd (lloyd_mod's transform_*.png, LloydTemplate's files/SECT/...
+    // reads, lang overrides, scripts). Symlink each user-facing dir into the
+    // cwd so relative lookups reach ~/Documents/Severed Chains; upstream's
+    // own accesses go through docsDir transforms and never hit these links.
+    for(final String name : new String[] {"isos", "mods", "saves", "files", "logs"}) {
+      final Path link = dataDir.resolve(name);
+      if(Files.notExists(link, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+        Files.createSymbolicLink(link, docsDir.resolve(name));
+      }
+    }
+
     // Shared logs + crash reporting — mirrors the Android GameLog/CrashReporter.
     // log4j2.configurationFile must be set before the first LogManager call
     // (attachVerboseAppender), or the context boots on the default console
