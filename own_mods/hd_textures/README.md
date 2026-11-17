@@ -39,11 +39,22 @@ elsewhere — the engine overlays them on the background for parallax/depth.
    and `scenes.md` — every scene in story order (Intro → Disc 4) listing
    each cut's early/late variants and foreground counts, so a pack can be
    built scene-by-scene.
-2. **Foreground alpha prep** — the engine's `standard.fsh` discards a texel
-   only when `a==0` *and* (`useTextureAlpha` on, or `rgb==0`), and fg quads
-   draw with `useTextureAlpha` off. AI upscalers break both halves: they
-   produce partial alpha on the matte edge and bleed `rgb=0` into content.
-   Run the pipeline in `tools/bgextract/BinarizeAlpha.java`:
+2. **Upscale** — `tools/bgextract/upscale.sh` runs the whole pipeline for a
+   list of variants (RealESRGAN `realesrgan-x4plus` by default — the
+   general/realistic model; `realesr-animevideov3` is noticeably softer):
+
+   ```
+   tools/bgextract/upscale.sh build/hd-pack /tmp/pack 21/694 22/1108 ...
+   # MODEL=… SCALE=… REALESRGAN=… env overrides; see the script header
+   ```
+
+   The script also handles **foreground alpha prep**, which the engine's
+   `standard.fsh` requires: a texel discards only when `a==0` *and*
+   (`useTextureAlpha` on, or `rgb==0`), and fg quads draw with
+   `useTextureAlpha` off. AI upscalers break both halves — partial alpha on
+   the matte edge and `rgb=0` bled into content. The pipeline in
+   `tools/bgextract/BinarizeAlpha.java` fixes it (the script runs these for
+   you):
 
    ```
    # BEFORE upscaling — fill rgb under transparent px with nearest content
@@ -56,8 +67,7 @@ elsewhere — the engine overlays them on the background for parallax/depth.
    ```
 
    Backgrounds have no alpha and need no prep.
-3. Upscale the PNGs offline (RealESRGAN, waifu2x, …) at a uniform integer
-   scale and copy into `mods/hd_textures/` preserving the directory
+3. Copy the results into `mods/hd_textures/` preserving the directory
    structure.
 4. Enable `hd_textures` in the game's mod list. Missing files fall back to
    the retail composite, so partial packs work.
