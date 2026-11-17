@@ -39,10 +39,27 @@ elsewhere — the engine overlays them on the background for parallax/depth.
    and `scenes.md` — every scene in story order (Intro → Disc 4) listing
    each cut's early/late variants and foreground counts, so a pack can be
    built scene-by-scene.
-2. Upscale the PNGs offline (RealESRGAN, waifu2x, …) at a uniform integer
+2. **Foreground alpha prep** — the engine's `standard.fsh` discards a texel
+   only when `a==0` *and* (`useTextureAlpha` on, or `rgb==0`), and fg quads
+   draw with `useTextureAlpha` off. AI upscalers break both halves: they
+   produce partial alpha on the matte edge and bleed `rgb=0` into content.
+   Run the pipeline in `tools/bgextract/BinarizeAlpha.java`:
+
+   ```
+   # BEFORE upscaling — fill rgb under transparent px with nearest content
+   # colour ("alpha bleed") so the AI doesn't drag matte-edge black inward
+   java tools/bgextract/BinarizeAlpha.java fill <extracted fg dir>
+   # upscale (e.g. realesrgan-ncnn-vulkan -s 4)
+   # AFTER — threshold alpha back to 0/255 and dilate the matte ~1-2px to
+   # cover the AI's edge erosion (d leaves rgb=0 under a==0 for the discard)
+   java tools/bgextract/BinarizeAlpha.java bin <upscaled fg dir> 128 2
+   ```
+
+   Backgrounds have no alpha and need no prep.
+3. Upscale the PNGs offline (RealESRGAN, waifu2x, …) at a uniform integer
    scale and copy into `mods/hd_textures/` preserving the directory
    structure.
-3. Enable `hd_textures` in the game's mod list. Missing files fall back to
+4. Enable `hd_textures` in the game's mod list. Missing files fall back to
    the retail composite, so partial packs work.
 
 ## Notes
@@ -53,5 +70,8 @@ elsewhere — the engine overlays them on the background for parallax/depth.
   freeze to the static pack image; leave those variants out of the pack.
 - Covers field submaps only — battle stages, the world map and FMVs are
   different pipelines.
-- Textures load with linear filtering (`Texture.filteredPng`); any scale
-  works, 4x is the sweet spot for ~1440p output.
+- Backgrounds load with linear filtering (`Texture.filteredPng`); any scale
+  works, 4x is the sweet spot for ~1440p output. Foregrounds load
+  unfiltered (`Texture.png`) — linear sampling blends transparent matte
+  neighbours into non-zero-alpha texels, which the shader then draws as a
+  dark halo around every cutout.

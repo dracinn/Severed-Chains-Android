@@ -62,10 +62,13 @@ public class HdTexturesMod {
       event.background = Texture.filteredPng("HD background " + event.submapCut, bg);
     }
 
+    // Foregrounds intentionally stay unfiltered: the engine discards on
+    // binary alpha, and linear sampling blends (0,0,0,0) matte neighbours
+    // into non-zero-alpha texels, painting a dark halo around every cutout.
     for(int i = 0; i < event.foregrounds.length; i++) {
       final Path fg = PACK_DIR.resolve("fg/" + dir + "/" + i + ".png");
       if(Files.isRegularFile(fg)) {
-        event.foregrounds[i] = Texture.filteredPng("HD foreground " + event.submapCut + '/' + i, fg);
+        event.foregrounds[i] = Texture.png("HD foreground " + event.submapCut + '/' + i, fg);
       }
     }
   }
