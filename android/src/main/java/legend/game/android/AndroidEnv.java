@@ -16,6 +16,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -500,6 +501,56 @@ public final class AndroidEnv {
    *  — every files/ access in the engine funnels through this. */
   public static Path gameFilesDir() {
     return new File(gameDataRoot(), "files").toPath();
+  }
+
+  /**
+   * Fail-fast guard called before Unpacker.unpack() (staged transform on
+   * GameEngine). The extracted files/ tree is roughly the size of the source
+   * disc images, so require that much free space on the game-data volume
+   * plus headroom — otherwise the unpack dies partway through with a useless
+   * "No space left on device" (and, worse, a worker-thread crash report).
+   */
+  public static void checkUnpackSpace() throws legend.game.unpacker.UnpackerException {
+    long needed = 256L * 1024 * 1024; // scripts, patches, version markers
+    try {
+      for(final Path dir : isoDirs()) {
+        if(!Files.isDirectory(dir)) {
+          continue;
+        }
+        try(final java.util.stream.Stream<Path> entries = Files.list(dir)) {
+          needed += entries.filter(Files::isRegularFile).mapToLong(p -> {
+            try {
+              return Files.size(p);
+            } catch(final IOException e) {
+              return 0;
+            }
+          }).sum();
+        }
+      }
+    } catch(final IOException e) {
+      return; // can't inventory ISOs — let the unpacker report its own error
+    }
+    if(needed <= 256L * 1024 * 1024) {
+      return; // no ISOs found — the unpacker's own "insert discs" flow reports
+    }
+
+    final Path target = gameFilesDir();
+    long free;
+    try {
+      free = new android.os.StatFs(target.toString()).getAvailableBytes();
+    } catch(final RuntimeException e) {
+      try {
+        free = Files.getFileStore(target).getUsableSpace();
+      } catch(final IOException ex) {
+        return;
+      }
+    }
+
+    if(free < needed) {
+      throw new legend.game.unpacker.UnpackerException(String.format(java.util.Locale.US,
+        "Not enough free space — unpacking needs about %.1f GB but only %.1f GB is available. Free up space or pick a different game-data location in Settings.",
+        needed / 1_073_741_824.0, free / 1_073_741_824.0));
+    }
   }
 
   /** Location the files/ tree should be moved from on this boot, or null. */
