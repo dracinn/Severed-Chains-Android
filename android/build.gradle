@@ -586,6 +586,29 @@ import java.awt.image.BufferedImage;
           node.data.write(writer);
         }
       }''',
+    // A writeFile failure inside an executor task escapes Thread.run
+    // (uncaught handler -> stray crash-<ts>.log -> auto-reported issue)
+    // AND skips remaining.decrementAndGet, so the status task loops
+    // forever and executor.close() hangs the game on "writing files"
+    // instead of failing. Collect the first error and rethrow it on the
+    // calling thread where GameEngine's UnpackerException catch handles it.
+    '        final long writeTime = System.nanoTime();':
+      '        final long writeTime = System.nanoTime();\n\n        final java.util.concurrent.atomic.AtomicReference<Throwable> writeError = new java.util.concurrent.atomic.AtomicReference<>();',
+    '''            executor.execute(() -> {
+              writeFile(finalNode);
+              remaining.decrementAndGet();
+            });''':
+    '''            executor.execute(() -> {
+              try {
+                writeFile(finalNode);
+              } catch(final Throwable t) {
+                writeError.compareAndSet(null, t);
+              } finally {
+                remaining.decrementAndGet();
+              }
+            });''',
+    '        }\n\n        LOGGER.info("Files written in %fs", (System.nanoTime() - writeTime) / 1_000_000_000.0f);':
+      '        }\n\n        final Throwable writeFailure = writeError.get();\n        if(writeFailure != null) {\n          throw writeFailure instanceof UnpackerException ? (UnpackerException)writeFailure : new UnpackerException(writeFailure);\n        }\n\n        LOGGER.info("Files written in %fs", (System.nanoTime() - writeTime) / 1_000_000_000.0f);',
   ],
   // Low-memory unpacking backs each source file with a RandomAccessFile and
   // every readByte/readShort/readInt is a synchronized lseek+read syscall —
@@ -735,7 +758,7 @@ import java.awt.image.BufferedImage;
     // unpacking up front — mmap reads (FileBackedFileData transform) keep it
     // fast. In-memory only; the flag isn't persisted by this call.
     '          try {\n            Unpacker.unpack();':
-    '          legend.core.Config.enableLowMemoryUnpacker();\n          try {\n            Unpacker.unpack();',
+    '          legend.core.Config.enableLowMemoryUnpacker();\n          try {\n            legend.game.android.AndroidEnv.checkUnpackSpace();\n            Unpacker.unpack();',
     // The branding noslop is a wordmark (~2.9:1); a 16px square would squash it.
     '    transforms.scaling(16.0f, 16.0f, 1.0f);\n    transforms.transfer.set(301.0f, 221.0f, 29.0f);':
     '    transforms.scaling(46.0f, 16.0f, 1.0f);\n    transforms.transfer.set(271.0f, 221.0f, 29.0f);',

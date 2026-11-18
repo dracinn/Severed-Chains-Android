@@ -173,6 +173,13 @@ hardcoded into the game.
   buried.
 - Compatibility fixes covering Android 8 through 15, verified on
   real devices and emulators across API levels.
+- Unpacking checks free space on the game-data volume up front and
+  fails with a clear "free up X GB" message instead of dying partway
+  through; a mid-unpack write failure now fails cleanly on the calling
+  thread rather than hanging the game on "writing files".
+- Handled failures (e.g. unpack errors from bad ISOs or full disks)
+  don't file crash-report issues — the local crash log is still kept
+  for support.
 
 ## Testing and development tooling
 

@@ -82,6 +82,11 @@ public final class CrashReporter {
     executor.execute(() -> {
       for(final GameLog.PendingCrash crash : pending) {
         try {
+          if(isHandledCrash(GameLog.readPending(crash))) {
+            GameLog.markSent(crash);
+            Log.i(TAG, "Skipped handled crash " + crash.name);
+            continue;
+          }
           send(crash);
           GameLog.markSent(crash);
           Log.i(TAG, "Uploaded " + crash.name);
@@ -132,6 +137,16 @@ public final class CrashReporter {
     } finally {
       conn.disconnect();
     }
+  }
+
+  /**
+   * Handled failure classes are user-environment issues (bad ISO, out of
+   * disk space, read-only volume) — the game already surfaces a recovery
+   * path on screen, so they shouldn't file GitHub issues. The local
+   * crash-<ts>.log still exists for support.
+   */
+  private static boolean isHandledCrash(final String log) {
+    return log.contains("legend.game.unpacker.UnpackerException");
   }
 
   /**
