@@ -271,6 +271,10 @@ public final class AndroidEnv {
       try {
         syncPublicStorage();
         legend.game.Main.main(new String[0]);
+        // Main.main only returns on a clean engine shutdown — the title
+        // screen's Quit closes the window which ends the platform run loop.
+        // The process keeps the dead Activity otherwise, so finish the task.
+        quitToLauncher();
       } catch(final Throwable t) {
         Log.e("SC-Main", "Game engine crashed", t);
         // This catch swallows engine fatals before the uncaught handler sees
@@ -280,6 +284,14 @@ public final class AndroidEnv {
     }, "GameEngine");
     gameThread.start();
     return true;
+  }
+
+  /** Game thread -> UI thread: engine exited cleanly, close the app. */
+  private static void quitToLauncher() {
+    final android.app.Activity act = activity;
+    if(act != null) {
+      act.runOnUiThread(act::finishAndRemoveTask);
+    }
   }
 
   // ------------------------------------------------------------------
