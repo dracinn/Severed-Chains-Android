@@ -396,6 +396,16 @@ def sharedLiteralTransforms = [
   'legend/game/submap/SMap.java': [
     'vsyncMode_8007a3b8 = 1;':
     'vsyncMode_8007a3b8 = Math.max(1, legend.game.android.FrameCap.minVsync());',
+    // Loader swallows file failures into null results — a missing
+    // NEWROOT.RDT (unreadable/broken files/ tree, e.g. SD eject or a
+    // partial migration; issue #53) surfaces as a cryptic NPE inside
+    // RetailSubmap.loadCollisionAndTransitions. Fail at the state machine
+    // with a message that actually names the problem.
+    '        this.submap = new RetailSubmap(this, submapCut_80052c30, this.newrootPtr_800cab04, this.screenOffset_800cb568, this.collisionGeometry_800cbe08);':
+    '''        if(this.newrootPtr_800cab04 == null) {
+          throw new IllegalStateException("SUBMAP/NEWROOT.RDT failed to load — game data is missing or unreadable (check the game-data location and storage)");
+        }
+        this.submap = new RetailSubmap(this, submapCut_80052c30, this.newrootPtr_800cab04, this.screenOffset_800cb568, this.collisionGeometry_800cbe08);''',
   ],
   'legend/game/wmap/WMap.java': [
     'vsyncMode_8007a3b8 = 1;':
@@ -758,7 +768,7 @@ import java.awt.image.BufferedImage;
     // unpacking up front — mmap reads (FileBackedFileData transform) keep it
     // fast. In-memory only; the flag isn't persisted by this call.
     '          try {\n            Unpacker.unpack();':
-    '          legend.core.Config.enableLowMemoryUnpacker();\n          try {\n            legend.game.android.AndroidEnv.checkUnpackSpace();\n            Unpacker.unpack();',
+    '          legend.core.Config.enableLowMemoryUnpacker();\n          try {\n            legend.game.android.AndroidEnv.unpackOrRepair();',
     // The branding noslop is a wordmark (~2.9:1); a 16px square would squash it.
     '    transforms.scaling(16.0f, 16.0f, 1.0f);\n    transforms.transfer.set(301.0f, 221.0f, 29.0f);':
     '    transforms.scaling(46.0f, 16.0f, 1.0f);\n    transforms.transfer.set(271.0f, 221.0f, 29.0f);',

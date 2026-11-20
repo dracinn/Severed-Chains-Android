@@ -553,6 +553,67 @@ public final class AndroidEnv {
     }
   }
 
+  /**
+   * Presence probes spread across the unpacked tree. files/ can lose content
+   * AFTER the version marker is written — SD eject, failed migration, storage
+   * cleaners, a copy that died partway — and upstream's loader swallows the
+   * failure so the game later NPEs far from the cause (issue #53 crashed in
+   * RetailSubmap because SUBMAP/NEWROOT.RDT was missing). "version" is last:
+   * it is written only after every file, so its absence means the unpack
+   * never finished.
+   */
+  private static final String[] GAME_FILE_SENTINELS = {
+    "version",
+    "SCUS_944.91",
+    "SECT/DRGN0.BIN",
+    "SECT/DRGN21.BIN",
+    "OVL/TTLE.OV_",
+    "OVL/SMAP.OV_",
+    "SUBMAP/NEWROOT.RDT",
+    "SUBMAP/savepoint/0",
+  };
+
+  /**
+   * Probes the files/ tree for core content. On a miss the version marker is
+   * removed (so the next Unpacker.unpack() rewrites the whole tree) and false
+   * is returned.
+   */
+  public static boolean verifyGameFiles() {
+    final Path files = gameFilesDir();
+    for(final String sentinel : GAME_FILE_SENTINELS) {
+      if(!Files.exists(files.resolve(sentinel))) {
+        Log.w("SC-Env", "files/ tree is incomplete (missing " + sentinel + ") — flagging for re-unpack");
+        try {
+          Files.deleteIfExists(files.resolve("version"));
+        } catch(final IOException e) {
+          Log.w("SC-Env", "Failed to clear unpack version marker", e);
+        }
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * checkUnpackSpace + Unpacker.unpack() + integrity verification, staged via
+   * a transform on GameEngine. If the tree fails verification the version
+   * marker is cleared and unpack is retried once — a broken tree then throws
+   * a user-readable UnpackerException instead of crashing later with a
+   * null-field NPE in some random subsystem.
+   */
+  public static void unpackOrRepair() throws legend.game.unpacker.UnpackerException {
+    checkUnpackSpace();
+    legend.game.unpacker.Unpacker.unpack();
+    for(int attempt = 0; attempt < 2 && !verifyGameFiles(); attempt++) {
+      checkUnpackSpace();
+      legend.game.unpacker.Unpacker.unpack();
+    }
+    if(!verifyGameFiles()) {
+      throw new legend.game.unpacker.UnpackerException(
+        "Game data is incomplete — the extracted files are missing content. Re-run disc setup to rebuild them.");
+    }
+  }
+
   /** Location the files/ tree should be moved from on this boot, or null. */
   @Nullable
   public static String pendingDataMigration() {
