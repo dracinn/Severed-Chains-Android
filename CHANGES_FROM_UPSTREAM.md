@@ -175,6 +175,13 @@ hardcoded into the game.
 - Handled failures (e.g. unpack errors from bad ISOs or full disks)
   don't file crash-report issues — the local crash log is still kept
   for support.
+- The extracted game data is verified at boot against a set of sentinel
+  files; if the tree is incomplete (SD eject, interrupted migration,
+  storage cleaners) the unpack is re-run automatically, and a still
+  broken tree shows a readable error instead of crashing later with a
+  null-field exception deep in submap loading. A missing NEWROOT.RDT at
+  submap transition also names the real problem rather than throwing a
+  bare NullPointerException.
 
 ## Testing and development tooling
 
