@@ -521,14 +521,17 @@ public final class AndroidEnv {
           needed += entries.filter(Files::isRegularFile).mapToLong(p -> {
             try {
               return Files.size(p);
-            } catch(final IOException e) {
+            } catch(final IOException | RuntimeException e) {
               return 0;
             }
           }).sum();
         }
       }
-    } catch(final IOException e) {
-      return; // can't inventory ISOs — let the unpacker report its own error
+    } catch(final IOException | RuntimeException e) {
+      // Files.list/Files.size can throw SecurityException on some ROMs'
+      // storage stacks (issue #54). Can't inventory ISOs — let the
+      // unpacker report its own error.
+      return;
     }
     if(needed <= 256L * 1024 * 1024) {
       return; // no ISOs found — the unpacker's own "insert discs" flow reports
@@ -541,7 +544,9 @@ public final class AndroidEnv {
     } catch(final RuntimeException e) {
       try {
         free = Files.getFileStore(target).getUsableSpace();
-      } catch(final IOException ex) {
+      } catch(final IOException | RuntimeException ex) {
+        // SecurityException from getFileStore is what crashed on the Odin
+        // M2 (issue #54) — a probe that can't probe must not be fatal.
         return;
       }
     }
@@ -581,15 +586,24 @@ public final class AndroidEnv {
   public static boolean verifyGameFiles() {
     final Path files = gameFilesDir();
     for(final String sentinel : GAME_FILE_SENTINELS) {
-      if(!Files.exists(files.resolve(sentinel))) {
-        Log.w("SC-Env", "files/ tree is incomplete (missing " + sentinel + ") — flagging for re-unpack");
-        try {
-          Files.deleteIfExists(files.resolve("version"));
-        } catch(final IOException e) {
-          Log.w("SC-Env", "Failed to clear unpack version marker", e);
+      try {
+        if(Files.exists(files.resolve(sentinel))) {
+          continue;
         }
-        return false;
+      } catch(final RuntimeException e) {
+        // SecurityException/UncheckedIOException on the probe means the
+        // volume can't be read at all — do NOT trigger a repair (that
+        // would delete the version marker on a transient error and force
+        // a full re-unpack). The unpacker reports the real failure.
+        return true;
       }
+      Log.w("SC-Env", "files/ tree is incomplete (missing " + sentinel + ") — flagging for re-unpack");
+      try {
+        Files.deleteIfExists(files.resolve("version"));
+      } catch(final IOException | RuntimeException e) {
+        Log.w("SC-Env", "Failed to clear unpack version marker", e);
+      }
+      return false;
     }
     return true;
   }
